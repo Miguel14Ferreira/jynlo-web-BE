@@ -185,4 +185,56 @@ class SessionTeamSuggestionServiceTest {
         verify(participants).saveAll(active);
     }
 
+    @Test
+    void randomPreviewAndExplicitConfirmationPreserveTheChosenTeams() {
+        SessionRepository sessions = mock(SessionRepository.class);
+        ProfileRepository profiles = mock(ProfileRepository.class);
+        SessionParticipantRepository participants = mock(SessionParticipantRepository.class);
+        CommunityRoundEntryRepository rounds = mock(CommunityRoundEntryRepository.class);
+        var guests = mock(com.example.desporto24.repository.session.SessionGuestRequestRepository.class);
+        var service = new SessionTeamSuggestionService(sessions, profiles, participants, rounds,
+                mock(CommunityExcelTeamBalancer.class), guests, mock(SessionGuestTeamBalancer.class));
+        Session session = new Session();
+        session.setId(42L);
+        session.setSport("Futebol");
+        session.setMaxParticipants(4);
+        session.setCommunity(mock(Community.class));
+        Profile owner = new Profile();
+        owner.setId(7L);
+        session.setProfile(owner);
+        when(profiles.findUserByUsername("organizer")).thenReturn(Optional.of(owner));
+        when(sessions.findById(42L)).thenReturn(Optional.of(session));
+        when(sessions.findByIdForUpdate(42L)).thenReturn(Optional.of(session));
+        List<SessionParticipant> active = new ArrayList<>();
+        for (int i = 1; i <= 4; i++) {
+            Profile player = new Profile();
+            player.setId(100L + i);
+            player.setUsername("player" + i);
+            SessionParticipant participant = new SessionParticipant();
+            participant.setProfile(player);
+            participant.setState(ParticipantState.ACTIVE);
+            active.add(participant);
+        }
+        when(participants.findBySessionIdAndStateOrderByJoinedAtAsc(42L, ParticipantState.ACTIVE))
+                .thenReturn(active);
+        var preview = service.suggest(42L, "organizer", "RANDOM");
+        assertEquals(2, preview.teamA().size());
+        assertEquals(2, preview.teamB().size());
+        assertEquals(0, preview.playersWithStats());
+        assertTrue(active.stream().allMatch(p -> p.getTeamCode() == null));
+        var chosen = new com.example.desporto24.model.dto.session.ConfirmRandomSessionTeamsRequest(
+                preview.teamA().stream().map(p -> p.username()).toList(),
+                preview.teamB().stream().map(p -> p.username()).toList());
+        var saved = service.confirm(42L, "organizer", "RANDOM", chosen);
+        assertEquals(chosen.teamA(), saved.teamA().stream().map(p -> p.username()).toList());
+        assertEquals(chosen.teamB(), saved.teamB().stream().map(p -> p.username()).toList());
+        assertEquals(2, active.stream().filter(p -> "A".equals(p.getTeamCode())).count());
+        assertEquals(2, active.stream().filter(p -> "B".equals(p.getTeamCode())).count());
+        verify(participants).saveAll(active);
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> service.confirm(42L, "organizer", "RANDOM",
+                        new com.example.desporto24.model.dto.session.ConfirmRandomSessionTeamsRequest(
+                                List.of("player1", "player1"), List.of("player3", "player4"))));
+    }
+
 }
