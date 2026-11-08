@@ -20,6 +20,9 @@ on:
       - 'src/main/java/com/example/desporto24/model/dto/community/CreateCommunityChampionshipRequest.java'
       - 'src/main/resources/db/changelog/changes/2026-11-08-community-championships.yaml'
       - 'src/test/java/com/example/desporto24/service/CommunityChampionshipServiceTest.java'
+      - 'src/test/java/com/example/desporto24/service/ChampionshipWinnerStandingsTest.java'
+      - 'src/main/java/com/example/desporto24/service/ChampionshipWinnerStandings.java'
+      - 'src/main/resources/db/changelog/changes/2026-11-08-community-championship-awards.yaml'
   workflow_dispatch:
 jobs:
   policy-test:
@@ -37,4 +40,4 @@ jobs:
       - name: Test championship entitlement policy
         run: |
           chmod +x mvnw
-          ./mvnw -B -Dtest=CommunityChampionshipPlanPolicyTest,ChampionshipCustomScoringPolicyTest,ChampionshipCustomScoringPersistenceContractTest,CommunityChampionshipServiceTest -Dsurefire.failIfNoSpecifiedTests=false test
+          ./mvnw -B -Dtest=CommunityChampionshipPlanPolicyTest,ChampionshipCustomScoringPolicyTest,ChampionshipCustomScoringPersistenceContractTest,CommunityChampionshipServiceTest,ChampionshipWinnerStandingsTest -Dsurefire.failIfNoSpecifiedTests=false test
