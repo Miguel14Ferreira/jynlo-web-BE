@@ -26,6 +26,7 @@ public class CommunityChampionshipService {
     private final CommunityTournamentRepository tournaments;
     private final ProfileRepository profiles;
     private final CommunityTournamentStandingsService leagueStandings;
+    private final CommunityTournamentTeamRepository tournamentTeams;
 
     public CommunityChampionshipResponse create(Long communityId, String username,
                                                   CreateCommunityChampionshipRequest request) {
@@ -171,8 +172,21 @@ public class CommunityChampionshipService {
             }
             if (consistent) accepted.put(t.getId(), rows);
         }
+        java.util.Map<Long, CommunityChampionshipStandingsCalculator.CanonicalTeam> teamIdentity =
+                new java.util.HashMap<>();
+        for (CommunityTournament tournament : championship.getCompetitions()) {
+            if (tournament.getEntryType() != com.example.desporto24.enumeration.TournamentEntryType.TEAM) continue;
+            for (CommunityTournamentTeam team : tournamentTeams.findByTournamentIdOrderByIdAsc(tournament.getId())) {
+                CommunityChampionshipTeam canonical = team.getChampionshipTeam();
+                if (canonical != null && championshipId.equals(canonical.getChampionship().getId())) {
+                    teamIdentity.put(team.getId(),
+                            new CommunityChampionshipStandingsCalculator.CanonicalTeam(
+                                    canonical.getId(), canonical.getName()));
+                }
+            }
+        }
         return CommunityChampionshipStandingsCalculator.calculate(
-                championshipId, championship.getCompetitions(), accepted);
+                championshipId, championship.getCompetitions(), accepted, teamIdentity);
     }
 
     private void requireMember(Long communityId, String username) {
