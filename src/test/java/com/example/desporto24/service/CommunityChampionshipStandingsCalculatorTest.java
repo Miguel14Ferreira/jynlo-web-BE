@@ -75,6 +75,35 @@ class CommunityChampionshipStandingsCalculatorTest {
     }
 
     @Test
+    void awardsAllTeamPlacementsAndCombinesWithCupWithoutDoubleCount() {
+        var league = CommunityTournament.builder().id(20L).name("Liga")
+                .status(TournamentStatus.COMPLETED).entryType(TournamentEntryType.TEAM)
+                .championTeamId(301L).championTeamName("Liga Águias")
+                .championshipPlacePoints("25,18,15").championshipWinnerPoints(25).build();
+        var cup = CommunityTournament.builder().id(21L).name("Taça")
+                .status(TournamentStatus.COMPLETED).entryType(TournamentEntryType.TEAM)
+                .championTeamId(402L).championTeamName("Taça Águias")
+                .championshipWinnerPoints(10).build();
+        var rows = List.of(
+                new com.example.desporto24.model.dto.community.CommunityTournamentTeamStandingRowResponse(
+                        1,301L,"Águias",3,3,0,0,5,0,5,9),
+                new com.example.desporto24.model.dto.community.CommunityTournamentTeamStandingRowResponse(
+                        2,302L,"Leões",3,2,0,1,3,2,1,6));
+        var mapped = Map.of(
+                301L,new CommunityChampionshipStandingsCalculator.CanonicalTeam(50L,"Águias"),
+                302L,new CommunityChampionshipStandingsCalculator.CanonicalTeam(51L,"Leões"),
+                402L,new CommunityChampionshipStandingsCalculator.CanonicalTeam(50L,"Águias"));
+        var result = CommunityChampionshipStandingsCalculator.calculate(
+                1L,List.of(league,cup),Map.of(),mapped,Map.of(20L,rows));
+        assertEquals(1,result.fullyScoredCompetitions());
+        assertEquals(1,result.winnerOnlyCompetitions());
+        assertEquals(2,result.standings().size());
+        assertEquals(35,result.standings().get(0).points());
+        assertEquals(2,result.standings().get(0).victories());
+        assertEquals(18,result.standings().get(1).points());
+    }
+
+    @Test
     void separatesTeamsAndIndividualsEvenWhenIdsMatch() {
         var athlete = completed(1L, 5L, "Atleta", null);
         var team = CommunityTournament.builder().id(2L).status(TournamentStatus.COMPLETED)
