@@ -28,9 +28,14 @@ public final class TeamBalancingSportPolicy {
     }
 
     public static boolean isEligible(Session session) {
+        return isEligible(session, false);
+    }
+
+    /** Random teams may include approved named guests; ranked teams keep their existing restrictions. */
+    public static boolean isEligible(Session session, boolean allowExternal) {
         if (session == null || session.getCommunity() == null ||
                 session.getMaxParticipants() == null ||
-                (session.getExternalConfirmedParticipants() != null &&
+                (!allowExternal && session.getExternalConfirmedParticipants() != null &&
                         session.getExternalConfirmedParticipants() > 0)) {
             return false;
         }
