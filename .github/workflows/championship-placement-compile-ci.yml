@@ -5,6 +5,9 @@ on:
     paths:
       - '.github/workflows/championship-placement-compile-ci.yml'
       - 'src/main/java/com/example/desporto24/service/ChampionshipPlacementPointsPolicy.java'
+      - 'src/main/java/com/example/desporto24/service/CommunityChampionshipStandingsCalculator.java'
+      - 'src/main/java/com/example/desporto24/model/dto/community/CommunityChampionshipStandingsResponse.java'
+      - 'src/test/java/com/example/desporto24/service/CommunityChampionshipStandingsCalculatorTest.java'
       - 'src/main/java/com/example/desporto24/service/CommunityChampionshipService.java'
       - 'src/main/java/com/example/desporto24/controllers/CommunityChampionshipController.java'
       - 'src/main/java/com/example/desporto24/model/community/CommunityTournament.java'
