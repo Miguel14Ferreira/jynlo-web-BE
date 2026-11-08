@@ -15,9 +15,18 @@ import java.util.*;
 public final class CommunityChampionshipStandingsCalculator {
     private CommunityChampionshipStandingsCalculator() {}
 
+    public record CanonicalTeam(Long id, String name) {}
+
     public static CommunityChampionshipStandingsResponse calculate(
             Long championshipId, List<CommunityTournament> tournaments,
             Map<Long, List<CommunityTournamentStandingRowResponse>> verifiedPlacements) {
+        return calculate(championshipId, tournaments, verifiedPlacements, Map.of());
+    }
+
+    public static CommunityChampionshipStandingsResponse calculate(
+            Long championshipId, List<CommunityTournament> tournaments,
+            Map<Long, List<CommunityTournamentStandingRowResponse>> verifiedPlacements,
+            Map<Long, CanonicalTeam> mappedTeams) {
         Map<String, Mutable> scores = new HashMap<>();
         int full = 0, winners = 0, pending = 0;
         for (CommunityTournament tournament : tournaments) {
@@ -49,9 +58,12 @@ public final class CommunityChampionshipStandingsCalculator {
             int award = tournament.getChampionshipWinnerPoints() == null ? 10
                     : tournament.getChampionshipWinnerPoints();
             if (award < 0 || award > 10000) { pending++; continue; }
-            String kind = team ? "TEAM" : "INDIVIDUAL";
-            Mutable score = scores.computeIfAbsent(kind + ":" + id,
-                    ignored -> new Mutable(kind, id, name));
+            CanonicalTeam mapped = team ? mappedTeams.get(id) : null;
+            String kind = team ? (mapped == null ? "TEAM_UNLINKED" : "TEAM") : "INDIVIDUAL";
+            Long identity = mapped == null ? id : mapped.id();
+            String displayName = mapped == null ? name : mapped.name();
+            Mutable score = scores.computeIfAbsent(kind + ":" + identity,
+                    ignored -> new Mutable(kind, identity, displayName));
             score.points += award;
             score.victories++;
             score.awardedCompetitions++;
