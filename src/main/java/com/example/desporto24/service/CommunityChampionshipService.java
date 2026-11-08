@@ -26,6 +26,7 @@ public class CommunityChampionshipService {
     private final CommunityTournamentRepository tournaments;
     private final ProfileRepository profiles;
     private final CommunityTournamentStandingsService leagueStandings;
+    private final CommunityTournamentTeamStandingsService teamLeagueStandings;
     private final CommunityTournamentTeamRepository tournamentTeams;
 
     public CommunityChampionshipResponse create(Long communityId, String username,
@@ -185,8 +186,50 @@ public class CommunityChampionshipService {
                 }
             }
         }
+        java.util.Map<Long, java.util.List<CommunityTournamentTeamStandingRowResponse>> teamPlacements =
+                new java.util.HashMap<>();
+        for (CommunityTournament t : championship.getCompetitions()) {
+            if (t.getStatus() != com.example.desporto24.enumeration.TournamentStatus.COMPLETED
+                    || t.isChampionTied() || t.getChampionshipPlacePoints() == null
+                    || t.getFormat() != com.example.desporto24.enumeration.TournamentFormat.LEAGUE
+                    || t.getEntryType() != com.example.desporto24.enumeration.TournamentEntryType.TEAM
+                    || t.getScoringMode() != null || t.getChampionTeamId() == null
+                    || t.getHistoricalArchiveId() != null) continue;
+            // Read existing league standings; never calculate placements from team names.
+            var table = teamLeagueStandings.standings(communityId, t.getId(), username);
+            if (table.totalMatches() <= 0 || table.completedMatches() != table.totalMatches()
+                    || table.standings().isEmpty()) continue;
+            var rows = table.standings();
+            if (!t.getChampionTeamId().equals(rows.get(0).teamId())) continue;
+            java.util.Set<Long> seen = new java.util.HashSet<>();
+            java.util.Set<Long> canonicalSeen = new java.util.HashSet<>();
+            boolean consistent = true;
+            for (int i = 0; i < rows.size(); i++) {
+                var row = rows.get(i);
+                var mapping = row.teamId() == null ? null : teamIdentity.get(row.teamId());
+                // Require EVERY ranked team to have a unique explicit season identity.
+                if (mapping == null || row.position() != i + 1
+                        || !seen.add(row.teamId()) || !canonicalSeen.add(mapping.id())) {
+                    consistent = false;
+                    break;
+                }
+                if (i > 0) {
+                    var prev = rows.get(i - 1);
+                    // The underlying ranking ultimately uses team ID for display.
+                    // Equal sporting metrics cannot earn different placement awards.
+                    if (row.points() == prev.points()
+                            && row.goalDifference() == prev.goalDifference()
+                            && row.goalsFor() == prev.goalsFor()
+                            && row.won() == prev.won()) {
+                        consistent = false;
+                        break;
+                    }
+                }
+            }
+            if (consistent) teamPlacements.put(t.getId(), rows);
+        }
         return CommunityChampionshipStandingsCalculator.calculate(
-                championshipId, championship.getCompetitions(), accepted, teamIdentity);
+                championshipId, championship.getCompetitions(), accepted, teamIdentity, teamPlacements);
     }
 
     private void requireMember(Long communityId, String username) {
