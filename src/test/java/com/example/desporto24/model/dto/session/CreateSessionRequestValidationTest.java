@@ -67,6 +67,25 @@ class CreateSessionRequestValidationTest {
         assertFalse(validator.validate(withMeetingPoint(base, "porta\nsecreta")).isEmpty());
     }
 
+    @Test
+    void airsoftGameTypeAndPrivateArrivalInstructionsRemainIndependent() {
+        CreateSessionRequest base = requestWithCity("Lisboa");
+        CreateSessionRequest airsoft = new CreateSessionRequest(
+                "Airsoft", base.gameDate(), base.city(), base.address(),
+                base.maxParticipants(), base.priceAmount(), base.privateGame(),
+                base.password(), base.latitude(), base.longitude(), base.communityId(),
+                base.venueId(), base.recurrence(), base.recurrenceOccurrences(),
+                base.externalConfirmedParticipants(), base.registrationOpeningMode(),
+                base.registrationOpensAt(), base.additionalWeeklyGameDates(),
+                base.recurrenceTimeZone(), base.playFormat(), base.communityShareIds(),
+                base.seasonCompetitionCommunityId(), base.confirmActivateRankings(),
+                "Portão lateral reservado", base.minParticipants(),
+                com.example.desporto24.enumeration.AirsoftGameType.MILSIM);
+        assertTrue(validator.validate(airsoft).isEmpty());
+        assertTrue(airsoft.airsoftGameType() == com.example.desporto24.enumeration.AirsoftGameType.MILSIM);
+        assertTrue("Portão lateral reservado".equals(airsoft.meetingPointInstructions()));
+    }
+
     private CreateSessionRequest withMeetingPoint(CreateSessionRequest r, String note) {
         return new CreateSessionRequest(r.sport(), r.gameDate(), r.city(), r.address(),
                 r.maxParticipants(), r.priceAmount(), r.privateGame(), r.password(),
