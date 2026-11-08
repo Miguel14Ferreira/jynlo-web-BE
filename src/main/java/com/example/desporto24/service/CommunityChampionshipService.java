@@ -78,6 +78,9 @@ public class CommunityChampionshipService {
         CommunityTournament tournament = championship.getCompetitions().stream()
                 .filter(t -> t.getId().equals(tournamentId)).findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prova não associada"));
+        if (tournament.getStatus() != com.example.desporto24.enumeration.TournamentStatus.DRAFT)
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Os pontos devem ser definidos antes do início da prova");
         tournament.setChampionshipWinnerPoints(points);
         tournaments.saveAndFlush(tournament);
         return toResponse(championship);
