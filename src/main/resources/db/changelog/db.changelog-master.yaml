@@ -334,3 +334,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-08-community-championship-awards.yaml
   - include:
       file: db/changelog/changes/2026-11-09-community-championship-placement-points.yaml
+  - include:
+      file: db/changelog/changes/2026-11-09-community-championship-teams.yaml
