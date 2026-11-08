@@ -33,6 +33,8 @@ class CommunityChampionshipServiceTest {
     @Mock CommunityTournamentRepository tournaments;
     @Mock ProfileRepository profiles;
     @Mock CommunityTournamentStandingsService leagueStandings;
+    @Mock CommunityTournamentTeamStandingsService teamLeagueStandings;
+    @Mock CommunityTournamentTeamRepository tournamentTeams;
     @InjectMocks CommunityChampionshipService service;
 
     private Community community;
@@ -183,6 +185,72 @@ class CommunityChampionshipServiceTest {
         assertEquals(0,result.winnerOnlyCompetitions());
         assertEquals(25,result.standings().get(0).points());
         assertEquals(18,result.standings().get(1).points());
+    }
+
+    @Test
+    void completedTeamLeagueScoresPositionsOnlyForFullyMappedTeams() {
+        Profile actor = new Profile();
+        actor.setId(33L);
+        actor.setUsername("organizer");
+        when(profiles.findUserByUsername("organizer")).thenReturn(Optional.of(actor));
+        when(members.existsByCommunityIdAndProfileId(7L,33L)).thenReturn(true);
+        var league = CommunityTournament.builder().id(81L).community(community).name("Liga")
+                .sport("Futebol").format(TournamentFormat.LEAGUE)
+                .entryType(com.example.desporto24.enumeration.TournamentEntryType.TEAM)
+                .status(TournamentStatus.COMPLETED).championTeamId(501L)
+                .championTeamName("Águias B").championshipPlacePoints("25,18")
+                .championshipWinnerPoints(25).build();
+        championship.getCompetitions().add(league);
+        when(championships.findByIdAndCommunityId(15L,7L)).thenReturn(Optional.of(championship));
+        var canonical1 = CommunityChampionshipTeam.builder().id(71L).name("Águias").championship(championship).build();
+        var canonical2 = CommunityChampionshipTeam.builder().id(72L).name("Leões").championship(championship).build();
+        var team1 = CommunityTournamentTeam.builder().id(501L).tournament(league).championshipTeam(canonical1).build();
+        var team2 = CommunityTournamentTeam.builder().id(502L).tournament(league).championshipTeam(canonical2).build();
+        when(tournamentTeams.findByTournamentIdOrderByIdAsc(81L)).thenReturn(java.util.List.of(team1,team2));
+        var row1 = new com.example.desporto24.model.dto.community.CommunityTournamentTeamStandingRowResponse(
+                1,501L,"Águias",2,2,0,0,4,0,4,6);
+        var row2 = new com.example.desporto24.model.dto.community.CommunityTournamentTeamStandingRowResponse(
+                2,502L,"Leões",2,1,0,1,2,2,0,3);
+        when(teamLeagueStandings.standings(7L,81L,"organizer")).thenReturn(
+                new com.example.desporto24.model.dto.community.CommunityTournamentTeamStandingsResponse(
+                        81L,TournamentStatus.COMPLETED,2,2,3,1,0,java.util.List.of(row1,row2)));
+        var full = service.standings(7L,15L,"organizer");
+        assertEquals(1,full.fullyScoredCompetitions());
+        assertEquals(0,full.winnerOnlyCompetitions());
+        assertEquals(25,full.standings().get(0).points());
+        assertEquals(18,full.standings().get(1).points());
+    }
+
+    @Test
+    void teamLeagueWithUnmappedRunnerUpFallsBackToWinnerOnly() {
+        Profile actor = new Profile();
+        actor.setId(33L);
+        actor.setUsername("organizer");
+        when(profiles.findUserByUsername("organizer")).thenReturn(Optional.of(actor));
+        when(members.existsByCommunityIdAndProfileId(7L,33L)).thenReturn(true);
+        var league = CommunityTournament.builder().id(82L).community(community).name("Liga")
+                .sport("Futebol").format(TournamentFormat.LEAGUE)
+                .entryType(com.example.desporto24.enumeration.TournamentEntryType.TEAM)
+                .status(TournamentStatus.COMPLETED).championTeamId(601L)
+                .championTeamName("Águias").championshipPlacePoints("25,18")
+                .championshipWinnerPoints(25).build();
+        championship.getCompetitions().add(league);
+        when(championships.findByIdAndCommunityId(15L,7L)).thenReturn(Optional.of(championship));
+        var team1 = CommunityTournamentTeam.builder().id(601L).tournament(league).build();
+        var team2 = CommunityTournamentTeam.builder().id(602L).tournament(league).build();
+        when(tournamentTeams.findByTournamentIdOrderByIdAsc(82L)).thenReturn(java.util.List.of(team1,team2));
+        var row1 = new com.example.desporto24.model.dto.community.CommunityTournamentTeamStandingRowResponse(
+                1,601L,"Águias",2,2,0,0,4,0,4,6);
+        var row2 = new com.example.desporto24.model.dto.community.CommunityTournamentTeamStandingRowResponse(
+                2,602L,"Leões",2,1,0,1,2,2,0,3);
+        when(teamLeagueStandings.standings(7L,82L,"organizer")).thenReturn(
+                new com.example.desporto24.model.dto.community.CommunityTournamentTeamStandingsResponse(
+                        82L,TournamentStatus.COMPLETED,2,2,3,1,0,java.util.List.of(row1,row2)));
+        var result = service.standings(7L,15L,"organizer");
+        assertEquals(0,result.fullyScoredCompetitions());
+        assertEquals(1,result.winnerOnlyCompetitions());
+        assertEquals(1,result.standings().size());
+        assertEquals("TEAM_UNLINKED",result.standings().get(0).entryType());
     }
 
     @Test
