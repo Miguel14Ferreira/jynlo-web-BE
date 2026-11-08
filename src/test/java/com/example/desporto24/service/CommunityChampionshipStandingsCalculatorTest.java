@@ -48,6 +48,33 @@ class CommunityChampionshipStandingsCalculatorTest {
     }
 
     @Test
+    void unifiesLinkedTeamsAcrossLeagueAndCupButKeepsUnlinkedDistinct() {
+        var leagueWinner = CommunityTournament.builder().id(11L).name("Liga")
+                .status(TournamentStatus.COMPLETED).entryType(TournamentEntryType.TEAM)
+                .championTeamId(301L).championTeamName("Águias A")
+                .championshipWinnerPoints(25).build();
+        var cupWinner = CommunityTournament.builder().id(12L).name("Taça")
+                .status(TournamentStatus.COMPLETED).entryType(TournamentEntryType.TEAM)
+                .championTeamId(402L).championTeamName("Aguías")
+                .championshipWinnerPoints(10).build();
+        var unlinked = CommunityTournament.builder().id(13L).name("Outra Taça")
+                .status(TournamentStatus.COMPLETED).entryType(TournamentEntryType.TEAM)
+                .championTeamId(501L).championTeamName("Águias A")
+                .championshipWinnerPoints(7).build();
+        var result = CommunityChampionshipStandingsCalculator.calculate(9L,
+                List.of(leagueWinner, cupWinner, unlinked), Map.of(),
+                Map.of(301L, new CommunityChampionshipStandingsCalculator.CanonicalTeam(9L, "Águias"),
+                       402L, new CommunityChampionshipStandingsCalculator.CanonicalTeam(9L, "Águias")));
+        assertEquals(2, result.standings().size());
+        assertEquals("TEAM", result.standings().get(0).entryType());
+        assertEquals(9L, result.standings().get(0).participantId());
+        assertEquals(35, result.standings().get(0).points());
+        assertEquals(2, result.standings().get(0).victories());
+        assertEquals("TEAM_UNLINKED", result.standings().get(1).entryType());
+        assertEquals(7, result.standings().get(1).points());
+    }
+
+    @Test
     void separatesTeamsAndIndividualsEvenWhenIdsMatch() {
         var athlete = completed(1L, 5L, "Atleta", null);
         var team = CommunityTournament.builder().id(2L).status(TournamentStatus.COMPLETED)
