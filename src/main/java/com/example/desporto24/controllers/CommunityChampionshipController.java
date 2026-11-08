@@ -31,6 +31,16 @@ public class CommunityChampionshipController {
         return ResponseEntity.status(HttpStatus.CREATED).body(championships.create(communityId, auth.getName(), request));
     }
 
+    @PutMapping("/{championshipId}/competitions/{tournamentId}/placement-points")
+    public CommunityChampionshipResponse setPlacementPoints(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long tournamentId,
+            @RequestBody @Valid com.example.desporto24.model.dto.community.ChampionshipPlacementPointsRequest request,
+            Authentication auth) {
+        return championships.setPlacementPoints(communityId, championshipId,
+                tournamentId, request.pointsByPlace(), auth.getName());
+    }
+
     @PutMapping("/{championshipId}/competitions/{tournamentId}/winner-points")
     public CommunityChampionshipResponse setWinnerPoints(
             @PathVariable Long communityId, @PathVariable Long championshipId,
