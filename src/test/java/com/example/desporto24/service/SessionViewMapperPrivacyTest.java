@@ -39,7 +39,7 @@ class SessionViewMapperPrivacyTest {
                 .findAndRegisterModules()
                 .writeValueAsString(mapper.toDetail(session, outsider));
 
-        assertTrue(json.contains("\\"airsoftGameType\\":\\"CAPTURE_THE_FLAG\\""));
+        assertTrue(json.contains("\"airsoftGameType\":\"CAPTURE_THE_FLAG\""));
         assertFalse(json.contains("Portão reservado"));
         assertFalse(json.contains("Rua do Campo"));
     }
