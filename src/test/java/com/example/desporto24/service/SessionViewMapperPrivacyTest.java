@@ -29,6 +29,22 @@ class SessionViewMapperPrivacyTest {
     );
 
     @Test
+    void publicAirsoftTypeIsSerializedInApiWithoutPrivateArrivalDetails() throws Exception {
+        Session session = session(profile(1L, "creator"));
+        session.setSport("Airsoft");
+        session.setAirsoftGameType(com.example.desporto24.enumeration.AirsoftGameType.CAPTURE_THE_FLAG);
+        session.setMeetingPointInstructions("Portão reservado para participantes");
+        Profile outsider = profile(2L, "outsider");
+        var json = new com.fasterxml.jackson.databind.ObjectMapper()
+                .findAndRegisterModules()
+                .writeValueAsString(mapper.toDetail(session, outsider));
+
+        assertTrue(json.contains("\\"airsoftGameType\\":\\"CAPTURE_THE_FLAG\\""));
+        assertFalse(json.contains("Portão reservado"));
+        assertFalse(json.contains("Rua do Campo"));
+    }
+
+    @Test
     void airsoftTypeIsPublicButArrivalInstructionsStayPrivate() {
         Session session = session(profile(1L, "creator"));
         session.setSport("Airsoft");
