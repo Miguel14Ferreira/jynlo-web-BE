@@ -132,6 +132,30 @@ class CommunityChampionshipServiceTest {
     }
 
     @Test
+    void updatesPlacementRuleBeforeStartingAndLocksItAfterward() {
+        organizer();
+        CommunityTournament cup = CommunityTournament.builder().id(91L).name("Liga")
+                .community(community).sport("Futebol").format(TournamentFormat.LEAGUE)
+                .status(TournamentStatus.DRAFT).build();
+        championship.getCompetitions().add(cup);
+        when(championships.findByIdAndCommunityId(15L, 7L))
+                .thenReturn(Optional.of(championship));
+        when(tournaments.saveAndFlush(cup)).thenReturn(cup);
+        var response = service.setPlacementPoints(7L, 15L, 91L, "25, 18, 15", "organizer");
+        assertEquals("25,18,15", response.competitions().get(0).pointsByPlace());
+        assertEquals(25, cup.getChampionshipWinnerPoints());
+        assertEquals(25, response.competitions().get(0).winnerPoints());
+
+        assertThrows(ResponseStatusException.class,
+                () -> service.setPlacementPoints(7L, 15L, 91L, "10,20", "organizer"));
+
+        cup.setStatus(TournamentStatus.IN_PROGRESS);
+        assertThrows(ResponseStatusException.class,
+                () -> service.setPlacementPoints(7L, 15L, 91L, "30,20", "organizer"));
+        assertEquals("25,18,15", cup.getChampionshipPlacePoints());
+    }
+
+    @Test
     void deniesCreationToNonOrganizer() {
         Profile actor = new Profile();
         actor.setId(33L);
