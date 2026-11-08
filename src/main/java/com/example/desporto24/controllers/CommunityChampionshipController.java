@@ -18,10 +18,35 @@ import java.util.List;
 @PreAuthorize("isAuthenticated()")
 public class CommunityChampionshipController {
     private final CommunityChampionshipService championships;
+    private final com.example.desporto24.service.CommunityChampionshipTeamsService championshipTeams;
 
     @GetMapping
     public List<CommunityChampionshipResponse> list(@PathVariable Long communityId, Authentication auth) {
         return championships.list(communityId, auth.getName());
+    }
+
+    @GetMapping("/{championshipId}/teams")
+    public com.example.desporto24.model.dto.community.CommunityChampionshipTeamsResponse teams(
+            @PathVariable Long communityId, @PathVariable Long championshipId, Authentication auth) {
+        return championshipTeams.list(communityId, championshipId, auth.getName());
+    }
+
+    @PostMapping("/{championshipId}/teams")
+    public com.example.desporto24.model.dto.community.CommunityChampionshipTeamsResponse createTeam(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @RequestBody @Valid com.example.desporto24.model.dto.community.CreateCommunityChampionshipTeamRequest request,
+            Authentication auth) {
+        return championshipTeams.create(communityId, championshipId, request.name(), auth.getName());
+    }
+
+    @PutMapping("/{championshipId}/competition-teams/{tournamentTeamId}")
+    public com.example.desporto24.model.dto.community.CommunityChampionshipTeamsResponse linkTeam(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long tournamentTeamId,
+            @RequestBody @Valid com.example.desporto24.model.dto.community.LinkCommunityChampionshipTeamRequest request,
+            Authentication auth) {
+        return championshipTeams.link(communityId, championshipId,
+                tournamentTeamId, request.championshipTeamId(), auth.getName());
     }
 
     @GetMapping("/{championshipId}/standings")
