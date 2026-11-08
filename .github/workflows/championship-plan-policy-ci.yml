@@ -12,6 +12,14 @@ on:
       - 'src/main/java/com/example/desporto24/model/community/CommunityTournament.java'
       - 'src/main/resources/db/changelog/db.changelog-master.yaml'
       - 'src/main/resources/db/changelog/changes/2026-11-08-community-championship-custom-rules.yaml'
+      - 'src/main/java/com/example/desporto24/service/CommunityChampionshipService.java'
+      - 'src/main/java/com/example/desporto24/controllers/CommunityChampionshipController.java'
+      - 'src/main/java/com/example/desporto24/model/community/CommunityChampionship.java'
+      - 'src/main/java/com/example/desporto24/repository/community/CommunityChampionshipRepository.java'
+      - 'src/main/java/com/example/desporto24/model/dto/community/CommunityChampionshipResponse.java'
+      - 'src/main/java/com/example/desporto24/model/dto/community/CreateCommunityChampionshipRequest.java'
+      - 'src/main/resources/db/changelog/changes/2026-11-08-community-championships.yaml'
+      - 'src/test/java/com/example/desporto24/service/CommunityChampionshipServiceTest.java'
   workflow_dispatch:
 jobs:
   policy-test:
