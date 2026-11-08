@@ -32,6 +32,7 @@ class CommunityChampionshipServiceTest {
     @Mock CommunityChampionshipRepository championships;
     @Mock CommunityTournamentRepository tournaments;
     @Mock ProfileRepository profiles;
+    @Mock CommunityTournamentStandingsService leagueStandings;
     @InjectMocks CommunityChampionshipService service;
 
     private Community community;
@@ -153,6 +154,35 @@ class CommunityChampionshipServiceTest {
         assertThrows(ResponseStatusException.class,
                 () -> service.setPlacementPoints(7L, 15L, 91L, "30,20", "organizer"));
         assertEquals("25,18,15", cup.getChampionshipPlacePoints());
+    }
+
+    @Test
+    void verifiedCompletedLeagueUsesPlacementsAndNeverDoubleCountsChampion() {
+        Profile actor = new Profile();
+        actor.setId(33L);
+        actor.setUsername("organizer");
+        when(profiles.findUserByUsername("organizer")).thenReturn(Optional.of(actor));
+        when(members.existsByCommunityIdAndProfileId(7L, 33L)).thenReturn(true);
+        var league = CommunityTournament.builder().id(99L).community(community).sport("Futebol")
+                .name("Liga").format(TournamentFormat.LEAGUE)
+                .entryType(com.example.desporto24.enumeration.TournamentEntryType.INDIVIDUAL)
+                .status(TournamentStatus.COMPLETED).championProfileId(33L)
+                .championDisplayName("Ana").championshipPlacePoints("25,18")
+                .championshipWinnerPoints(25).build();
+        championship.getCompetitions().add(league);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var first = new com.example.desporto24.model.dto.community.CommunityTournamentStandingRowResponse(
+                1,33L,"ana","Ana",2,2,0,0,4,0,4,6);
+        var second = new com.example.desporto24.model.dto.community.CommunityTournamentStandingRowResponse(
+                2,44L,"rui","Rui",2,1,0,1,2,2,0,3);
+        when(leagueStandings.standings(7L,99L,"organizer")).thenReturn(
+                new com.example.desporto24.model.dto.community.CommunityTournamentStandingsResponse(
+                        99L,TournamentStatus.COMPLETED,2,2,3,1,0,java.util.List.of(first,second)));
+        var result = service.standings(7L,15L,"organizer");
+        assertEquals(1,result.fullyScoredCompetitions());
+        assertEquals(0,result.winnerOnlyCompetitions());
+        assertEquals(25,result.standings().get(0).points());
+        assertEquals(18,result.standings().get(1).points());
     }
 
     @Test
