@@ -29,6 +29,24 @@ class SessionViewMapperPrivacyTest {
     );
 
     @Test
+    void airsoftTypeIsPublicButArrivalInstructionsStayPrivate() {
+        Session session = session(profile(1L, "creator"));
+        session.setSport("Airsoft");
+        session.setAirsoftGameType(com.example.desporto24.enumeration.AirsoftGameType.MILSIM);
+        session.setMeetingPointInstructions("Entrada pelo portão de serviço");
+        Profile outsider = profile(2L, "outsider");
+
+        SessionDetailResponse detail = mapper.toDetail(session, outsider);
+
+        assertEquals(com.example.desporto24.enumeration.AirsoftGameType.MILSIM,
+                detail.airsoftGameType());
+        assertNull(detail.meetingPointInstructions());
+        assertNull(detail.address());
+        assertEquals(com.example.desporto24.enumeration.AirsoftGameType.MILSIM,
+                mapper.toSummary(session, null).airsoftGameType());
+    }
+
+    @Test
     void nonParticipantCannotSeeExactAddress() {
         Profile creator = profile(1L, "creator");
         Profile viewer = profile(2L, "viewer");
