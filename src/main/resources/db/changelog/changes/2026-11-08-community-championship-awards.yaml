@@ -1,0 +1,30 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-08-community-championship-winner-awards
+      author: jynlo
+      preConditions:
+        onFail: MARK_RAN
+        and:
+          - tableExists:
+              schemaName: desporto24
+              tableName: community_tournament
+          - not:
+              columnExists:
+                schemaName: desporto24
+                tableName: community_tournament
+                columnName: championship_winner_points
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: community_tournament
+            columns:
+              - column:
+                  name: championship_winner_points
+                  type: int
+                  constraints:
+                    nullable: true
+      rollback:
+        - dropColumn:
+            schemaName: desporto24
+            tableName: community_tournament
+            columnName: championship_winner_points
