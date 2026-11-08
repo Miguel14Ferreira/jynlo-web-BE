@@ -31,6 +31,18 @@ public class CommunityChampionshipController {
         return ResponseEntity.status(HttpStatus.CREATED).body(championships.create(communityId, auth.getName(), request));
     }
 
+    @PutMapping("/{championshipId}/competitions/{tournamentId}/winner-points")
+    public CommunityChampionshipResponse setWinnerPoints(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long tournamentId, @RequestBody @Valid WinnerPointsRequest request,
+            Authentication auth) {
+        return championships.setWinnerPoints(communityId, championshipId,
+                tournamentId, request.points(), auth.getName());
+    }
+
+    public record WinnerPointsRequest(@jakarta.validation.constraints.Min(0)
+                                      @jakarta.validation.constraints.Max(10000) int points) {}
+
     @PostMapping("/{championshipId}/competitions/{tournamentId}")
     public CommunityChampionshipResponse addCompetition(
             @PathVariable Long communityId, @PathVariable Long championshipId,
