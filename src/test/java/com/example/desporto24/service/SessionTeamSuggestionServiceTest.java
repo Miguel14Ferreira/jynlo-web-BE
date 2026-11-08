@@ -217,7 +217,7 @@ class SessionTeamSuggestionServiceTest {
         }
         when(participants.findBySessionIdAndStateOrderByJoinedAtAsc(42L, ParticipantState.ACTIVE))
                 .thenReturn(active);
-        var preview = service.suggest(42L, "organizer", "RANDOM");
+        when(guests.findBySessionIdAndStatusOrderByCreatedAtAsc(42L,\n                com.example.desporto24.model.session.SessionGuestRequest.State.APPROVED))\n                .thenReturn(List.of());\n        var preview = service.suggest(42L, "organizer", "RANDOM");
         assertEquals(2, preview.teamA().size());
         assertEquals(2, preview.teamB().size());
         assertEquals(0, preview.playersWithStats());
