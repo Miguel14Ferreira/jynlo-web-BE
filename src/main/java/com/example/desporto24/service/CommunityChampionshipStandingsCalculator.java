@@ -20,13 +20,21 @@ public final class CommunityChampionshipStandingsCalculator {
     public static CommunityChampionshipStandingsResponse calculate(
             Long championshipId, List<CommunityTournament> tournaments,
             Map<Long, List<CommunityTournamentStandingRowResponse>> verifiedPlacements) {
-        return calculate(championshipId, tournaments, verifiedPlacements, Map.of());
+        return calculate(championshipId, tournaments, verifiedPlacements, Map.of(), Map.of());
     }
 
     public static CommunityChampionshipStandingsResponse calculate(
             Long championshipId, List<CommunityTournament> tournaments,
             Map<Long, List<CommunityTournamentStandingRowResponse>> verifiedPlacements,
             Map<Long, CanonicalTeam> mappedTeams) {
+        return calculate(championshipId, tournaments, verifiedPlacements, mappedTeams, Map.of());
+    }
+
+    public static CommunityChampionshipStandingsResponse calculate(
+            Long championshipId, List<CommunityTournament> tournaments,
+            Map<Long, List<CommunityTournamentStandingRowResponse>> verifiedPlacements,
+            Map<Long, CanonicalTeam> mappedTeams,
+            Map<Long, List<com.example.desporto24.model.dto.community.CommunityTournamentTeamStandingRowResponse>> verifiedTeamPlacements) {
         Map<String, Mutable> scores = new HashMap<>();
         int full = 0, winners = 0, pending = 0;
         for (CommunityTournament tournament : tournaments) {
@@ -44,6 +52,22 @@ public final class CommunityChampionshipStandingsCalculator {
                     score.points += award;
                     score.awardedCompetitions++;
                     if (row.profileId().equals(tournament.getChampionProfileId())) score.victories++;
+                }
+                full++;
+                continue;
+            }
+            var teamRows = verifiedTeamPlacements.get(tournament.getId());
+            if (teamRows != null && tournament.getChampionshipPlacePoints() != null) {
+                var points = ChampionshipPlacementPointsPolicy.parse(tournament.getChampionshipPlacePoints());
+                for (var row : teamRows) {
+                    CanonicalTeam mapped = mappedTeams.get(row.teamId());
+                    // All team rows were explicitly validated and linked by the caller.
+                    String key = "TEAM:" + mapped.id();
+                    Mutable score = scores.computeIfAbsent(key,
+                            ignored -> new Mutable("TEAM", mapped.id(), mapped.name()));
+                    score.points += ChampionshipPlacementPointsPolicy.pointsForPosition(points, row.position());
+                    score.awardedCompetitions++;
+                    if (row.teamId().equals(tournament.getChampionTeamId())) score.victories++;
                 }
                 full++;
                 continue;
