@@ -86,6 +86,33 @@ public class CommunityChampionshipService {
         return toResponse(championship);
     }
 
+    public CommunityChampionshipResponse setPlacementPoints(Long communityId, Long championshipId,
+                                                            Long tournamentId, String pointsCsv,
+                                                            String username) {
+        requireOrganizer(communityId, username);
+        final String validated;
+        final java.util.List<Integer> parsed;
+        try {
+            parsed = ChampionshipPlacementPointsPolicy.parse(pointsCsv);
+            validated = ChampionshipPlacementPointsPolicy.canonical(pointsCsv);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+        }
+        CommunityChampionship championship = championships.findByIdAndCommunityId(championshipId, communityId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Campeonato não encontrado"));
+        CommunityTournament tournament = championship.getCompetitions().stream()
+                .filter(t -> t.getId().equals(tournamentId)).findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prova não associada"));
+        if (tournament.getStatus() != com.example.desporto24.enumeration.TournamentStatus.DRAFT) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "A pontuação por posição só pode ser alterada antes do início da prova");
+        }
+        tournament.setChampionshipPlacePoints(validated);
+        tournament.setChampionshipWinnerPoints(parsed.get(0));
+        tournaments.saveAndFlush(tournament);
+        return toResponse(championship);
+    }
+
     private void requireMember(Long communityId, String username) {
         Profile profile = profiles.findUserByUsername(username)
                 .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
@@ -112,7 +139,8 @@ public class CommunityChampionshipService {
                                 t.getChampionshipWinnerPoints() == null ? 10 : t.getChampionshipWinnerPoints(),
                                 t.getStatus() == com.example.desporto24.enumeration.TournamentStatus.COMPLETED
                                         && !t.isChampionTied()
-                                        && (t.getChampionProfileId() != null || t.getChampionTeamId() != null)))
+                                        && (t.getChampionProfileId() != null || t.getChampionTeamId() != null),
+                                t.getChampionshipPlacePoints()))
                         .toList(),
                 ChampionshipWinnerStandings.calculate(championship.getCompetitions()));
     }
