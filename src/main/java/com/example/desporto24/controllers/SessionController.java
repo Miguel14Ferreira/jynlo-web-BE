@@ -116,8 +116,9 @@ public class SessionController {
     public SessionTeamSuggestionResponse confirmTeams(
             @PathVariable Long id,
             @RequestParam(defaultValue = "FORM") String source,
+            @RequestBody(required = false) com.example.desporto24.model.dto.session.ConfirmRandomSessionTeamsRequest assignment,
             Authentication authentication) {
-        return sessionTeamSuggestionService.confirm(id, authentication.getName(), source);
+        return sessionTeamSuggestionService.confirm(id, authentication.getName(), source, assignment);
     }
 
     @PostMapping("/{id}/registration/open")
