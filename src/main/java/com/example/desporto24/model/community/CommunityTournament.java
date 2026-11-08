@@ -80,7 +80,11 @@ public class CommunityTournament {
     @Column(name = "championship_custom_rules_version")
     private Integer championshipCustomRulesVersion;
 
-    // Championship-level winner award (only meaningful for a linked tournament).\n    @Column(name = "championship_winner_points")\n    private Integer championshipWinnerPoints;\n\n    // A Karting championship snapshots its own community-defined per-place points.
+    // Championship-level winner award (only meaningful for a linked tournament).
+    @Column(name = "championship_winner_points")
+    private Integer championshipWinnerPoints;
+
+    // A Karting championship snapshots its own community-defined per-place points.
     @Column(name = "race_points_by_place", length = 160)
     private String racePointsByPlace;
 
