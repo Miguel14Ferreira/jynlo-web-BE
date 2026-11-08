@@ -67,7 +67,8 @@ public class SessionViewMapper {
                 session.getRecurrenceSeriesId(),
                 session.getCommunity() == null ? null : session.getCommunity().getId(),
                 session.getSeasonCompetition() == null ? null
-                        : session.getSeasonCompetition().getCommunity().getId()
+                        : session.getSeasonCompetition().getCommunity().getId(),
+                session.getAirsoftGameType()
         );
     }
 
@@ -95,7 +96,8 @@ public class SessionViewMapper {
                 session.getRecurrenceSeriesId(),
                 session.getCommunity() == null ? null : session.getCommunity().getId(),
                 session.getSeasonCompetition() == null ? null
-                        : session.getSeasonCompetition().getCommunity().getId()
+                        : session.getSeasonCompetition().getCommunity().getId(),
+                session.getAirsoftGameType()
         );
     }
 
@@ -171,7 +173,8 @@ public class SessionViewMapper {
                 // This may specify an entry gate, so keep it private just like
                 // the precise street and nested venue GPS coordinates.
                 canSeeExactAddress ? session.getMeetingPointInstructions() : null,
-                SessionMinimumPlayers.required(session)
+                SessionMinimumPlayers.required(session),
+                session.getAirsoftGameType()
         );
     }
 }
