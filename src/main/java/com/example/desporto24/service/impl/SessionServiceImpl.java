@@ -323,6 +323,10 @@ public class SessionServiceImpl implements SessionService {
         session.setProfile(creator);
         session.setUserId(creator.getUserId());
         session.setSport(sport);
+        if (request.airsoftGameType() != null && !"Airsoft".equals(sport)) {
+            throw new IllegalArgumentException("O tipo de jogo Airsoft só é permitido em sessões de Airsoft");
+        }
+        session.setAirsoftGameType(request.airsoftGameType());
         session.setPlayFormat(com.example.desporto24.service.SessionPlayFormatPolicy
                 .resolve(sport, request.playFormat()));
         session.setGameDate(Date.from(gameDate));
