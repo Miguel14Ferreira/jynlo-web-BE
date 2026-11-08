@@ -68,14 +68,14 @@ public class CommunityChampionshipService {
     }
 
     private void requireMember(Long communityId, String username) {
-        Profile profile = profiles.findByUsername(username)
+        Profile profile = profiles.findUserByUsername(username)
                 .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
         if (!members.existsByCommunityIdAndProfileId(communityId, profile.getId()))
             throw new AccessDeniedException("Não pertences a esta comunidade");
     }
 
     private void requireOrganizer(Long communityId, String username) {
-        Profile profile = profiles.findByUsername(username)
+        Profile profile = profiles.findUserByUsername(username)
                 .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
         CommunityMember member = members.findByCommunityIdAndProfileId(communityId, profile.getId())
                 .orElseThrow(() -> new AccessDeniedException("Não pertences a esta comunidade"));
