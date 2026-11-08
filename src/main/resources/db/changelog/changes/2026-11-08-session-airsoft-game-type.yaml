@@ -1,0 +1,30 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-08-session-airsoft-game-type
+      author: jynlo
+      preConditions:
+        onFail: MARK_RAN
+        and:
+          - tableExists:
+              schemaName: desporto24
+              tableName: session
+          - not:
+              columnExists:
+                schemaName: desporto24
+                tableName: session
+                columnName: airsoft_game_type
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: session
+            columns:
+              - column:
+                  name: airsoft_game_type
+                  type: varchar(24)
+                  constraints:
+                    nullable: true
+      rollback:
+        - dropColumn:
+            schemaName: desporto24
+            tableName: session
+            columnName: airsoft_game_type
