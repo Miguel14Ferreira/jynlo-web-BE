@@ -84,6 +84,10 @@ public class CommunityTournament {
     @Column(name = "championship_winner_points")
     private Integer championshipWinnerPoints;
 
+    // Optional per-position championship award table. Null keeps legacy winner-only scoring.
+    @Column(name = "championship_place_points", length = 120)
+    private String championshipPlacePoints;
+
     // A Karting championship snapshots its own community-defined per-place points.
     @Column(name = "race_points_by_place", length = 160)
     private String racePointsByPlace;
