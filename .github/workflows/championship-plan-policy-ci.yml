@@ -4,6 +4,8 @@ on:
     branches: [develop]
     paths:
       - '.github/workflows/championship-plan-policy-ci.yml'
+      - 'src/test/java/com/example/desporto24/controllers/SessionControllerTest.java'
+      - 'src/test/java/com/example/desporto24/service/SessionTeamSuggestionServiceTest.java'
       - 'src/main/java/com/example/desporto24/service/CommunityChampionshipPlanPolicy.java'
       - 'src/test/java/com/example/desporto24/service/CommunityChampionshipPlanPolicyTest.java'
       - 'src/main/java/com/example/desporto24/service/ChampionshipCustomScoringPolicy.java'
