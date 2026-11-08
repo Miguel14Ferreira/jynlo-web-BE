@@ -42,8 +42,9 @@ public class Session {
     @Column(name = "meeting_point_instructions", length = 240)
     private String meetingPointInstructions;
     /** Public Airsoft format, separate from private arrival instructions. */
+    @Enumerated(EnumType.STRING)
     @Column(name = "airsoft_game_type", length = 24)
-    private String airsoftGameType;
+    private com.example.desporto24.enumeration.AirsoftGameType airsoftGameType;
     private String price;
     private String password;
     private Boolean privateGame;
