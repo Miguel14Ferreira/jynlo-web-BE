@@ -7,7 +7,7 @@ public record CommunityChampionshipResponse(
         Long id, Long communityId, String name, String sport,
         String seasonLabel, Instant createdAt, List<ChampionshipCompetition> competitions, List<ChampionshipLeader> winnerStandings) {
     public record ChampionshipCompetition(Long id, String name, String format, String status,
-            int winnerPoints, boolean winnerConfirmed) {}
+            int winnerPoints, boolean winnerConfirmed, String pointsByPlace) {}
     public record ChampionshipLeader(String entryType, Long participantId, String name,
             int victories, long points) {}
 }
