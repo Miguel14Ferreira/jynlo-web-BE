@@ -81,6 +81,17 @@ public class CommunityChampionshipService {
         if (tournament.getStatus() != com.example.desporto24.enumeration.TournamentStatus.DRAFT)
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Os pontos devem ser definidos antes do início da prova");
+        if (tournament.getChampionshipPlacePoints() != null) {
+            var awards = new java.util.ArrayList<>(
+                    ChampionshipPlacementPointsPolicy.parse(tournament.getChampionshipPlacePoints()));
+            if (awards.size() > 1 && points < awards.get(1)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Os pontos do vencedor não podem ser inferiores aos do segundo lugar");
+            }
+            awards.set(0, points);
+            tournament.setChampionshipPlacePoints(awards.stream().map(String::valueOf)
+                    .collect(java.util.stream.Collectors.joining(",")));
+        }
         tournament.setChampionshipWinnerPoints(points);
         tournaments.saveAndFlush(tournament);
         return toResponse(championship);
