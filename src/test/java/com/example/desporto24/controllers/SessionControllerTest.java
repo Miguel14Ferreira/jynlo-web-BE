@@ -155,7 +155,7 @@ class SessionControllerTest {
         when(authentication.getName()).thenReturn("miguel");
         when(sessionTeamSuggestionService.confirm(7L, "miguel", "FORM")).thenReturn(suggestion);
 
-        SessionTeamSuggestionResponse response = controller.confirmTeams(7L, "FORM", authentication);
+        SessionTeamSuggestionResponse response = controller.confirmTeams(7L, "FORM", null, authentication);
 
         assertSame(suggestion, response);
         verify(sessionTeamSuggestionService).confirm(7L, "miguel", "FORM");
