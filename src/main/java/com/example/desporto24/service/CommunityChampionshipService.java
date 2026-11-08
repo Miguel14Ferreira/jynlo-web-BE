@@ -25,6 +25,7 @@ public class CommunityChampionshipService {
     private final CommunityChampionshipRepository championships;
     private final CommunityTournamentRepository tournaments;
     private final ProfileRepository profiles;
+    private final CommunityTournamentStandingsService leagueStandings;
 
     public CommunityChampionshipResponse create(Long communityId, String username,
                                                   CreateCommunityChampionshipRequest request) {
@@ -122,6 +123,56 @@ public class CommunityChampionshipService {
         tournament.setChampionshipWinnerPoints(parsed.get(0));
         tournaments.saveAndFlush(tournament);
         return toResponse(championship);
+    }
+
+    /**
+     * Applies a full placement table only to completed, numeric individual
+     * leagues with independently confirmed sporting order. A draw unresolved
+     * by sporting statistics never receives arbitrary position awards.
+     */
+    @Transactional(readOnly = true)
+    public CommunityChampionshipStandingsResponse standings(Long communityId,
+                                                               Long championshipId, String username) {
+        requireMember(communityId, username);
+        CommunityChampionship championship = championships.findByIdAndCommunityId(championshipId, communityId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Campeonato não encontrado"));
+        java.util.Map<Long, java.util.List<CommunityTournamentStandingRowResponse>> accepted =
+                new java.util.HashMap<>();
+        for (CommunityTournament t : championship.getCompetitions()) {
+            if (t.getStatus() != com.example.desporto24.enumeration.TournamentStatus.COMPLETED
+                    || t.isChampionTied() || t.getChampionshipPlacePoints() == null
+                    || t.getFormat() != com.example.desporto24.enumeration.TournamentFormat.LEAGUE
+                    || t.getEntryType() != com.example.desporto24.enumeration.TournamentEntryType.INDIVIDUAL
+                    || t.getScoringMode() != null || t.getChampionProfileId() == null
+                    || t.getHistoricalArchiveId() != null) continue;
+            var table = leagueStandings.standings(communityId, t.getId(), username);
+            if (table.totalMatches() <= 0 || table.completedMatches() != table.totalMatches()
+                    || table.standings().isEmpty()) continue;
+            var rows = table.standings();
+            if (!t.getChampionProfileId().equals(rows.get(0).profileId())) continue;
+            java.util.Set<Long> seen = new java.util.HashSet<>();
+            boolean consistent = true;
+            for (int i = 0; i < rows.size(); i++) {
+                var row = rows.get(i);
+                if (row.profileId() == null || row.position() != i + 1
+                        || !seen.add(row.profileId())) { consistent = false; break; }
+                if (i > 0) {
+                    var prior = rows.get(i - 1);
+                    // The existing league sorter uses a stable profile ID as its
+                    // final display tie-breaker. Never pay different awards on that basis.
+                    if (row.points() == prior.points()
+                            && row.goalDifference() == prior.goalDifference()
+                            && row.goalsFor() == prior.goalsFor()
+                            && row.won() == prior.won()) {
+                        consistent = false;
+                        break;
+                    }
+                }
+            }
+            if (consistent) accepted.put(t.getId(), rows);
+        }
+        return CommunityChampionshipStandingsCalculator.calculate(
+                championshipId, championship.getCompetitions(), accepted);
     }
 
     private void requireMember(Long communityId, String username) {
