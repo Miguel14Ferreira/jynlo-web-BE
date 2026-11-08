@@ -48,7 +48,9 @@ class CommunityChampionshipServiceTest {
     }
 
     private void organizer() {
-        Profile actor = Profile.builder().id(33L).username("organizer").build();
+        Profile actor = new Profile();
+        actor.setId(33L);
+        actor.setUsername("organizer");
         when(profiles.findUserByUsername("organizer")).thenReturn(Optional.of(actor));
         when(members.findByCommunityIdAndProfileId(7L, 33L))
                 .thenReturn(Optional.of(CommunityMember.builder().role(CommunityRole.OWNER).build()));
@@ -112,7 +114,9 @@ class CommunityChampionshipServiceTest {
 
     @Test
     void deniesCreationToNonOrganizer() {
-        Profile actor = Profile.builder().id(33L).username("organizer").build();
+        Profile actor = new Profile();
+        actor.setId(33L);
+        actor.setUsername("organizer");
         when(profiles.findUserByUsername("organizer")).thenReturn(Optional.of(actor));
         when(members.findByCommunityIdAndProfileId(7L, 33L))
                 .thenReturn(Optional.of(CommunityMember.builder().role(CommunityRole.MEMBER).build()));
