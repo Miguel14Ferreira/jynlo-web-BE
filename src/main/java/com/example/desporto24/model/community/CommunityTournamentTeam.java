@@ -26,6 +26,10 @@ public class CommunityTournamentTeam {
     @Column(name = "normalized_name", nullable = false, length = 100)
     private String normalizedName;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "championship_team_id")
+    private CommunityChampionshipTeam championshipTeam;
+
     // Assigned only when the organizer publishes the group-stage draw.
     @Column(name = "group_number")
     private Integer groupNumber;
