@@ -24,6 +24,12 @@ public class CommunityChampionshipController {
         return championships.list(communityId, auth.getName());
     }
 
+    @GetMapping("/{championshipId}/standings")
+    public com.example.desporto24.model.dto.community.CommunityChampionshipStandingsResponse standings(
+            @PathVariable Long communityId, @PathVariable Long championshipId, Authentication auth) {
+        return championships.standings(communityId, championshipId, auth.getName());
+    }
+
     @PostMapping
     public ResponseEntity<CommunityChampionshipResponse> create(
             @PathVariable Long communityId,
