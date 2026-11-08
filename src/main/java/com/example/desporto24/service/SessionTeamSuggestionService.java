@@ -134,7 +134,7 @@ public class SessionTeamSuggestionService {
             throw new IllegalStateException("A sessão tem de pertencer a uma comunidade");
         }
 
-        if (!TeamBalancingSportPolicy.isEligible(session)) {
+        if (!TeamBalancingSportPolicy.isEligible(session, "RANDOM".equals(source))) {
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.CONFLICT,
                     "A modalidade ou o número de participantes não permite duas equipas equilibradas");
