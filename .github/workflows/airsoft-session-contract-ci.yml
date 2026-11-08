@@ -18,6 +18,7 @@ on:
       - 'src/test/java/com/example/desporto24/enumeration/AirsoftGameTypeTest.java'
       - 'src/test/java/com/example/desporto24/model/SessionAirsoftGameTypeTest.java'
       - 'src/test/java/com/example/desporto24/service/SessionViewMapperPrivacyTest.java'
+      - 'src/test/java/com/example/desporto24/model/dto/session/CreateSessionRequestValidationTest.java'
   workflow_dispatch:
 
 jobs:
@@ -36,4 +37,4 @@ jobs:
       - name: Compile backend and run Airsoft contract tests
         run: |
           chmod +x mvnw
-          ./mvnw -B -Dtest=AirsoftGameTypeTest,SessionAirsoftGameTypeTest,SessionViewMapperPrivacyTest -Dsurefire.failIfNoSpecifiedTests=false test
+          ./mvnw -B -Dtest=AirsoftGameTypeTest,SessionAirsoftGameTypeTest,SessionViewMapperPrivacyTest,CreateSessionRequestValidationTest -Dsurefire.failIfNoSpecifiedTests=false test
