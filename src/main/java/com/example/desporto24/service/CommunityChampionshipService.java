@@ -63,8 +63,24 @@ public class CommunityChampionshipService {
         if (championship.getCompetitions().stream().anyMatch(t -> t.getId().equals(tournamentId)))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Prova já associada ao campeonato");
         // Unique database constraint prevents the same tournament being attached to two championships.
+        tournament.setChampionshipWinnerPoints(10);
         championship.getCompetitions().add(tournament);
         return toResponse(championships.saveAndFlush(championship));
+    }
+
+    public CommunityChampionshipResponse setWinnerPoints(Long communityId, Long championshipId,
+                                                         Long tournamentId, int points, String username) {
+        requireOrganizer(communityId, username);
+        if (points < 0 || points > 10000)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Os pontos devem estar entre 0 e 10000");
+        CommunityChampionship championship = championships.findByIdAndCommunityId(championshipId, communityId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Campeonato não encontrado"));
+        CommunityTournament tournament = championship.getCompetitions().stream()
+                .filter(t -> t.getId().equals(tournamentId)).findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prova não associada"));
+        tournament.setChampionshipWinnerPoints(points);
+        tournaments.saveAndFlush(tournament);
+        return toResponse(championship);
     }
 
     private void requireMember(Long communityId, String username) {
@@ -89,7 +105,12 @@ public class CommunityChampionshipService {
                 championship.getSport(), championship.getSeasonLabel(), championship.getCreatedAt(),
                 championship.getCompetitions().stream()
                         .map(t -> new CommunityChampionshipResponse.ChampionshipCompetition(
-                                t.getId(), t.getName(), t.getFormat().name(), t.getStatus().name()))
-                        .toList());
+                                t.getId(), t.getName(), t.getFormat().name(), t.getStatus().name(),
+                                t.getChampionshipWinnerPoints() == null ? 10 : t.getChampionshipWinnerPoints(),
+                                t.getStatus() == com.example.desporto24.enumeration.TournamentStatus.COMPLETED
+                                        && !t.isChampionTied()
+                                        && (t.getChampionProfileId() != null || t.getChampionTeamId() != null)))
+                        .toList(),
+                ChampionshipWinnerStandings.calculate(championship.getCompetitions()));
     }
 }
