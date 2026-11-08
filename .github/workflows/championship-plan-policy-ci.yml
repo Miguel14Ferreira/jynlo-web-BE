@@ -1,0 +1,26 @@
+name: Jynlo championship plan policy CI
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/championship-plan-policy-ci.yml'
+      - 'src/main/java/com/example/desporto24/service/CommunityChampionshipPlanPolicy.java'
+      - 'src/test/java/com/example/desporto24/service/CommunityChampionshipPlanPolicyTest.java'
+  workflow_dispatch:
+jobs:
+  policy-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      AES_ENCRYPTION_KEY: abc123
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Test championship entitlement policy
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -Dtest=CommunityChampionshipPlanPolicyTest -Dsurefire.failIfNoSpecifiedTests=false test
