@@ -22,12 +22,17 @@ final class CommunityPlayerIdentityNames {
         String base = requestedDisplay == null || requestedDisplay.isBlank()
                 ? username.trim() : requestedDisplay.trim();
         String handle = username.trim();
-        String[] candidates = {
-                shorten(base, ""),
-                shorten(base, " (@" + handle + ")"),
-                shorten(base, " (#" + profileId + ")")
+        String[] suffixes = {
+                "",
+                " (@" + handle + ")",
+                " (#" + profileId + ")"
         };
-        for (String candidate : candidates) {
+        for (String suffix : suffixes) {
+            // An overly long handle must not block the stable profile-ID fallback.
+            if (suffix.length() >= MAX_NAME_LENGTH) {
+                continue;
+            }
+            String candidate = shorten(base, suffix);
             String normalized = candidate.toLowerCase(Locale.ROOT);
             if (!occupiedNormalizedName.test(normalized)) {
                 return new Name(candidate, normalized);
