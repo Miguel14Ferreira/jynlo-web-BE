@@ -146,6 +146,39 @@ class SessionLifecycleServiceTest {
     }
 
     @Test
+    void organizerCanEditDatePriceMinimumAndLocationWithoutLosingRegistrations() {
+        Profile player = profile("player");
+        participant(player);
+        Instant newKickoff = Instant.now().plusSeconds(7200);
+        var result = service.updateDetails(session.getId(), newKickoff,
+                5, 3, new java.math.BigDecimal("7.50"),
+                "Lisboa", "Rua Nova", "Entrada lateral", creator.getUsername());
+        assertEquals(5, result.maxParticipants());
+        assertEquals(3, result.minParticipants());
+        assertEquals("Lisboa", result.city());
+        assertEquals(new java.math.BigDecimal("7.50"), result.priceAmount());
+        assertTrue(participantRepository.existsBySessionIdAndProfileIdAndState(
+                session.getId(), player.getId(), ParticipantState.ACTIVE));
+        assertEquals("Entrada lateral", sessionRepository.findById(session.getId())
+                .orElseThrow().getMeetingPointInstructions());
+    }
+
+    @Test
+    void cannotEditDetailsAfterKickoffOrBelowConfirmedCount() {
+        participant(profile("player"));
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> service.updateDetails(session.getId(), Instant.now().plusSeconds(7200),
+                        1, 2, java.math.BigDecimal.ZERO, "Lisboa", "Rua Nova", null,
+                        creator.getUsername()));
+        session.setGameDate(Date.from(Instant.now().minusSeconds(10)));
+        sessionRepository.saveAndFlush(session);
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> service.updateDetails(session.getId(), Instant.now().plusSeconds(7200),
+                        4, 2, java.math.BigDecimal.ZERO, "Lisboa", "Rua Nova", null,
+                        creator.getUsername()));
+    }
+
+    @Test
     void editingMeetingPointNotifiesOnlyActivePlayersAndOnlyOnRealChanges() {
         Profile active = profile("player");
         participant(active);
