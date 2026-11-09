@@ -3,7 +3,6 @@ package com.example.desporto24.service;
 import com.example.desporto24.model.MobilePushReceipt;
 import com.example.desporto24.repository.MobilePushDeviceRepository;
 import com.example.desporto24.repository.MobilePushReceiptRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -17,7 +16,7 @@ import static org.mockito.Mockito.*;
 class MobilePushReceiptPollerTest {
     private final MobilePushReceiptRepository receipts=mock(MobilePushReceiptRepository.class);
     private final MobilePushDeviceRepository devices=mock(MobilePushDeviceRepository.class);
-    private final MobilePushReceiptPoller poller=new MobilePushReceiptPoller(receipts,devices,new ObjectMapper());
+    private final MobilePushReceiptPoller poller=new MobilePushReceiptPoller(receipts,devices);
 
     @Test
     void remainsDisabledWithoutExplicitConfiguration() {
