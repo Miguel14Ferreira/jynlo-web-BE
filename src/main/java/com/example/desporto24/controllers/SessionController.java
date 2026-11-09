@@ -139,6 +139,25 @@ public class SessionController {
     /** The organizer may adjust private arrival instructions before kickoff.
      * Never modifies venue, coordinates or public session discovery.
      */
+    /** Edit the principal details of a future session without changing its identity or membership. */
+    public record EditSessionDetailsRequest(
+            @jakarta.validation.constraints.NotNull java.time.Instant gameDate,
+            @jakarta.validation.constraints.Min(2) @jakarta.validation.constraints.Max(100) int maxParticipants,
+            @jakarta.validation.constraints.Min(2) @jakarta.validation.constraints.Max(100) int minParticipants,
+            @jakarta.validation.constraints.NotNull @jakarta.validation.constraints.DecimalMin("0.00")
+            java.math.BigDecimal priceAmount,
+            @jakarta.validation.constraints.NotBlank String city,
+            @jakarta.validation.constraints.NotBlank String address,
+            @jakarta.validation.constraints.Size(max = 240) String meetingPointInstructions) {}
+
+    @PatchMapping("/{id}/details")
+    public SessionDetailResponse updateDetails(@PathVariable Long id,
+            @RequestBody @Valid EditSessionDetailsRequest request, Authentication authentication) {
+        return sessionService.updateDetails(id, request.gameDate(), request.maxParticipants(),
+                request.minParticipants(), request.priceAmount(), request.city(), request.address(),
+                request.meetingPointInstructions(), authentication.getName());
+    }
+
     /** Organizer-only capacity correction, validated against existing confirmed places. */
     @PatchMapping("/{id}/capacity")
     public SessionDetailResponse updateCapacity(
