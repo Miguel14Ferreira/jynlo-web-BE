@@ -29,6 +29,10 @@ public interface SessionService {
     /** Accept a recipient-bound, pending direct invitation without exposing private passwords. */
     JoinSessionResponse joinWithInvitation(Long sessionId, Long inviteId, String username);
     SessionDetailResponse updateCapacity(Long sessionId, int maxParticipants, String username);
+    SessionDetailResponse updateDetails(Long sessionId, java.time.Instant gameDate, int maxParticipants,
+            int minParticipants, java.math.BigDecimal priceAmount, String city, String address,
+            String meetingPointInstructions, String username);
+
     SessionDetailResponse updateMeetingPoint(Long sessionId, String instructions, String username);
     SessionDetailResponse updateExternalConfirmations(Long sessionId, int externalConfirmed, String username);
     SessionDetailResponse openRegistration(Long sessionId, String username);
