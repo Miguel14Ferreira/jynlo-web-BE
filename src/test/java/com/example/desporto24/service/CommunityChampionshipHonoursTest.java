@@ -1,0 +1,50 @@
+package com.example.desporto24.service;
+
+import com.example.desporto24.model.community.CommunityChampionship;
+import org.junit.jupiter.api.Test;
+import java.time.Instant;
+import java.util.List;
+import static org.junit.jupiter.api.Assertions.*;
+
+class CommunityChampionshipHonoursTest {
+    private CommunityChampionship season(long id, String kind, long winner, String label, String closed) {
+        return CommunityChampionship.builder().id(id).name("Campeonato")
+                .sport("Futebol").seasonLabel("2025/26")
+                .championEntryType(kind).championParticipantId(winner)
+                .championDisplayName(label)
+                .closedAt(closed == null ? null : Instant.parse(closed)).build();
+    }
+
+    @Test
+    void aggregatesRepeatIndividualTitlesByStableProfileId() {
+        var result = CommunityChampionshipHonours.calculate(7L, List.of(
+                season(1L, "INDIVIDUAL", 22L, "Ana", "2025-06-01T12:00:00Z"),
+                season(2L, "INDIVIDUAL", 22L, "Ana Nova", "2026-06-01T12:00:00Z"),
+                season(3L, "INDIVIDUAL", 33L, "Rui", "2026-08-01T12:00:00Z")));
+        assertEquals(3, result.completedSeasons());
+        assertEquals(2, result.individualHonours().size());
+        assertEquals(2, result.individualHonours().get(0).titles());
+        assertEquals(22L, result.individualHonours().get(0).profileId());
+        assertEquals(3L, result.titles().get(0).championshipId());
+    }
+
+    @Test
+    void neverMergesTeamsAcrossSeasonsByNameOrCoincidentIds() {
+        var result = CommunityChampionshipHonours.calculate(7L, List.of(
+                season(5L, "TEAM", 20L, "Águias", "2025-06-01T12:00:00Z"),
+                season(6L, "TEAM", 20L, "Águias", "2026-06-01T12:00:00Z")));
+        assertEquals(2, result.completedSeasons());
+        assertEquals(2, result.titles().size());
+        assertTrue(result.individualHonours().isEmpty());
+    }
+
+    @Test
+    void ignoresUnfinishedAndInvalidChampionSnapshots() {
+        var result = CommunityChampionshipHonours.calculate(7L, List.of(
+                season(1L, "TEAM", 11L, "Águias", null),
+                season(2L, "UNKNOWN", 10L, "Desconhecido", "2026-06-01T12:00:00Z"),
+                season(3L, "INDIVIDUAL", 12L, "Ana", "2026-06-01T12:00:00Z")));
+        assertEquals(1, result.completedSeasons());
+        assertEquals("Ana", result.titles().get(0).championName());
+    }
+}
