@@ -63,7 +63,7 @@ public class SessionTeamSuggestionService {
         sessionRepository.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new SessionNotFound("Session not found"));
         SessionTeamSuggestionResponse suggestion = suggest(sessionId, username, source);
-        if ("RANDOM".equals(source)) {
+        if (("RANDOM".equals(source) || "MANUAL".equals(source))) {
             if (assignment == null || assignment.teamA() == null || assignment.teamB() == null) {
                 throw new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.BAD_REQUEST, "Indica as equipas sorteadas para confirmar");
@@ -118,7 +118,7 @@ public class SessionTeamSuggestionService {
 
     @Transactional(readOnly = true)
     public SessionTeamSuggestionResponse suggest(Long sessionId, String username, String source) {
-        if (!"FORM".equals(source) && !"EXCEL_POINTS".equals(source) && !"RANDOM".equals(source)) {
+        if (!"FORM".equals(source) && !"EXCEL_POINTS".equals(source) && !"RANDOM".equals(source) && !"MANUAL".equals(source)) {
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.BAD_REQUEST, "Origem de classificação inválida");
         }
@@ -134,7 +134,7 @@ public class SessionTeamSuggestionService {
             throw new IllegalStateException("A sessão tem de pertencer a uma comunidade");
         }
 
-        if (!TeamBalancingSportPolicy.isEligible(session, "RANDOM".equals(source))) {
+        if (!TeamBalancingSportPolicy.isEligible(session, "RANDOM".equals(source) || "MANUAL".equals(source))) {
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.CONFLICT,
                     "A modalidade ou o número de participantes não permite duas equipas equilibradas");
@@ -152,7 +152,7 @@ public class SessionTeamSuggestionService {
                 external!=guests.size()) {
             throw new IllegalStateException("A sessão tem de estar cheia com participantes identificados para gerar equipas");
         }
-        if ("RANDOM".equals(source)) {
+        if ("RANDOM".equals(source) || "MANUAL".equals(source)) {
             List<SessionTeamPlayerResponse> shuffled = new ArrayList<>();
             for (SessionParticipant p : participants) {
                 shuffled.add(new SessionTeamPlayerResponse(p.getProfile().getUsername(), 0, false, 0, 0, 0, 0));
@@ -161,7 +161,7 @@ public class SessionTeamSuggestionService {
                 shuffled.add(new SessionTeamPlayerResponse("guest:" + g.getId(), 0, false, 0, 0, 0, 0,
                         g.getDisplayName(), true));
             }
-            Collections.shuffle(shuffled, new SecureRandom());
+            if ("RANDOM".equals(source)) Collections.shuffle(shuffled, new SecureRandom());
             int midpoint = (shuffled.size() + 1) / 2;
             return new SessionTeamSuggestionResponse(List.copyOf(shuffled.subList(0, midpoint)),
                     List.copyOf(shuffled.subList(midpoint, shuffled.size())), 0, 0, 0, shuffled.size());
