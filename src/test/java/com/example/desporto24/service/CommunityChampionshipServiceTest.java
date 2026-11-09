@@ -35,6 +35,7 @@ class CommunityChampionshipServiceTest {
     @Mock CommunityTournamentStandingsService leagueStandings;
     @Mock CommunityTournamentTeamStandingsService teamLeagueStandings;
     @Mock CommunityTournamentTeamRepository tournamentTeams;
+    @Mock CommunityChampionshipTeamRepository championshipTeams;
     @org.mockito.Spy com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
     @InjectMocks CommunityChampionshipService service;
 
