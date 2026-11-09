@@ -153,6 +153,30 @@ public class CommunityChampionshipController {
         ownedEvents.delete(communityId, championshipId, eventId, auth.getName());
     }
 
+    @GetMapping("/{championshipId}/owned-events/{eventId}/teams")
+    public List<com.example.desporto24.service.CommunityChampionshipEventService.TeamRegistration> ownedEventTeams(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, Authentication auth) {
+        return ownedEvents.teams(communityId, championshipId, eventId, auth.getName());
+    }
+
+    public record OwnedEventTeamRequest(@jakarta.validation.constraints.NotNull Long championshipTeamId) {}
+
+    @PostMapping("/{championshipId}/owned-events/{eventId}/teams")
+    public ResponseEntity<com.example.desporto24.service.CommunityChampionshipEventService.TeamRegistration> addOwnedEventTeam(
+            @PathVariable Long communityId, @PathVariable Long championshipId, @PathVariable Long eventId,
+            @RequestBody @Valid OwnedEventTeamRequest request, Authentication auth) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ownedEvents.addTeam(
+                communityId, championshipId, eventId, request.championshipTeamId(), auth.getName()));
+    }
+
+    @DeleteMapping("/{championshipId}/owned-events/{eventId}/teams/{teamId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeOwnedEventTeam(@PathVariable Long communityId, @PathVariable Long championshipId,
+                                     @PathVariable Long eventId, @PathVariable Long teamId, Authentication auth) {
+        ownedEvents.removeTeam(communityId, championshipId, eventId, teamId, auth.getName());
+    }
+
     @PostMapping("/{championshipId}/competitions/{tournamentId}")
     public CommunityChampionshipResponse addCompetition(
             @PathVariable Long communityId, @PathVariable Long championshipId,
