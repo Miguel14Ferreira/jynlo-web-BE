@@ -8,4 +8,11 @@ import java.util.Optional;
 public interface CommunityChampionshipRepository extends JpaRepository<CommunityChampionship, Long> {
     List<CommunityChampionship> findByCommunityIdOrderByCreatedAtDescIdDesc(Long communityId);
     Optional<CommunityChampionship> findByIdAndCommunityId(Long id, Long communityId);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query(
+            "select c from CommunityChampionship c where c.id = :id and c.community.id = :communityId")
+    Optional<CommunityChampionship> findForClosing(
+            @org.springframework.data.repository.query.Param("id") Long id,
+            @org.springframework.data.repository.query.Param("communityId") Long communityId);
 }
