@@ -23,6 +23,7 @@ public class CommunityChampionshipService {
     private final CommunityRepository communities;
     private final CommunityMemberRepository members;
     private final CommunityChampionshipRepository championships;
+    private final CommunityChampionshipEventRepository ownedEvents;
     private final CommunityTournamentRepository tournaments;
     private final ProfileRepository profiles;
     private final CommunityTournamentStandingsService leagueStandings;
@@ -295,6 +296,11 @@ public class CommunityChampionshipService {
         CommunityChampionship championship = championships.findForClosing(championshipId, communityId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Campeonato não encontrado"));
         ensureOpen(championship);
+        // Owned-event drafts have no fixtures or certified results yet.
+        // Never crown a champion while they are pending.
+        if (!ownedEvents.findByChampionshipIdOrderByCreatedAtAscIdAsc(championshipId).isEmpty())
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Existem provas próprias em rascunho; só é possível encerrar após implementar e validar os resultados");
         CommunityChampionshipStandingsResponse result = standings(communityId, championshipId, username);
         long leaguesRequiringFullPositions = championship.getCompetitions().stream()
                 .filter(t -> t.getFormat() == com.example.desporto24.enumeration.TournamentFormat.LEAGUE
