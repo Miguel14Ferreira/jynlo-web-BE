@@ -23,8 +23,32 @@ public record SessionSummaryResponse(
         String recurrenceSeriesId,
         Long communityId,
         Long seasonCommunityId,
-        com.example.desporto24.enumeration.AirsoftGameType airsoftGameType
+        com.example.desporto24.enumeration.AirsoftGameType airsoftGameType,
+        Double latitude,
+        Double longitude
 ) {
+    /** Original full projection is retained for existing service and test consumers. */
+    public SessionSummaryResponse(
+            Long id, String sport, String city, Instant gameDate, Double distanceKm,
+            int participantCount, int maxParticipants, BigDecimal priceAmount,
+            boolean privateGame, SessionStatus status, SessionAudience audience,
+            boolean joinedByViewer, boolean waitlistedByViewer, String recurrenceSeriesId,
+            Long communityId, Long seasonCommunityId,
+            com.example.desporto24.enumeration.AirsoftGameType airsoftGameType) {
+        this(id, sport, city, gameDate, distanceKm, participantCount, maxParticipants,
+                priceAmount, privateGame, status, audience, joinedByViewer,
+                waitlistedByViewer, recurrenceSeriesId, communityId, seasonCommunityId,
+                airsoftGameType, null, null);
+    }
+
+    /** Only discovery may attach coarse map coordinates, never exact GPS. */
+    public SessionSummaryResponse withPublicMapPosition(Double publicLatitude, Double publicLongitude) {
+        return new SessionSummaryResponse(id, sport, city, gameDate, distanceKm,
+                participantCount, maxParticipants, priceAmount, privateGame, status,
+                audience, joinedByViewer, waitlistedByViewer, recurrenceSeriesId,
+                communityId, seasonCommunityId, airsoftGameType, publicLatitude, publicLongitude);
+    }
+
     /** Backwards-compatible constructor for existing summary projections. */
     public SessionSummaryResponse(
             Long id,
