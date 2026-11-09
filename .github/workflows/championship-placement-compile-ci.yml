@@ -40,7 +40,8 @@ jobs:
         run: |
           chmod +x mvnw
           ./mvnw -B -Dmaven.test.skip=true compile
-      - name: Regression test Jackson 2 championship snapshot mapper
+      - name: Regression tests for championships and unified session editing
         env:
           AES_ENCRYPTION_KEY: ciKey1
-        run: ./mvnw -B -ntp -Dtest=LegacyChampionshipJacksonConfigurationTest test
+        run: |
+          ./mvnw -B -ntp -Dtest=LegacyChampionshipJacksonConfigurationTest,CommunityChampionshipServiceTest,CommunityChampionshipHonoursTest,CommunityChampionshipTeamsServiceTest,CommunityChampionshipStandingsCalculatorTest,ChampionshipCustomScoringPersistenceContractTest,ChampionshipFinalizationPolicyTest,SessionLifecycleServiceTest,SessionManagementControllerTest test
