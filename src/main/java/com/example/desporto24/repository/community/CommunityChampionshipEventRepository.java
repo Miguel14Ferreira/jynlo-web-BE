@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface CommunityChampionshipEventRepository extends JpaRepository<CommunityChampionshipEvent, Long> {
     List<CommunityChampionshipEvent> findByChampionshipIdOrderByCreatedAtAscIdAsc(Long championshipId);
+    java.util.Optional<CommunityChampionshipEvent> findByIdAndChampionshipId(Long id, Long championshipId);
 }
