@@ -139,6 +139,15 @@ public class SessionController {
     /** The organizer may adjust private arrival instructions before kickoff.
      * Never modifies venue, coordinates or public session discovery.
      */
+    /** Organizer-only capacity correction, validated against existing confirmed places. */
+    @PatchMapping("/{id}/capacity")
+    public SessionDetailResponse updateCapacity(
+            @PathVariable Long id,
+            @RequestParam int maxParticipants,
+            Authentication authentication) {
+        return sessionService.updateCapacity(id, maxParticipants, authentication.getName());
+    }
+
     @PatchMapping("/{id}/meeting-point")
     public SessionDetailResponse updateMeetingPoint(
             @PathVariable Long id,
