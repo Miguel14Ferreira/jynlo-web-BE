@@ -153,6 +153,20 @@ public class CommunityChampionshipController {
         ownedEvents.delete(communityId, championshipId, eventId, auth.getName());
     }
 
+    @GetMapping("/{championshipId}/owned-events/{eventId}/cup-draw")
+    public com.example.desporto24.service.CommunityChampionshipEventService.CupOpeningRound cupDraw(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, Authentication auth) {
+        return ownedEvents.cupOpeningRound(communityId, championshipId, eventId, auth.getName());
+    }
+
+    @PostMapping("/{championshipId}/owned-events/{eventId}/cup-draw")
+    public com.example.desporto24.service.CommunityChampionshipEventService.CupOpeningRound drawCup(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, Authentication auth) {
+        return ownedEvents.drawCup(communityId, championshipId, eventId, auth.getName());
+    }
+
     @GetMapping("/{championshipId}/owned-events/{eventId}/fixtures")
     public List<com.example.desporto24.service.CommunityChampionshipEventService.LeagueFixture> ownedLeagueFixtures(
             @PathVariable Long communityId, @PathVariable Long championshipId,
