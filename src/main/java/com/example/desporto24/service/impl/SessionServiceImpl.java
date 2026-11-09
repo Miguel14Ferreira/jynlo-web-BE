@@ -590,21 +590,33 @@ public class SessionServiceImpl implements SessionService {
             Map<Long, Long> participantCounts,
             Set<Long> joinedSessionIds,
             Set<Long> waitlistedSessionIds) {
+        // Only share coarse discovery grid positions for genuinely public sessions.
+        // Never expose exact session or venue coordinates through this endpoint.
+        boolean publicSession = !Boolean.TRUE.equals(session.getPrivateGame())
+                && session.getAudience() == SessionAudience.PUBLIC;
+        Double latitude = session.getLatitude();
+        Double longitude = session.getLongitude();
+        if ((latitude == null || longitude == null)
+                && session.getVenue() != null) {
+            latitude = session.getVenue().getLatitude();
+            longitude = session.getVenue().getLongitude();
+        }
+        SessionDiscoveryLocationGrid.ApproximatePoint publicPoint = null;
+        if (publicSession && latitude != null && longitude != null
+                && Double.isFinite(latitude) && Double.isFinite(longitude)
+                && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) {
+            publicPoint = SessionDiscoveryLocationGrid.approximate(latitude, longitude);
+        }
         Double distanceKm = null;
-        if (hasCoordinates && session.getLatitude() != null && session.getLongitude() != null
-                && Double.isFinite(session.getLatitude()) && Double.isFinite(session.getLongitude())
-                && Math.abs(session.getLatitude()) <= 90 && Math.abs(session.getLongitude()) <= 180) {
-            // No direct or indirect access to the precise coordinates through
-            // the anonymous discovery endpoint. The same approximate distance
-            // drives returned values, sorting and radius inclusion.
-            var publicPoint = SessionDiscoveryLocationGrid.approximate(
-                    session.getLatitude(), session.getLongitude());
+        if (hasCoordinates && publicPoint != null) {
             distanceKm = distanceCalculator.kilometres(
                     criteria.latitude(), criteria.longitude(),
                     publicPoint.latitude(), publicPoint.longitude());
         }
-        return sessionViewMapper.toSummary(
+        SessionSummaryResponse summary = sessionViewMapper.toSummary(
                 session, distanceKm, participantCounts, joinedSessionIds, waitlistedSessionIds);
+        return publicPoint == null ? summary
+                : summary.withPublicMapPosition(publicPoint.latitude(), publicPoint.longitude());
     }
 
     private Comparator<SessionSummaryResponse> discoveryComparator(String sort) {
