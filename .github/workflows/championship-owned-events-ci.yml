@@ -1,0 +1,36 @@
+name: Jynlo championship-owned competitions
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/championship-owned-events-ci.yml'
+      - 'src/main/java/com/example/desporto24/model/community/CommunityChampionshipEvent.java'
+      - 'src/main/java/com/example/desporto24/repository/community/CommunityChampionshipEventRepository.java'
+      - 'src/main/java/com/example/desporto24/service/CommunityChampionshipEventService.java'
+      - 'src/main/java/com/example/desporto24/service/CommunityChampionshipService.java'
+      - 'src/main/java/com/example/desporto24/controllers/CommunityChampionshipController.java'
+      - 'src/test/java/com/example/desporto24/service/CommunityChampionshipEventServiceTest.java'
+      - 'src/test/java/com/example/desporto24/service/CommunityChampionshipServiceTest.java'
+      - 'src/main/resources/db/changelog/changes/2026-11-09-community-championship-owned-events.yaml'
+      - 'src/main/resources/db/changelog/db.changelog-master.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  owned-events:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Test championship isolation and legacy functionality
+        env:
+          AES_ENCRYPTION_KEY: ciKey1
+        run: bash ./mvnw -B -ntp -Dtest=CommunityChampionshipEventServiceTest,CommunityChampionshipServiceTest test
