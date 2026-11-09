@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-09-community-championship-final-trophies
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: community_championship
+            columns:
+              - column:
+                  name: final_trophies_json
+                  type: text
