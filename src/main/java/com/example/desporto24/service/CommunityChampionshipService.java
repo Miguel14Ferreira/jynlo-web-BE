@@ -61,10 +61,30 @@ public class CommunityChampionshipService {
         var ids = seasons.stream().filter(s -> s.getClosedAt() != null)
                 .map(CommunityChampionship::getId).toList();
         java.util.Map<Long, CommunityChampionshipHonours.PermanentTeam> linked = new java.util.HashMap<>();
+        java.util.Map<Long, CommunityChampionshipHonours.PermanentTeam> permanentBySeasonTeam =
+                new java.util.HashMap<>();
+        java.util.Map<Long, java.util.List<CommunityChampionshipTrophySnapshot>> trophySnapshots =
+                new java.util.HashMap<>();
+        for (CommunityChampionship season : seasons) {
+            if (season.getClosedAt() == null || season.getFinalTrophiesJson() == null) continue;
+            try {
+                trophySnapshots.put(season.getId(), objectMapper.readValue(
+                        season.getFinalTrophiesJson(),
+                        new com.fasterxml.jackson.core.type.TypeReference<
+                                java.util.List<CommunityChampionshipTrophySnapshot>>() {}));
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                throw new IllegalStateException("Palmarés arquivado inválido", e);
+            }
+        }
         if (!ids.isEmpty()) {
             for (CommunityChampionshipTeam team : championshipTeams.findByChampionshipIdIn(ids)) {
                 var season = team.getChampionship();
                 var permanent = team.getPermanentTeam();
+                if (permanent != null && permanent.getCommunity().getId().equals(communityId)) {
+                    permanentBySeasonTeam.put(team.getId(),
+                            new CommunityChampionshipHonours.PermanentTeam(
+                                    permanent.getId(), permanent.getName()));
+                }
                 if (permanent != null && season.getClosedAt() != null
                         && "TEAM".equals(season.getChampionEntryType())
                         && team.getId().equals(season.getChampionParticipantId())
@@ -75,7 +95,8 @@ public class CommunityChampionshipService {
                 }
             }
         }
-        return CommunityChampionshipHonours.calculate(communityId, seasons, linked);
+        return CommunityChampionshipHonours.calculate(
+                communityId, seasons, linked, permanentBySeasonTeam, trophySnapshots);
     }
 
     public CommunityChampionshipResponse addCompetition(Long communityId, Long championshipId,
