@@ -58,6 +58,16 @@ class CommunityPlayerIdentityNamesTest {
     }
 
     @Test
+    void longHandleFallsBackToStableProfileIdentifier() {
+        String longHandle = "x".repeat(130);
+        var value = CommunityPlayerIdentityNames.allocate(
+                "Pessoa Exemplo", longHandle, 77L,
+                key -> key.equals("pessoa exemplo"));
+        assertEquals("Pessoa Exemplo (#77)", value.display());
+        assertEquals("pessoa exemplo (#77)", value.normalized());
+    }
+
+    @Test
     void irresolvableConflictReturns409InsteadOfClaimingOtherIdentity() {
         Set<String> occupied = Set.of("pessoa exemplo",
                 "pessoa exemplo (@member)", "pessoa exemplo (#77)");
