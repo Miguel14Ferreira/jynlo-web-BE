@@ -83,6 +83,24 @@ class CommunityPublicDiscoveryTest {
     }
 
     @Test
+    void qaCommunitiesAreHiddenFromDiscoveryWithoutDeletingMemberAccess() {
+        Profile owner = new Profile();
+        owner.setUsername("qa-visibility-fixture");
+        entityManager.persist(owner);
+        persist(owner, "JYNLO QA - Comunidade Privada de Testes", CommunityVisibility.PRIVATE);
+        persist(owner, "JYNLO QA - Multidesporto Futebol e Karting", CommunityVisibility.PRIVATE);
+        persist(owner, "Clube real", CommunityVisibility.PUBLIC);
+        entityManager.flush();
+        entityManager.clear();
+
+        var browse = repository.searchPresentations("", "", PageRequest.of(0, 20));
+        assertEquals(java.util.List.of("Clube real"),
+                browse.getContent().stream().map(item -> item.name()).toList());
+        assertFalse(browse.hasNext());
+        assertTrue(repository.searchPresentations("jynlo qa", "", PageRequest.of(0, 20)).isEmpty());
+    }
+
+    @Test
     void filteredSearchMatchesLegacyAndAnySelectedSportWithoutDuplicates() {
         Profile owner = new Profile();
         owner.setUsername("multi-sport-discovery-fixture");
