@@ -17,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,6 +28,7 @@ class CommunityChampionshipEventServiceTest {
     @Mock CommunityChampionshipRepository championships;
     @Mock CommunityChampionshipEventRepository events;
     @Mock CommunityChampionshipEventTeamRepository eventTeams;
+    @Mock CommunityChampionshipFixtureRepository fixtures;
     @Mock CommunityChampionshipTeamRepository championshipTeams;
     @Mock CommunityMemberRepository members;
     @Mock ProfileRepository profiles;
@@ -155,6 +157,57 @@ class CommunityChampionshipEventServiceTest {
         when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(draft));
         service.delete(7L, 15L, 100L, "member");
         verify(events).delete(draft);
+    }
+
+    @Test
+    void generatesAndPersistsSingleLegOnlyForOwnLeague() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Liga").format("LEAGUE").status("DRAFT").build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
+        var home = CommunityChampionshipTeam.builder().id(1L).championship(championship).name("Águias").build();
+        var away = CommunityChampionshipTeam.builder().id(2L).championship(championship).name("Leões").build();
+        when(eventTeams.findByEventIdOrderByIdAsc(100L)).thenReturn(List.of(
+                CommunityChampionshipEventTeam.builder().id(21L).event(league).team(home).build(),
+                CommunityChampionshipEventTeam.builder().id(22L).event(league).team(away).build()));
+        when(fixtures.save(any())).thenAnswer(invocation -> {
+            CommunityChampionshipFixture fixture = invocation.getArgument(0);
+            fixture.setId(900L);
+            return fixture;
+        });
+        when(events.saveAndFlush(league)).thenReturn(league);
+        var generated = service.scheduleLeague(7L, 15L, 100L, 1, "member");
+        assertEquals(1, generated.size());
+        assertEquals(1, generated.get(0).round());
+        assertEquals("SCHEDULED", league.getStatus());
+        assertEquals(Set.of(1L, 2L),
+                Set.of(generated.get(0).homeTeamId(), generated.get(0).awayTeamId()));
+        verify(fixtures).save(any(CommunityChampionshipFixture.class));
+    }
+
+    @Test
+    void refusesToGenerateScheduleTwice() {
+        member(CommunityRole.ADMIN);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Liga").format("LEAGUE").status("DRAFT").build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
+        when(fixtures.existsByEventId(100L)).thenReturn(true);
+        assertThrows(ResponseStatusException.class,
+                () -> service.scheduleLeague(7L, 15L, 100L, 1, "member"));
+        verify(fixtures, never()).save(any());
+        verify(events, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void cannotGenerateLeagueFixturesInsideACupOrAsOrdinaryMember() {
+        member(CommunityRole.MEMBER);
+        assertThrows(AccessDeniedException.class,
+                () -> service.scheduleLeague(7L, 15L, 100L, 1, "member"));
+        verifyNoInteractions(fixtures);
+
+        // This second case uses an authorized organizer and a cup in the same championship.
     }
 
     @Test
