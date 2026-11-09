@@ -806,6 +806,106 @@ public class SessionServiceImpl implements SessionService {
     }
 
     /**
+     * Edit a single future session while keeping registrations, venue identity,
+     * community and season relationships unchanged.
+     */
+    @Override
+    @Transactional
+    public SessionDetailResponse updateDetails(Long sessionId, Instant gameDate,
+            int maxParticipants, int minParticipants, BigDecimal priceAmount,
+            String city, String address, String meetingPointInstructions, String username) {
+        Session session = sessionRepository.findByIdForUpdate(sessionId)
+                .orElseThrow(() -> new SessionNotFound("Session not found"));
+        Profile actor = profileRepository.findUserByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException(NO_USER_FOUND_BY_USERNAME));
+        requireCreator(session, actor);
+        Instant now = Instant.now();
+        if ((session.getStatus() != SessionStatus.OPEN && session.getStatus() != SessionStatus.FULL)
+                || session.getGameDate() == null
+                || !session.getGameDate().toInstant().isAfter(now)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "Só podes editar uma sessão ativa antes do início");
+        }
+        if (gameDate == null || !gameDate.isAfter(now)) {
+            throw new IllegalArgumentException("A nova data deve ser futura");
+        }
+        if (!gameDate.equals(session.getGameDate().toInstant())) {
+            if (session.getRecurrenceSeriesId() != null) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.CONFLICT,
+                        "Não é possível mudar a data de uma sessão recorrente isoladamente");
+            }
+            if (session.getRegistrationOpensAt() != null
+                    && !session.getRegistrationOpensAt().isBefore(gameDate)) {
+                throw new IllegalArgumentException("A abertura das inscrições deve ser anterior à sessão");
+            }
+        }
+        com.example.desporto24.service.SessionMinimumPlayers.validate(
+                minParticipants, session.getSport(), maxParticipants);
+        if (priceAmount == null || priceAmount.signum() < 0
+                || priceAmount.scale() > 2 || priceAmount.precision() > 10) {
+            throw new IllegalArgumentException("O preço deve ser válido e ter no máximo duas casas decimais");
+        }
+        String newCity = city == null ? "" : city.trim();
+        String newAddress = address == null ? "" : address.trim();
+        if (newCity.isBlank() || newCity.length() > 120
+                || newAddress.isBlank() || newAddress.length() > 255) {
+            throw new IllegalArgumentException("Localidade e morada são obrigatórias");
+        }
+        if (session.getVenue() != null
+                && (!newCity.equals(session.getCity()) || !newAddress.equals(session.getAddress()))) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "A morada de um recinto associado deve ser alterada selecionando outro recinto");
+        }
+        if (meetingPointInstructions != null
+                && (meetingPointInstructions.length() > 240
+                || meetingPointInstructions.codePoints().anyMatch(Character::isISOControl))) {
+            throw new IllegalArgumentException("Ponto de encontro inválido");
+        }
+        long active = participantRepository.countBySessionIdAndState(
+                sessionId, ParticipantState.ACTIVE);
+        int confirmed = SessionCapacity.totalConfirmed(session, active);
+        if (maxParticipants < confirmed) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "A lotação não pode ser inferior às presenças confirmadas");
+        }
+        int previousCapacity = session.getMaxParticipants();
+        session.setGameDate(java.util.Date.from(gameDate));
+        session.setMaxParticipants(maxParticipants);
+        session.setMinParticipants(minParticipants);
+        session.setPriceAmount(priceAmount);
+        if (session.getVenue() == null) {
+            if (!newCity.equals(session.getCity()) || !newAddress.equals(session.getAddress())) {
+                session.setLatitude(null);
+                session.setLongitude(null);
+            }
+            session.setCity(newCity);
+            session.setAddress(newAddress);
+        }
+        session.setMeetingPointInstructions(
+                meetingPointInstructions == null || meetingPointInstructions.isBlank()
+                        ? null : meetingPointInstructions.trim());
+        session.setStatus(confirmed == maxParticipants ? SessionStatus.FULL : SessionStatus.OPEN);
+        session.setUpdatedAt(now);
+        sessionRepository.save(session);
+
+        if (maxParticipants > previousCapacity) {
+            boolean promoted = false;
+            while (SessionCapacity.remainingPlaces(session,
+                    participantRepository.countBySessionIdAndState(
+                            sessionId, ParticipantState.ACTIVE)) > 0) {
+                if (waitlistPromotionService.promoteNext(session, now).isEmpty()) break;
+                promoted = true;
+            }
+            if (promoted) invalidateConfirmedTeams(sessionId);
+        }
+        return sessionViewMapper.toDetail(session, actor);
+    }
+
+    /**
      * Correct the maximum number of places without touching registrations.
      * The session row lock is shared with join(), so concurrent joins cannot
      * slip past a capacity reduction. New places go to the waitlist first.
