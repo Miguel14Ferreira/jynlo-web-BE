@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-09-community-championship-history-competitions
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: community_championship
+            columns:
+              - column:
+                  name: final_competitions_json
+                  type: text
