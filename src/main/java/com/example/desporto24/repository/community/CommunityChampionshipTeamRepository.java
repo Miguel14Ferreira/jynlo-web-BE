@@ -6,5 +6,7 @@ import java.util.List;
 
 public interface CommunityChampionshipTeamRepository extends JpaRepository<CommunityChampionshipTeam, Long> {
     List<CommunityChampionshipTeam> findByChampionshipIdOrderByNameAscIdAsc(Long championshipId);
+    List<CommunityChampionshipTeam> findByChampionshipIdIn(List<Long> championshipIds);
+    boolean existsByChampionshipIdAndPermanentTeamId(Long championshipId, Long permanentTeamId);
     boolean existsByChampionshipIdAndNormalizedName(Long championshipId, String normalizedName);
 }
