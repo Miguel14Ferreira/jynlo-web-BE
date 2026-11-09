@@ -346,3 +346,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-09-community-championship-final-trophies.yaml
   - include:
       file: db/changelog/changes/2026-11-09-community-championship-owned-events.yaml
+  - include:
+      file: db/changelog/changes/2026-11-09-community-championship-owned-event-teams.yaml
