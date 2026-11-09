@@ -294,6 +294,31 @@ class CommunityChampionshipServiceTest {
     }
 
     @Test
+    void refusesToArchiveLeagueWhenRequiredPlacementsAreUnverified() {
+        organizer();
+        Profile actor = new Profile();
+        actor.setId(33L);
+        actor.setUsername("organizer");
+        when(members.existsByCommunityIdAndProfileId(7L,33L)).thenReturn(true);
+        var league = CommunityTournament.builder().id(93L).name("Liga")
+                .community(community).sport("Futebol").format(TournamentFormat.LEAGUE)
+                .entryType(com.example.desporto24.enumeration.TournamentEntryType.TEAM)
+                .status(TournamentStatus.COMPLETED).championTeamId(500L)
+                .championTeamName("Águias").championshipPlacePoints("25,18")
+                .championshipWinnerPoints(25).build();
+        championship.getCompetitions().add(league);
+        when(championships.findForClosing(15L,7L)).thenReturn(Optional.of(championship));
+        when(championships.findByIdAndCommunityId(15L,7L)).thenReturn(Optional.of(championship));
+        when(tournamentTeams.findByTournamentIdOrderByIdAsc(93L)).thenReturn(java.util.List.of());
+        var standings = new com.example.desporto24.model.dto.community.CommunityTournamentTeamStandingsResponse(
+                93L,TournamentStatus.COMPLETED,0,0,3,1,0,java.util.List.of());
+        when(teamLeagueStandings.standings(7L,93L,"organizer")).thenReturn(standings);
+        assertThrows(ResponseStatusException.class, () -> service.close(7L,15L,"organizer"));
+        assertNull(championship.getClosedAt());
+        verify(championships,never()).saveAndFlush(any());
+    }
+
+    @Test
     void deniesCreationToNonOrganizer() {
         Profile actor = new Profile();
         actor.setId(33L);
