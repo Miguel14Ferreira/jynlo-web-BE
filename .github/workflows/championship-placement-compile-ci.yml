@@ -16,6 +16,8 @@ on:
       - 'src/test/java/com/example/desporto24/service/CommunityChampionshipStandingsCalculatorTest.java'
       - 'src/test/java/com/example/desporto24/service/CommunityChampionshipServiceTest.java'
       - 'src/main/java/com/example/desporto24/service/CommunityChampionshipService.java'
+      - 'src/main/java/com/example/desporto24/configuration/LegacyChampionshipJacksonConfiguration.java'
+      - 'src/test/java/com/example/desporto24/configuration/LegacyChampionshipJacksonConfigurationTest.java'
       - 'src/main/java/com/example/desporto24/controllers/CommunityChampionshipController.java'
       - 'src/main/java/com/example/desporto24/model/community/CommunityTournament.java'
       - 'src/main/java/com/example/desporto24/model/dto/community/CommunityChampionshipResponse.java'
@@ -38,3 +40,7 @@ jobs:
         run: |
           chmod +x mvnw
           ./mvnw -B -Dmaven.test.skip=true compile
+      - name: Regression test Jackson 2 championship snapshot mapper
+        env:
+          AES_ENCRYPTION_KEY: ciKey1
+        run: ./mvnw -B -ntp -Dtest=LegacyChampionshipJacksonConfigurationTest test
