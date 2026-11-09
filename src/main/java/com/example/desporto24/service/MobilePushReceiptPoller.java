@@ -31,7 +31,8 @@ public class MobilePushReceiptPoller {
     private static final Duration MAX_AGE = Duration.ofHours(24);
     private final MobilePushReceiptRepository receipts;
     private final MobilePushDeviceRepository devices;
-    private final ObjectMapper json;
+    // Jackson 2 is used for Expo's wire format; it is not auto-configured as a Spring bean.
+    private final ObjectMapper json = new ObjectMapper();
     private final HttpClient http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
 
     @Value("${jynlo.push.enabled:false}")
