@@ -104,6 +104,22 @@ class CommunityChampionshipStandingsCalculatorTest {
     }
 
     @Test
+    void neverAwardsTheSameLeagueOrCupTwiceWhenInputContainsDuplicateIds() {
+        var league = completed(31L, 10L, "Ana", "25,18");
+        var cup = completed(32L, 10L, "Ana", null);
+        cup.setChampionshipWinnerPoints(10);
+        var result = CommunityChampionshipStandingsCalculator.calculate(
+                7L, List.of(league, league, cup, cup),
+                Map.of(31L, List.of(row(1, 10L, "Ana"), row(2, 20L, "Rui"))));
+        assertEquals(1, result.fullyScoredCompetitions());
+        assertEquals(1, result.winnerOnlyCompetitions());
+        assertEquals(0, result.pendingCompetitions());
+        assertEquals(35, result.standings().get(0).points());
+        assertEquals(2, result.standings().get(0).victories());
+        assertEquals(18, result.standings().get(1).points());
+    }
+
+    @Test
     void separatesTeamsAndIndividualsEvenWhenIdsMatch() {
         var athlete = completed(1L, 5L, "Atleta", null);
         var team = CommunityTournament.builder().id(2L).status(TournamentStatus.COMPLETED)
