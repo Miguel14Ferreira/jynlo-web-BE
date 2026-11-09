@@ -29,6 +29,7 @@ class CommunityChampionshipEventServiceTest {
     @Mock CommunityChampionshipEventRepository events;
     @Mock CommunityChampionshipEventTeamRepository eventTeams;
     @Mock CommunityChampionshipFixtureRepository fixtures;
+    @Mock CommunityChampionshipCupByeRepository cupByes;
     @Mock CommunityChampionshipTeamRepository championshipTeams;
     @Mock CommunityMemberRepository members;
     @Mock ProfileRepository profiles;
@@ -230,6 +231,62 @@ class CommunityChampionshipEventServiceTest {
         assertThrows(ResponseStatusException.class,
                 () -> service.addTeam(7L, 15L, 100L, 30L, "member"));
         verifyNoInteractions(eventTeams, championshipTeams);
+    }
+
+    @Test
+    void openingCupDrawPersistsMatchesAndByesWithoutTouchingOtherTournaments() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var cup = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Taça").format("CUP").status("DRAFT").build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(cup));
+        var registrations = new java.util.ArrayList<CommunityChampionshipEventTeam>();
+        for (long id = 1; id <= 3; id++) {
+            var team = CommunityChampionshipTeam.builder().id(id).championship(championship)
+                    .name("Equipa " + id).build();
+            registrations.add(CommunityChampionshipEventTeam.builder()
+                    .id(10 + id).event(cup).team(team).build());
+        }
+        when(eventTeams.findByEventIdOrderByIdAsc(100L)).thenReturn(registrations);
+        when(fixtures.save(any())).thenAnswer(invocation -> {
+            CommunityChampionshipFixture fixture = invocation.getArgument(0);
+            fixture.setId(900L);
+            return fixture;
+        });
+        when(cupByes.save(any())).thenAnswer(invocation -> {
+            CommunityChampionshipCupBye bye = invocation.getArgument(0);
+            bye.setId(901L);
+            return bye;
+        });
+        when(events.saveAndFlush(cup)).thenReturn(cup);
+        var result = service.drawCup(7L, 15L, 100L, "member");
+        assertEquals(1, result.matches().size());
+        assertEquals(1, result.byes().size());
+        assertEquals("SCHEDULED", cup.getStatus());
+        verify(fixtures).save(any(CommunityChampionshipFixture.class));
+        verify(cupByes).save(any(CommunityChampionshipCupBye.class));
+    }
+
+    @Test
+    void refusesCupDrawForNonOrganizerAndWrongFormat() {
+        member(CommunityRole.MEMBER);
+        assertThrows(AccessDeniedException.class,
+                () -> service.drawCup(7L, 15L, 100L, "member"));
+        verifyNoInteractions(fixtures, cupByes);
+    }
+
+    @Test
+    void refusesRedrawOfExistingCup() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var cup = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Taça").format("CUP").status("DRAFT").build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(cup));
+        when(fixtures.existsByEventId(100L)).thenReturn(true);
+        assertThrows(ResponseStatusException.class,
+                () -> service.drawCup(7L, 15L, 100L, "member"));
+        verify(fixtures, never()).save(any());
+        verify(cupByes, never()).save(any());
     }
 
     @Test
