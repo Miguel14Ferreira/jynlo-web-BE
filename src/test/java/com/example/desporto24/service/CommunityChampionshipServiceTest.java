@@ -35,6 +35,7 @@ class CommunityChampionshipServiceTest {
     @Mock CommunityTournamentStandingsService leagueStandings;
     @Mock CommunityTournamentTeamStandingsService teamLeagueStandings;
     @Mock CommunityTournamentTeamRepository tournamentTeams;
+    @org.mockito.Spy com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
     @InjectMocks CommunityChampionshipService service;
 
     private Community community;
@@ -251,6 +252,42 @@ class CommunityChampionshipServiceTest {
         assertEquals(1,result.winnerOnlyCompetitions());
         assertEquals(1,result.standings().size());
         assertEquals("TEAM_UNLINKED",result.standings().get(0).entryType());
+    }
+
+    @Test
+    void closesCompletedSeasonAndReadsFrozenStandingsAfterSourceChanges() {
+        organizer();
+        Profile actor = new Profile();
+        actor.setId(33L);
+        actor.setUsername("organizer");
+        when(members.existsByCommunityIdAndProfileId(7L, 33L)).thenReturn(true);
+        var cup = CommunityTournament.builder().id(91L).name("Taça")
+                .community(community).sport("Futebol")
+                .format(TournamentFormat.KNOCKOUT)
+                .entryType(com.example.desporto24.enumeration.TournamentEntryType.INDIVIDUAL)
+                .status(TournamentStatus.COMPLETED).championProfileId(44L)
+                .championDisplayName("Ana").championshipWinnerPoints(25).build();
+        championship.getCompetitions().add(cup);
+        when(championships.findForClosing(15L,7L)).thenReturn(Optional.of(championship));
+        when(championships.findByIdAndCommunityId(15L,7L)).thenReturn(Optional.of(championship));
+        when(championships.saveAndFlush(championship)).thenReturn(championship);
+
+        var closed = service.close(7L,15L,"organizer");
+        assertNotNull(closed.closedAt());
+        assertEquals("Ana", closed.championDisplayName());
+        assertEquals(44L, closed.championParticipantId());
+        assertNotNull(championship.getFinalStandingsJson());
+        assertEquals(25, service.standings(7L,15L,"organizer").standings().get(0).points());
+
+        cup.setChampionDisplayName("Nome alterado");
+        cup.setChampionshipWinnerPoints(999);
+        var historical = service.standings(7L,15L,"organizer");
+        assertEquals(25, historical.standings().get(0).points());
+        assertEquals("Ana", historical.standings().get(0).name());
+        assertThrows(ResponseStatusException.class,
+                () -> service.close(7L,15L,"organizer"));
+        assertThrows(ResponseStatusException.class,
+                () -> service.addCompetition(7L,15L,99L,"organizer"));
     }
 
     @Test
