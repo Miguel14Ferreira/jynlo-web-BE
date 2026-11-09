@@ -49,6 +49,12 @@ public class CommunityChampionshipController {
                 tournamentTeamId, request.championshipTeamId(), auth.getName());
     }
 
+    @PostMapping("/{championshipId}/close")
+    public CommunityChampionshipResponse close(
+            @PathVariable Long communityId, @PathVariable Long championshipId, Authentication auth) {
+        return championships.close(communityId, championshipId, auth.getName());
+    }
+
     @GetMapping("/{championshipId}/standings")
     public com.example.desporto24.model.dto.community.CommunityChampionshipStandingsResponse standings(
             @PathVariable Long communityId, @PathVariable Long championshipId, Authentication auth) {
