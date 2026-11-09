@@ -340,3 +340,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-09-community-championship-finalization.yaml
   - include:
       file: db/changelog/changes/2026-11-09-community-championship-history-competitions.yaml
+  - include:
+      file: db/changelog/changes/2026-11-09-community-permanent-team-identities.yaml
