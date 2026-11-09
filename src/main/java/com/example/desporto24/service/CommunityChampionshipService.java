@@ -286,6 +286,8 @@ public class CommunityChampionshipService {
             championship.setFinalStandingsJson(objectMapper.writeValueAsString(result));
             championship.setFinalCompetitionsJson(objectMapper.writeValueAsString(
                     competitionSummaries(championship)));
+            championship.setFinalTrophiesJson(objectMapper.writeValueAsString(
+                    trophySummaries(championship)));
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new IllegalStateException("Não foi possível guardar a classificação", e);
         }
@@ -316,6 +318,40 @@ public class CommunityChampionshipService {
                 .orElseThrow(() -> new AccessDeniedException("Não pertences a esta comunidade"));
         if (member.getRole() != CommunityRole.OWNER && member.getRole() != CommunityRole.ADMIN)
             throw new AccessDeniedException("Apenas Owners e Admins podem gerir campeonatos");
+    }
+
+    private java.util.List<CommunityChampionshipTrophySnapshot> trophySummaries(
+            CommunityChampionship championship) {
+        java.util.List<CommunityChampionshipTrophySnapshot> snapshots = new java.util.ArrayList<>();
+        for (CommunityTournament tournament : championship.getCompetitions()) {
+            if (tournament.getStatus() != com.example.desporto24.enumeration.TournamentStatus.COMPLETED
+                    || tournament.isChampionTied()) continue;
+            String kind = tournament.getEntryType() == com.example.desporto24.enumeration.TournamentEntryType.TEAM
+                    ? "TEAM" : "INDIVIDUAL";
+            Long playerId = null, seasonTeamId = null;
+            String name;
+            if ("TEAM".equals(kind)) {
+                Long tournamentTeamId = tournament.getChampionTeamId();
+                if (tournamentTeamId == null) continue;
+                name = tournament.getChampionTeamName();
+                for (CommunityTournamentTeam team : tournamentTeams.findByTournamentIdOrderByIdAsc(tournament.getId())) {
+                    if (tournamentTeamId.equals(team.getId()) && team.getChampionshipTeam() != null
+                            && championship.getId().equals(team.getChampionshipTeam().getChampionship().getId())) {
+                        seasonTeamId = team.getChampionshipTeam().getId();
+                        break;
+                    }
+                }
+            } else {
+                playerId = tournament.getChampionProfileId();
+                if (playerId == null) continue;
+                name = tournament.getChampionDisplayName();
+            }
+            if (name == null || name.isBlank()) continue;
+            snapshots.add(new CommunityChampionshipTrophySnapshot(
+                    tournament.getId(), tournament.getName(), tournament.getFormat().name(),
+                    kind, playerId, seasonTeamId, name));
+        }
+        return java.util.List.copyOf(snapshots);
     }
 
     private java.util.List<CommunityChampionshipResponse.ChampionshipCompetition> competitionSummaries(
