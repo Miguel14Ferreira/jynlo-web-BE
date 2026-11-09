@@ -25,6 +25,12 @@ public class CommunityChampionshipController {
         return championships.list(communityId, auth.getName());
     }
 
+    @GetMapping("/honours")
+    public com.example.desporto24.model.dto.community.CommunityChampionshipHonoursResponse honours(
+            @PathVariable Long communityId, Authentication auth) {
+        return championships.honours(communityId, auth.getName());
+    }
+
     @GetMapping("/{championshipId}/teams")
     public com.example.desporto24.model.dto.community.CommunityChampionshipTeamsResponse teams(
             @PathVariable Long communityId, @PathVariable Long championshipId, Authentication auth) {
