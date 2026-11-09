@@ -98,6 +98,8 @@ class CommunityPublicDiscoveryTest {
                 browse.getContent().stream().map(item -> item.name()).toList());
         assertFalse(browse.hasNext());
         assertTrue(repository.searchPresentations("jynlo qa", "", PageRequest.of(0, 20)).isEmpty());
+        assertEquals(java.util.List.of("Clube real"), repository.discoverPublicPresentations(
+                PageRequest.of(0, 20)).getContent().stream().map(item -> item.name()).toList());
     }
 
     @Test
