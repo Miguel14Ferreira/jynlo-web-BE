@@ -398,6 +398,63 @@ class SessionDiscoveryServiceTest {
         assertEquals(List.of(2L, 3L, 1L), byPrice.stream().map(SessionSummaryResponse::id).toList());
     }
 
+    @Test
+    void publicSessionMapCoordinatesUseCoarseGridNotExactGps() {
+        Session publicGame = session(90L, "Padel", "Lisboa", 38.73654, -9.25672, 0, false, 4, 2);
+        publicGame.setAudience(SessionAudience.PUBLIC);
+        stubCandidates(publicGame);
+        stubSummary(publicGame, null, 2);
+
+        var result = service.discover(criteria(
+                null, null, null, null, null, null, null,
+                null, null, null, "date"));
+
+        assertEquals(1, result.size());
+        var point = SessionDiscoveryLocationGrid.approximate(38.73654, -9.25672);
+        assertEquals(point.latitude(), result.getFirst().latitude());
+        assertEquals(point.longitude(), result.getFirst().longitude());
+        assertNotEquals(publicGame.getLatitude(), result.getFirst().latitude());
+        assertNotEquals(publicGame.getLongitude(), result.getFirst().longitude());
+    }
+
+    @Test
+    void linkedVenueContributesCoarseMapCoordinatesWhenSessionGpsIsMissing() {
+        Session publicGame = session(91L, "Futebol", "Lisboa", null, null, 0, false, 10, 4);
+        publicGame.setAudience(SessionAudience.PUBLIC);
+        var venue = new com.example.desporto24.model.venue.Venue();
+        venue.setLatitude(38.73654);
+        venue.setLongitude(-9.25672);
+        publicGame.setVenue(venue);
+        stubCandidates(publicGame);
+        stubSummary(publicGame, null, 4);
+
+        var result = service.discover(criteria(
+                null, null, null, null, null, null, null,
+                null, null, null, "date"));
+
+        var point = SessionDiscoveryLocationGrid.approximate(venue.getLatitude(), venue.getLongitude());
+        assertEquals(point.latitude(), result.getFirst().latitude());
+        assertEquals(point.longitude(), result.getFirst().longitude());
+    }
+
+    @Test
+    void privateAndCommunityOnlySessionsNeverPublishMapCoordinates() {
+        Session privateGame = session(92L, "Futebol", "Lisboa", 38.73654, -9.25672, 0, true, 10, 4);
+        privateGame.setAudience(SessionAudience.PUBLIC);
+        Session membersGame = session(93L, "Padel", "Lisboa", 38.73654, -9.25672, 0, false, 4, 2);
+        membersGame.setAudience(SessionAudience.COMMUNITY_ONLY);
+        stubCandidates(privateGame, membersGame);
+        stubSummary(privateGame, null, 4);
+        stubSummary(membersGame, null, 2);
+
+        var result = service.discover(criteria(
+                null, null, null, null, null, null, null,
+                null, null, null, "date"));
+
+        assertEquals(2, result.size());
+        assertTrue(result.stream().allMatch(row -> row.latitude() == null && row.longitude() == null));
+    }
+
     private void stubCandidates(Session... sessions) {
         when(sessionRepository.discoverCandidates(
                 anyCollection(), any(Date.class), anyString(), anyString(), anyString(), nullable(Date.class), nullable(Date.class),
