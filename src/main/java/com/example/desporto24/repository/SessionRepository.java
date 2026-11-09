@@ -20,6 +20,33 @@ import java.util.List;
 @Transactional(readOnly = true)
 public interface SessionRepository extends JpaRepository<Session, Long> {
 
+    /**
+     * Only active confirmed attendees or the organizer of the SAME upcoming
+     * session may contact one another. Removed/left attendees never qualify.
+     * No friendship is created by this query.
+     */
+    @Query("""
+            select case when count(s.id) > 0 then true else false end
+            from Session s
+            where s.gameDate > :now
+              and s.status in (
+                  com.example.desporto24.enumeration.SessionStatus.OPEN,
+                  com.example.desporto24.enumeration.SessionStatus.FULL)
+              and (s.enabled is null or s.enabled = true)
+              and (s.profile.id = :firstId or exists (
+                  select p1.id from SessionParticipant p1
+                  where p1.session.id = s.id and p1.profile.id = :firstId
+                    and p1.state = com.example.desporto24.enumeration.ParticipantState.ACTIVE))
+              and (s.profile.id = :secondId or exists (
+                  select p2.id from SessionParticipant p2
+                  where p2.session.id = s.id and p2.profile.id = :secondId
+                    and p2.state = com.example.desporto24.enumeration.ParticipantState.ACTIVE))
+            """)
+    boolean existsSharedUpcomingContactSession(
+            @Param("firstId") Long firstId,
+            @Param("secondId") Long secondId,
+            @Param("now") Date now);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from Session s where s.id = :sessionId and " +
            "(s.community.id = :communityId or " +
