@@ -348,3 +348,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-09-community-championship-owned-events.yaml
   - include:
       file: db/changelog/changes/2026-11-09-community-championship-owned-event-teams.yaml
+  - include:
+      file: db/changelog/changes/2026-11-09-championship-owned-league-fixtures.yaml
