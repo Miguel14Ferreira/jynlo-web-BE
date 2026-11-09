@@ -48,12 +48,8 @@ public class CommunityChampionshipEventService {
     public Event create(Long communityId, Long championshipId, String username, CreateEvent request) {
         requireMember(communityId, username, true);
         CommunityChampionship championship = getChampionship(communityId, championshipId);
-        if (championship.getClosedAt() != null)
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Campeonato encerrado");
-        if (request == null || request.name() == null || request.name().isBlank()
-                || request.name().trim().length() > 120
-                || request.format() == null || !FORMATS.contains(request.format()))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome ou formato de prova inválido");
+        ensureOpen(championship);
+        validateRequest(request);
 
         return response(events.save(CommunityChampionshipEvent.builder()
                 .championship(championship)
@@ -62,6 +58,51 @@ public class CommunityChampionshipEventService {
                 .status("DRAFT")
                 .createdAt(Instant.now())
                 .build()));
+    }
+
+    public Event update(Long communityId, Long championshipId, Long eventId,
+                        String username, CreateEvent request) {
+        requireMember(communityId, username, true);
+        CommunityChampionship championship = getChampionship(communityId, championshipId);
+        ensureOpen(championship);
+        validateRequest(request);
+        CommunityChampionshipEvent event = getOwnedEvent(championshipId, eventId);
+        ensureDraft(event);
+        event.setName(request.name().trim());
+        event.setFormat(request.format());
+        return response(events.save(event));
+    }
+
+    public void delete(Long communityId, Long championshipId, Long eventId, String username) {
+        requireMember(communityId, username, true);
+        CommunityChampionship championship = getChampionship(communityId, championshipId);
+        ensureOpen(championship);
+        CommunityChampionshipEvent event = getOwnedEvent(championshipId, eventId);
+        ensureDraft(event);
+        events.delete(event);
+    }
+
+    private CommunityChampionshipEvent getOwnedEvent(Long championshipId, Long eventId) {
+        return events.findByIdAndChampionshipId(eventId, championshipId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Prova não encontrada neste campeonato"));
+    }
+
+    private void ensureOpen(CommunityChampionship championship) {
+        if (championship.getClosedAt() != null)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Campeonato encerrado");
+    }
+
+    private void ensureDraft(CommunityChampionshipEvent event) {
+        if (!"DRAFT".equals(event.getStatus()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta prova já não é um rascunho");
+    }
+
+    private void validateRequest(CreateEvent request) {
+        if (request == null || request.name() == null || request.name().isBlank()
+                || request.name().trim().length() > 120
+                || request.format() == null || !FORMATS.contains(request.format()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome ou formato de prova inválido");
     }
 
     private CommunityChampionship getChampionship(Long communityId, Long championshipId) {
