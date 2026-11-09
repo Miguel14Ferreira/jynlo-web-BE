@@ -75,7 +75,7 @@ public class CommunityChampionshipEventService {
         CommunityChampionship championship = getChampionship(communityId, championshipId);
         ensureOpen(championship);
         validateRequest(request);
-        CommunityChampionshipEvent event = getOwnedEvent(championshipId, eventId);
+        CommunityChampionshipEvent event = lockOwnedEvent(championshipId, eventId);
         ensureDraft(event);
         event.setName(request.name().trim());
         event.setFormat(request.format());
@@ -86,7 +86,7 @@ public class CommunityChampionshipEventService {
         requireMember(communityId, username, true);
         CommunityChampionship championship = getChampionship(communityId, championshipId);
         ensureOpen(championship);
-        CommunityChampionshipEvent event = getOwnedEvent(championshipId, eventId);
+        CommunityChampionshipEvent event = lockOwnedEvent(championshipId, eventId);
         ensureDraft(event);
         // A draft can be withdrawn together with its own registrations.
         // Championship-season team identities remain intact for other competitions.
@@ -108,7 +108,7 @@ public class CommunityChampionshipEventService {
                                     Long seasonTeamId, String username) {
         requireMember(communityId, username, true);
         ensureOpen(getChampionship(communityId, championshipId));
-        CommunityChampionshipEvent event = getOwnedEvent(championshipId, eventId);
+        CommunityChampionshipEvent event = lockOwnedEvent(championshipId, eventId);
         ensureDraft(event);
         CommunityChampionshipTeam team = championshipTeams.findById(seasonTeamId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
@@ -131,7 +131,7 @@ public class CommunityChampionshipEventService {
                            Long seasonTeamId, String username) {
         requireMember(communityId, username, true);
         ensureOpen(getChampionship(communityId, championshipId));
-        ensureDraft(getOwnedEvent(championshipId, eventId));
+        ensureDraft(lockOwnedEvent(championshipId, eventId));
         CommunityChampionshipEventTeam entry = eventTeams.findByEventIdAndTeamId(eventId, seasonTeamId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Inscrição não encontrada nesta prova"));
@@ -204,6 +204,13 @@ public class CommunityChampionshipEventService {
     private TeamRegistration teamResponse(CommunityChampionshipEventTeam registration) {
         return new TeamRegistration(registration.getId(), registration.getTeam().getId(),
                 registration.getTeam().getName());
+    }
+
+    private CommunityChampionshipEvent lockOwnedEvent(Long championshipId, Long eventId) {
+        // Serialize every roster/draft mutation with schedule generation.
+        return events.lockForScheduling(eventId, championshipId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Prova não encontrada neste campeonato"));
     }
 
     private CommunityChampionshipEvent getOwnedEvent(Long championshipId, Long eventId) {
