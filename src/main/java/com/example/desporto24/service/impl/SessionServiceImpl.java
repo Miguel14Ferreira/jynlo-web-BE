@@ -872,6 +872,17 @@ public class SessionServiceImpl implements SessionService {
                     org.springframework.http.HttpStatus.CONFLICT,
                     "A lotação não pode ser inferior às presenças confirmadas");
         }
+        boolean changed = !gameDate.equals(session.getGameDate().toInstant())
+                || maxParticipants != session.getMaxParticipants()
+                || minParticipants != com.example.desporto24.service.SessionMinimumPlayers.required(session)
+                || priceAmount.compareTo(session.getPriceAmount() == null
+                        ? BigDecimal.ZERO : session.getPriceAmount()) != 0
+                || !newCity.equals(session.getCity())
+                || !newAddress.equals(session.getAddress())
+                || !java.util.Objects.equals(
+                        meetingPointInstructions == null || meetingPointInstructions.isBlank()
+                                ? null : meetingPointInstructions.trim(),
+                        session.getMeetingPointInstructions());
         int previousCapacity = session.getMaxParticipants();
         session.setGameDate(java.util.Date.from(gameDate));
         session.setMaxParticipants(maxParticipants);
@@ -902,6 +913,7 @@ public class SessionServiceImpl implements SessionService {
             }
             if (promoted) invalidateConfirmedTeams(sessionId);
         }
+        if (changed) sessionNotificationService.notifySessionDetailsUpdated(session);
         return sessionViewMapper.toDetail(session, actor);
     }
 
