@@ -39,6 +39,24 @@ class CommunityChampionshipHonoursTest {
     }
 
     @Test
+    void countsPermanentTeamTitlesOnlyWhenExplicitlyLinkedAcrossSeasons() {
+        var seasons = List.of(
+                season(5L, "TEAM", 20L, "Águias A", "2025-06-01T12:00:00Z"),
+                season(6L, "TEAM", 25L, "Águias B", "2026-06-01T12:00:00Z"),
+                season(7L, "TEAM", 30L, "Águias", "2026-07-01T12:00:00Z"));
+        var linked = java.util.Map.of(
+                5L,new CommunityChampionshipHonours.PermanentTeam(90L,"Águias FC"),
+                6L,new CommunityChampionshipHonours.PermanentTeam(90L,"Águias FC"));
+        var result = CommunityChampionshipHonours.calculate(7L,seasons,linked);
+        assertEquals(3,result.completedSeasons());
+        assertEquals(1,result.teamHonours().size());
+        assertEquals(90L,result.teamHonours().get(0).permanentTeamId());
+        assertEquals(2,result.teamHonours().get(0).titles());
+        assertEquals(2,result.titles().stream().filter(t -> t.permanentTeamId() != null).count());
+        assertNull(result.titles().get(0).permanentTeamId());
+    }
+
+    @Test
     void ignoresUnfinishedAndInvalidChampionSnapshots() {
         var result = CommunityChampionshipHonours.calculate(7L, List.of(
                 season(1L, "TEAM", 11L, "Águias", null),
