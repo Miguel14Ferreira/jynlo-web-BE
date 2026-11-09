@@ -33,6 +33,9 @@ public class CommunityChampionship {
     @Column(name = "closed_at")
     private Instant closedAt;
 
+    @Column(name = "final_competitions_json", columnDefinition = "text")
+    private String finalCompetitionsJson;
+
     @Column(name = "final_standings_json", columnDefinition = "text")
     private String finalStandingsJson;
 
