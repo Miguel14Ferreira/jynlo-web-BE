@@ -259,6 +259,8 @@ public class CommunityChampionshipService {
         var champion = ChampionshipFinalizationPolicy.champion(result);
         try {
             championship.setFinalStandingsJson(objectMapper.writeValueAsString(result));
+            championship.setFinalCompetitionsJson(objectMapper.writeValueAsString(
+                    competitionSummaries(championship)));
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new IllegalStateException("Não foi possível guardar a classificação", e);
         }
@@ -291,20 +293,40 @@ public class CommunityChampionshipService {
             throw new AccessDeniedException("Apenas Owners e Admins podem gerir campeonatos");
     }
 
+    private java.util.List<CommunityChampionshipResponse.ChampionshipCompetition> competitionSummaries(
+            CommunityChampionship championship) {
+        return championship.getCompetitions().stream()
+                .map(t -> new CommunityChampionshipResponse.ChampionshipCompetition(
+                        t.getId(), t.getName(), t.getFormat().name(), t.getStatus().name(),
+                        t.getChampionshipWinnerPoints() == null ? 10 : t.getChampionshipWinnerPoints(),
+                        t.getStatus() == com.example.desporto24.enumeration.TournamentStatus.COMPLETED
+                                && !t.isChampionTied()
+                                && (t.getChampionProfileId() != null || t.getChampionTeamId() != null),
+                        t.getChampionshipPlacePoints()))
+                .toList();
+    }
+
+    private java.util.List<CommunityChampionshipResponse.ChampionshipCompetition> historicalCompetitions(
+            CommunityChampionship championship) {
+        if (championship.getClosedAt() == null || championship.getFinalCompetitionsJson() == null)
+            return competitionSummaries(championship);
+        try {
+            return objectMapper.readValue(championship.getFinalCompetitionsJson(),
+                    new com.fasterxml.jackson.core.type.TypeReference<
+                            java.util.List<CommunityChampionshipResponse.ChampionshipCompetition>>() {});
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("Provas arquivadas inválidas", e);
+        }
+    }
+
     private CommunityChampionshipResponse toResponse(CommunityChampionship championship) {
         return new CommunityChampionshipResponse(
                 championship.getId(), championship.getCommunity().getId(), championship.getName(),
                 championship.getSport(), championship.getSeasonLabel(), championship.getCreatedAt(),
-                championship.getCompetitions().stream()
-                        .map(t -> new CommunityChampionshipResponse.ChampionshipCompetition(
-                                t.getId(), t.getName(), t.getFormat().name(), t.getStatus().name(),
-                                t.getChampionshipWinnerPoints() == null ? 10 : t.getChampionshipWinnerPoints(),
-                                t.getStatus() == com.example.desporto24.enumeration.TournamentStatus.COMPLETED
-                                        && !t.isChampionTied()
-                                        && (t.getChampionProfileId() != null || t.getChampionTeamId() != null),
-                                t.getChampionshipPlacePoints()))
-                        .toList(),
-                ChampionshipWinnerStandings.calculate(championship.getCompetitions()),
+                historicalCompetitions(championship),
+                championship.getClosedAt() == null
+                        ? ChampionshipWinnerStandings.calculate(championship.getCompetitions())
+                        : java.util.List.of(),
                 championship.getClosedAt(), championship.getChampionEntryType(),
                 championship.getChampionParticipantId(), championship.getChampionDisplayName());
     }
