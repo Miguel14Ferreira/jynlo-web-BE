@@ -811,7 +811,7 @@ public class SessionServiceImpl implements SessionService {
      */
     @Override
     @Transactional
-    public SessionDetailResponse updateDetails(Long sessionId, Instant gameDate,
+    public SessionDetailResponse updateDetails(Long sessionId, String sport, Instant gameDate,
             int maxParticipants, int minParticipants, BigDecimal priceAmount,
             String city, String address, String meetingPointInstructions, String username) {
         Session session = sessionRepository.findByIdForUpdate(sessionId)
@@ -841,8 +841,26 @@ public class SessionServiceImpl implements SessionService {
                 throw new IllegalArgumentException("A abertura das inscrições deve ser anterior à sessão");
             }
         }
+        String selectedSport = sport == null ? "" : sport.trim();
+        if (!SportsCatalog.ALLOWED.contains(selectedSport)) {
+            throw new IllegalArgumentException("Modalidade inválida");
+        }
+        boolean sportChanged = !selectedSport.equals(session.getSport());
+        if (sportChanged) {
+            long activeCount = participantRepository.countBySessionIdAndState(
+                    sessionId, ParticipantState.ACTIVE);
+            if (activeCount != 1
+                    || SessionCapacity.totalConfirmed(session, activeCount) != 1
+                    || !waitlistRepository.findBySessionIdOrderByPriorityTierAscCreatedAtAsc(sessionId).isEmpty()
+                    || session.getCommunity() != null || session.getSeasonCompetition() != null
+                    || session.getVenue() != null || session.getRecurrenceSeriesId() != null) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.CONFLICT,
+                        "A modalidade só pode ser alterada numa sessão independente sem inscrições adicionais");
+            }
+        }
         com.example.desporto24.service.SessionMinimumPlayers.validate(
-                minParticipants, session.getSport(), maxParticipants);
+                minParticipants, selectedSport, maxParticipants);
         if (priceAmount == null || priceAmount.signum() < 0
                 || priceAmount.scale() > 2 || priceAmount.precision() > 10) {
             throw new IllegalArgumentException("O preço deve ser válido e ter no máximo duas casas decimais");
@@ -872,7 +890,7 @@ public class SessionServiceImpl implements SessionService {
                     org.springframework.http.HttpStatus.CONFLICT,
                     "A lotação não pode ser inferior às presenças confirmadas");
         }
-        boolean changed = !gameDate.equals(session.getGameDate().toInstant())
+        boolean changed = sportChanged || !gameDate.equals(session.getGameDate().toInstant())
                 || maxParticipants != session.getMaxParticipants()
                 || minParticipants != com.example.desporto24.service.SessionMinimumPlayers.required(session)
                 || priceAmount.compareTo(session.getPriceAmount() == null
@@ -884,6 +902,11 @@ public class SessionServiceImpl implements SessionService {
                                 ? null : meetingPointInstructions.trim(),
                         session.getMeetingPointInstructions());
         int previousCapacity = session.getMaxParticipants();
+        if (sportChanged) {
+            session.setSport(selectedSport);
+            session.setPlayFormat(com.example.desporto24.service.SessionPlayFormatPolicy.resolve(selectedSport, null));
+            session.setAirsoftGameType(null);
+        }
         session.setGameDate(java.util.Date.from(gameDate));
         session.setMaxParticipants(maxParticipants);
         session.setMinParticipants(minParticipants);
