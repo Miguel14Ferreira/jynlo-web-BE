@@ -150,7 +150,7 @@ class SessionLifecycleServiceTest {
         Profile player = profile("player");
         participant(player);
         Instant newKickoff = Instant.now().plusSeconds(7200);
-        var result = service.updateDetails(session.getId(), newKickoff,
+        var result = service.updateDetails(session.getId(), session.getSport(), newKickoff,
                 5, 3, new java.math.BigDecimal("7.50"),
                 "Lisboa", "Rua Nova", "Entrada lateral", creator.getUsername());
         assertEquals(5, result.maxParticipants());
@@ -168,13 +168,13 @@ class SessionLifecycleServiceTest {
         participant(profile("player"));
         participant(profile("player2"));
         assertThrows(org.springframework.web.server.ResponseStatusException.class,
-                () -> service.updateDetails(session.getId(), Instant.now().plusSeconds(7200),
+                () -> service.updateDetails(session.getId(), session.getSport(), Instant.now().plusSeconds(7200),
                         2, 2, java.math.BigDecimal.ZERO, "Lisboa", "Rua Nova", null,
                         creator.getUsername()));
         session.setGameDate(Date.from(Instant.now().minusSeconds(10)));
         sessionRepository.saveAndFlush(session);
         assertThrows(org.springframework.web.server.ResponseStatusException.class,
-                () -> service.updateDetails(session.getId(), Instant.now().plusSeconds(7200),
+                () -> service.updateDetails(session.getId(), session.getSport(), Instant.now().plusSeconds(7200),
                         4, 2, java.math.BigDecimal.ZERO, "Lisboa", "Rua Nova", null,
                         creator.getUsername()));
     }
