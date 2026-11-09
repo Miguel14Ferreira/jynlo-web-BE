@@ -119,6 +119,27 @@ public class SessionNotificationService {
         ));
     }
 
+    /** Alert participants and waitlisted users after the organiser changes core details.
+     * Private arrival notes and the exact address are deliberately excluded.
+     */
+    @Transactional
+    public void notifySessionDetailsUpdated(Session session) {
+        Map<String, Profile> affected = new LinkedHashMap<>();
+        participantRepository.findBySessionIdAndStateOrderByJoinedAtAsc(
+                session.getId(), ParticipantState.ACTIVE).stream()
+                .map(p -> p.getProfile())
+                .filter(p -> p != null && p.getUsername() != null && !p.getUsername().isBlank())
+                .forEach(p -> affected.putIfAbsent(p.getUsername(), p));
+        waitlistRepository.findBySessionIdOrderByPriorityTierAscCreatedAtAsc(session.getId())
+                .stream().map(w -> w.getProfile())
+                .filter(p -> p != null && p.getUsername() != null && !p.getUsername().isBlank())
+                .forEach(p -> affected.putIfAbsent(p.getUsername(), p));
+        if (session.getProfile() != null) affected.remove(session.getProfile().getUsername());
+        affected.values().forEach(p -> save(p, session, NotificationType.SESSION_DETAILS_UPDATED,
+                "Sessão atualizada",
+                "O organizador alterou os detalhes da sessão. Consulta a data, o local e as condições atuais."));
+    }
+
     private void save(
             Profile profile,
             Session session,
