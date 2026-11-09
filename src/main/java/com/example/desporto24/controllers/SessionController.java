@@ -141,6 +141,7 @@ public class SessionController {
      */
     /** Edit the principal details of a future session without changing its identity or membership. */
     public record EditSessionDetailsRequest(
+            @jakarta.validation.constraints.NotBlank String sport,
             @jakarta.validation.constraints.NotNull java.time.Instant gameDate,
             @jakarta.validation.constraints.Min(2) @jakarta.validation.constraints.Max(100) int maxParticipants,
             @jakarta.validation.constraints.Min(2) @jakarta.validation.constraints.Max(100) int minParticipants,
@@ -153,7 +154,7 @@ public class SessionController {
     @PatchMapping("/{id}/details")
     public SessionDetailResponse updateDetails(@PathVariable Long id,
             @RequestBody @Valid EditSessionDetailsRequest request, Authentication authentication) {
-        return sessionService.updateDetails(id, request.gameDate(), request.maxParticipants(),
+        return sessionService.updateDetails(id, request.sport(), request.gameDate(), request.maxParticipants(),
                 request.minParticipants(), request.priceAmount(), request.city(), request.address(),
                 request.meetingPointInstructions(), authentication.getName());
     }
