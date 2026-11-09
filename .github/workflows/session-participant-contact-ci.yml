@@ -1,0 +1,31 @@
+name: Jynlo session participant contact ACL
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'src/main/java/com/example/desporto24/service/SessionContactAccessService.java'
+      - 'src/main/java/com/example/desporto24/service/impl/ChatServiceImpl.java'
+      - 'src/main/java/com/example/desporto24/repository/SessionRepository.java'
+      - 'src/test/java/com/example/desporto24/service/SessionContactAccessServiceTest.java'
+      - 'src/test/java/com/example/desporto24/service/SessionContactChatAuthorizationTest.java'
+      - '.github/workflows/session-participant-contact-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contact-authorization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Test mutual session contact permissions
+        env:
+          AES_ENCRYPTION_KEY: ciKey1
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp -Dtest=SessionContactAccessServiceTest,SessionContactChatAuthorizationTest test
