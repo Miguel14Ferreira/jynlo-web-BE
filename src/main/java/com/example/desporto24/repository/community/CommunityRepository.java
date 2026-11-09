@@ -38,6 +38,7 @@ public interface CommunityRepository extends JpaRepository<Community, Long> {
                 c.photoZoom, c.photoFocusX, c.photoFocusY, c.photoFitMode)
             FROM Community c
             WHERE c.visibility = com.example.desporto24.enumeration.CommunityVisibility.PUBLIC
+              AND LOWER(TRIM(c.name)) NOT LIKE 'jynlo qa%'
             ORDER BY LOWER(c.name), c.id
             """)
     Slice<CommunityDiscoveryResponse> discoverPublicPresentations(Pageable pageable);
