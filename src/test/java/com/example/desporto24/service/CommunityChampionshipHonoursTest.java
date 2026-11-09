@@ -57,6 +57,35 @@ class CommunityChampionshipHonoursTest {
     }
 
     @Test
+    void countsLeagueAndCupTrophiesOnlyFromArchivedExplicitlyLinkedWinners() {
+        var seasonOne = season(11L, "TEAM", 301L, "Águias A", "2025-06-01T12:00:00Z");
+        var seasonTwo = season(12L, "TEAM", 302L, "Águias B", "2026-06-01T12:00:00Z");
+        var permanent = new CommunityChampionshipHonours.PermanentTeam(90L, "Águias FC");
+        var result = CommunityChampionshipHonours.calculate(7L,
+                List.of(seasonOne, seasonTwo),
+                java.util.Map.of(11L, permanent, 12L, permanent),
+                java.util.Map.of(301L, permanent, 302L, permanent),
+                java.util.Map.of(
+                        11L, List.of(
+                                new com.example.desporto24.model.dto.community.CommunityChampionshipTrophySnapshot(
+                                        41L, "Liga", "LEAGUE", "TEAM", null, 301L, "Águias A"),
+                                new com.example.desporto24.model.dto.community.CommunityChampionshipTrophySnapshot(
+                                        42L, "Taça", "KNOCKOUT", "TEAM", null, 301L, "Águias A")),
+                        12L, List.of(
+                                new com.example.desporto24.model.dto.community.CommunityChampionshipTrophySnapshot(
+                                        43L, "Taça", "GROUP_KNOCKOUT", "TEAM", null, 302L, "Águias B"),
+                                new com.example.desporto24.model.dto.community.CommunityChampionshipTrophySnapshot(
+                                        44L, "Taça sem associação", "KNOCKOUT", "TEAM", null, null, "Leões"))
+                ));
+        assertEquals(2, result.teamHonours().get(0).titles());
+        assertEquals(1, result.teamHonours().get(0).leagues());
+        assertEquals(2, result.teamHonours().get(0).cups());
+        assertEquals(4, result.competitionTitles().size());
+        assertEquals(1, result.competitionTitles().stream()
+                .filter(t -> t.permanentTeamId() == null).count());
+    }
+
+    @Test
     void ignoresUnfinishedAndInvalidChampionSnapshots() {
         var result = CommunityChampionshipHonours.calculate(7L, List.of(
                 season(1L, "TEAM", 11L, "Águias", null),
