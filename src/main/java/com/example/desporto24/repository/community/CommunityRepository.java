@@ -17,7 +17,8 @@ public interface CommunityRepository extends JpaRepository<Community, Long> {
                 c.id, c.name, c.description, c.sport, c.photoUrl, c.visibility,
                 c.photoZoom, c.photoFocusX, c.photoFocusY, c.photoFitMode)
             FROM Community c
-            WHERE (:name = '' OR LOWER(c.name) LIKE CONCAT('%', :name, '%') ESCAPE '!')
+            WHERE LOWER(TRIM(c.name)) NOT LIKE 'jynlo qa%'
+              AND (:name = '' OR LOWER(c.name) LIKE CONCAT('%', :name, '%') ESCAPE '!')
               AND (:sport = ''
                    OR LOWER(COALESCE(c.sport, '')) LIKE CONCAT('%', :sport, '%') ESCAPE '!'
                    OR EXISTS (
