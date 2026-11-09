@@ -250,6 +250,12 @@ public class CommunityChampionshipService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Campeonato não encontrado"));
         ensureOpen(championship);
         CommunityChampionshipStandingsResponse result = standings(communityId, championshipId, username);
+        long leaguesRequiringFullPositions = championship.getCompetitions().stream()
+                .filter(t -> t.getFormat() == com.example.desporto24.enumeration.TournamentFormat.LEAGUE
+                        && t.getChampionshipPlacePoints() != null).count();
+        if (result.fullyScoredCompetitions() < leaguesRequiringFullPositions)
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Existem ligas sem todas as posições verificadas; completa os resultados e associa as equipas");
         var champion = ChampionshipFinalizationPolicy.champion(result);
         try {
             championship.setFinalStandingsJson(objectMapper.writeValueAsString(result));
