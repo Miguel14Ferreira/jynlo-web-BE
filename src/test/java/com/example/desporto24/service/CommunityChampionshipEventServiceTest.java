@@ -206,8 +206,30 @@ class CommunityChampionshipEventServiceTest {
         assertThrows(AccessDeniedException.class,
                 () -> service.scheduleLeague(7L, 15L, 100L, 1, "member"));
         verifyNoInteractions(fixtures);
+    }
 
-        // This second case uses an authorized organizer and a cup in the same championship.
+    @Test
+    void cannotGenerateLeagueScheduleForCupFormat() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var cup = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Taça").format("CUP").status("DRAFT").build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(cup));
+        assertThrows(ResponseStatusException.class,
+                () -> service.scheduleLeague(7L, 15L, 100L, 1, "member"));
+        verifyNoInteractions(fixtures);
+    }
+
+    @Test
+    void scheduledLeagueRejectsFurtherRegistrations() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Liga").format("LEAGUE").status("SCHEDULED").build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
+        assertThrows(ResponseStatusException.class,
+                () -> service.addTeam(7L, 15L, 100L, 30L, "member"));
+        verifyNoInteractions(eventTeams, championshipTeams);
     }
 
     @Test
