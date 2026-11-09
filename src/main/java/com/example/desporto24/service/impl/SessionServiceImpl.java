@@ -590,8 +590,9 @@ public class SessionServiceImpl implements SessionService {
             Map<Long, Long> participantCounts,
             Set<Long> joinedSessionIds,
             Set<Long> waitlistedSessionIds) {
-        // Only share coarse discovery grid positions for genuinely public sessions.
-        // Never expose exact session or venue coordinates through this endpoint.
+        // Radius and distance use the existing stable coarse grid for ALL
+        // sessions, including private ones, so repeated probes cannot locate
+        // their exact position. Map pins remain PUBLIC-only.
         boolean publicSession = !Boolean.TRUE.equals(session.getPrivateGame())
                 && (session.getAudience() == SessionAudience.PUBLIC
                     || (session.getAudience() == null && session.getCommunity() == null));
@@ -602,22 +603,22 @@ public class SessionServiceImpl implements SessionService {
             latitude = session.getVenue().getLatitude();
             longitude = session.getVenue().getLongitude();
         }
-        SessionDiscoveryLocationGrid.ApproximatePoint publicPoint = null;
-        if (publicSession && latitude != null && longitude != null
+        SessionDiscoveryLocationGrid.ApproximatePoint coarsePoint = null;
+        if (latitude != null && longitude != null
                 && Double.isFinite(latitude) && Double.isFinite(longitude)
                 && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) {
-            publicPoint = SessionDiscoveryLocationGrid.approximate(latitude, longitude);
+            coarsePoint = SessionDiscoveryLocationGrid.approximate(latitude, longitude);
         }
         Double distanceKm = null;
-        if (hasCoordinates && publicPoint != null) {
+        if (hasCoordinates && coarsePoint != null) {
             distanceKm = distanceCalculator.kilometres(
                     criteria.latitude(), criteria.longitude(),
-                    publicPoint.latitude(), publicPoint.longitude());
+                    coarsePoint.latitude(), coarsePoint.longitude());
         }
         SessionSummaryResponse summary = sessionViewMapper.toSummary(
                 session, distanceKm, participantCounts, joinedSessionIds, waitlistedSessionIds);
-        return publicPoint == null ? summary
-                : summary.withPublicMapPosition(publicPoint.latitude(), publicPoint.longitude());
+        return !publicSession || coarsePoint == null ? summary
+                : summary.withPublicMapPosition(coarsePoint.latitude(), coarsePoint.longitude());
     }
 
     private Comparator<SessionSummaryResponse> discoveryComparator(String sort) {
