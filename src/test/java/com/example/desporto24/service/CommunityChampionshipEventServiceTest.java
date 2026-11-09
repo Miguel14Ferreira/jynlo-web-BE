@@ -26,6 +26,8 @@ import static org.mockito.Mockito.*;
 class CommunityChampionshipEventServiceTest {
     @Mock CommunityChampionshipRepository championships;
     @Mock CommunityChampionshipEventRepository events;
+    @Mock CommunityChampionshipEventTeamRepository eventTeams;
+    @Mock CommunityChampionshipTeamRepository championshipTeams;
     @Mock CommunityMemberRepository members;
     @Mock ProfileRepository profiles;
     @InjectMocks CommunityChampionshipEventService service;
@@ -153,6 +155,86 @@ class CommunityChampionshipEventServiceTest {
         when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(draft));
         service.delete(7L, 15L, 100L, "member");
         verify(events).delete(draft);
+    }
+
+    @Test
+    void organizerRegistersSeasonTeamForOwnedCupWithoutTouchingStandaloneTournaments() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var cup = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Taça").format("CUP").status("DRAFT").createdAt(Instant.now()).build();
+        var team = CommunityChampionshipTeam.builder().id(30L).championship(championship)
+                .name("Águias").normalizedName("águias").createdAt(Instant.now()).build();
+        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(cup));
+        when(championshipTeams.findById(30L)).thenReturn(Optional.of(team));
+        when(eventTeams.saveAndFlush(any())).thenAnswer(invocation -> {
+            CommunityChampionshipEventTeam saved = invocation.getArgument(0);
+            saved.setId(900L);
+            return saved;
+        });
+        var registered = service.addTeam(7L, 15L, 100L, 30L, "member");
+        assertEquals(900L, registered.id());
+        assertEquals(30L, registered.championshipTeamId());
+        assertEquals("Águias", registered.name());
+        verify(eventTeams).saveAndFlush(any(CommunityChampionshipEventTeam.class));
+    }
+
+    @Test
+    void cannotRegisterTeamFromAnotherChampionship() {
+        member(CommunityRole.ADMIN);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var cup = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Taça").format("CUP").status("DRAFT").build();
+        var otherChampionship = CommunityChampionship.builder().id(16L).build();
+        var team = CommunityChampionshipTeam.builder().id(30L).championship(otherChampionship)
+                .name("Equipa externa").build();
+        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(cup));
+        when(championshipTeams.findById(30L)).thenReturn(Optional.of(team));
+        assertThrows(ResponseStatusException.class,
+                () -> service.addTeam(7L, 15L, 100L, 30L, "member"));
+        verify(eventTeams, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void duplicateTeamRegistrationIsRejected() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Liga").format("LEAGUE").status("DRAFT").build();
+        var team = CommunityChampionshipTeam.builder().id(30L).championship(championship)
+                .name("Águias").build();
+        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(league));
+        when(championshipTeams.findById(30L)).thenReturn(Optional.of(team));
+        when(eventTeams.existsByEventIdAndTeamId(100L, 30L)).thenReturn(true);
+        assertThrows(ResponseStatusException.class,
+                () -> service.addTeam(7L, 15L, 100L, 30L, "member"));
+        verify(eventTeams, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void ordinaryMembersCannotRegisterOrRemoveTeams() {
+        member(CommunityRole.MEMBER);
+        assertThrows(AccessDeniedException.class,
+                () -> service.addTeam(7L, 15L, 100L, 30L, "member"));
+        assertThrows(AccessDeniedException.class,
+                () -> service.removeTeam(7L, 15L, 100L, 30L, "member"));
+        verifyNoInteractions(eventTeams);
+    }
+
+    @Test
+    void removeTeamAffectsOnlyTheSpecificOwnedCompetition() {
+        member(CommunityRole.ADMIN);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Liga").format("LEAGUE").status("DRAFT").build();
+        var team = CommunityChampionshipTeam.builder().id(30L).championship(championship).name("Águias").build();
+        var registration = CommunityChampionshipEventTeam.builder()
+                .id(900L).event(league).team(team).build();
+        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(league));
+        when(eventTeams.findByEventIdAndTeamId(100L, 30L)).thenReturn(Optional.of(registration));
+        service.removeTeam(7L, 15L, 100L, 30L, "member");
+        verify(eventTeams).delete(registration);
+        verify(championshipTeams, never()).delete(any());
     }
 
     @Test
