@@ -87,7 +87,8 @@ public class CommunityChampionshipTeamsService {
 
     private CommunityChampionshipTeamsResponse response(CommunityChampionship championship) {
         var teams = seasonTeams.findByChampionshipIdOrderByNameAscIdAsc(championship.getId())
-                .stream().map(t -> new CommunityChampionshipTeamsResponse.Team(t.getId(), t.getName())).toList();
+                .stream().map(t -> new CommunityChampionshipTeamsResponse.Team(t.getId(), t.getName(),
+                        t.getPermanentTeam() == null ? null : t.getPermanentTeam().getId())).toList();
         List<CommunityChampionshipTeamsResponse.CompetitionTeam> entries = new ArrayList<>();
         for (var tournament : championship.getCompetitions()) {
             for (var team : tournamentTeams.findByTournamentIdOrderByIdAsc(tournament.getId())) {
