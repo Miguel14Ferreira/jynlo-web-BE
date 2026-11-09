@@ -53,6 +53,13 @@ public class CommunityChampionshipService {
                 .stream().map(this::toResponse).toList();
     }
 
+    @Transactional(readOnly = true)
+    public CommunityChampionshipHonoursResponse honours(Long communityId, String username) {
+        requireMember(communityId, username);
+        return CommunityChampionshipHonours.calculate(communityId,
+                championships.findByCommunityIdOrderByCreatedAtDescIdDesc(communityId));
+    }
+
     public CommunityChampionshipResponse addCompetition(Long communityId, Long championshipId,
                                                          Long tournamentId, String username) {
         requireOrganizer(communityId, username);
