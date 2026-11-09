@@ -28,6 +28,7 @@ public class CommunityChampionshipService {
     private final CommunityTournamentStandingsService leagueStandings;
     private final CommunityTournamentTeamStandingsService teamLeagueStandings;
     private final CommunityTournamentTeamRepository tournamentTeams;
+    private final CommunityChampionshipTeamRepository championshipTeams;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     public CommunityChampionshipResponse create(Long communityId, String username,
@@ -56,8 +57,25 @@ public class CommunityChampionshipService {
     @Transactional(readOnly = true)
     public CommunityChampionshipHonoursResponse honours(Long communityId, String username) {
         requireMember(communityId, username);
-        return CommunityChampionshipHonours.calculate(communityId,
-                championships.findByCommunityIdOrderByCreatedAtDescIdDesc(communityId));
+        var seasons = championships.findByCommunityIdOrderByCreatedAtDescIdDesc(communityId);
+        var ids = seasons.stream().filter(s -> s.getClosedAt() != null)
+                .map(CommunityChampionship::getId).toList();
+        java.util.Map<Long, CommunityChampionshipHonours.PermanentTeam> linked = new java.util.HashMap<>();
+        if (!ids.isEmpty()) {
+            for (CommunityChampionshipTeam team : championshipTeams.findByChampionshipIdIn(ids)) {
+                var season = team.getChampionship();
+                var permanent = team.getPermanentTeam();
+                if (permanent != null && season.getClosedAt() != null
+                        && "TEAM".equals(season.getChampionEntryType())
+                        && team.getId().equals(season.getChampionParticipantId())
+                        && permanent.getCommunity().getId().equals(communityId)) {
+                    linked.put(season.getId(),
+                            new CommunityChampionshipHonours.PermanentTeam(
+                                    permanent.getId(), permanent.getName()));
+                }
+            }
+        }
+        return CommunityChampionshipHonours.calculate(communityId, seasons, linked);
     }
 
     public CommunityChampionshipResponse addCompetition(Long communityId, Long championshipId,
