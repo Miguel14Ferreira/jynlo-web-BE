@@ -30,6 +30,25 @@ public class CommunityChampionship {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Column(name = "closed_at")
+    private Instant closedAt;
+
+    @Column(name = "final_standings_json", columnDefinition = "text")
+    private String finalStandingsJson;
+
+    @Column(name = "champion_entry_type", length = 24)
+    private String championEntryType;
+
+    @Column(name = "champion_participant_id")
+    private Long championParticipantId;
+
+    @Column(name = "champion_display_name", length = 255)
+    private String championDisplayName;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
+
     @ManyToMany
     @JoinTable(name = "community_championship_tournament",
         joinColumns = @JoinColumn(name = "championship_id"),
