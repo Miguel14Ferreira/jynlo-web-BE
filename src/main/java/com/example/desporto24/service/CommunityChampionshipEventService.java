@@ -32,6 +32,7 @@ public class CommunityChampionshipEventService {
     private final CommunityChampionshipRepository championships;
     private final CommunityChampionshipEventRepository events;
     private final CommunityChampionshipEventTeamRepository eventTeams;
+    private final CommunityChampionshipFixtureRepository fixtures;
     private final CommunityChampionshipTeamRepository championshipTeams;
     private final CommunityMemberRepository members;
     private final ProfileRepository profiles;
@@ -130,6 +131,69 @@ public class CommunityChampionshipEventService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Inscrição não encontrada nesta prova"));
         eventTeams.delete(entry);
+    }
+
+    public record LeagueFixture(Long id, int round, int match,
+                                Long homeTeamId, String homeTeamName,
+                                Long awayTeamId, String awayTeamName) {}
+
+    @Transactional(readOnly = true)
+    public List<LeagueFixture> fixtures(Long communityId, Long championshipId,
+                                        Long eventId, String username) {
+        requireMember(communityId, username, false);
+        getChampionship(communityId, championshipId);
+        getOwnedEvent(championshipId, eventId);
+        return fixtures.findByEventIdOrderByRoundNumberAscMatchNumberAsc(eventId)
+                .stream().map(this::fixtureResponse).toList();
+    }
+
+    public List<LeagueFixture> scheduleLeague(Long communityId, Long championshipId,
+                                               Long eventId, int legs, String username) {
+        requireMember(communityId, username, true);
+        ensureOpen(getChampionship(communityId, championshipId));
+        CommunityChampionshipEvent event = events.lockForScheduling(eventId, championshipId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Liga não encontrada neste campeonato"));
+        if (!"LEAGUE".equals(event.getFormat()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Só as ligas podem gerar um calendário de jornadas");
+        ensureDraft(event);
+        if (fixtures.existsByEventId(eventId))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Este calendário já foi gerado");
+        List<CommunityChampionshipEventTeam> registrations = eventTeams.findByEventIdOrderByIdAsc(eventId);
+        var byId = new java.util.HashMap<Long, com.example.desporto24.model.community.CommunityChampionshipTeam>();
+        for (CommunityChampionshipEventTeam registration : registrations) {
+            var team = registration.getTeam();
+            if (!championshipId.equals(team.getChampionship().getId()))
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Inscrição de equipa inconsistente com o campeonato");
+            if (byId.putIfAbsent(team.getId(), team) != null)
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Equipa repetida na liga");
+        }
+        final List<ChampionshipLeagueScheduler.Match> schedule;
+        try {
+            schedule = ChampionshipLeagueScheduler.generate(
+                    new java.util.ArrayList<>(byId.keySet()), legs);
+        } catch (IllegalArgumentException invalid) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, invalid.getMessage());
+        }
+        var saved = new java.util.ArrayList<LeagueFixture>(schedule.size());
+        for (ChampionshipLeagueScheduler.Match match : schedule) {
+            var fixture = fixtures.save(com.example.desporto24.model.community.CommunityChampionshipFixture.builder()
+                    .event(event).roundNumber(match.round()).matchNumber(match.match())
+                    .homeTeam(byId.get(match.homeTeamId()))
+                    .awayTeam(byId.get(match.awayTeamId())).build());
+            saved.add(fixtureResponse(fixture));
+        }
+        event.setStatus("SCHEDULED");
+        events.saveAndFlush(event);
+        return List.copyOf(saved);
+    }
+
+    private LeagueFixture fixtureResponse(com.example.desporto24.model.community.CommunityChampionshipFixture fixture) {
+        return new LeagueFixture(fixture.getId(), fixture.getRoundNumber(), fixture.getMatchNumber(),
+                fixture.getHomeTeam().getId(), fixture.getHomeTeam().getName(),
+                fixture.getAwayTeam().getId(), fixture.getAwayTeam().getName());
     }
 
     private TeamRegistration teamResponse(CommunityChampionshipEventTeam registration) {
