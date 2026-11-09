@@ -99,6 +99,53 @@ class SessionLifecycleServiceTest {
     }
 
     @Test
+    void organizerCanIncreaseCapacityAndPromoteWaitlistedPlayer() {
+        Profile other = profile("player");
+        participant(other);
+        Profile waiting = profile("waiting");
+        waitlisted(waiting);
+        session.setStatus(SessionStatus.FULL);
+        sessionRepository.saveAndFlush(session);
+
+        var result = service.updateCapacity(session.getId(), 4, creator.getUsername());
+        assertEquals(4, result.maxParticipants());
+        assertTrue(participantRepository.existsBySessionIdAndProfileIdAndState(
+                session.getId(), waiting.getId(), ParticipantState.ACTIVE));
+        assertEquals(4, sessionRepository.findById(session.getId()).orElseThrow().getMaxParticipants());
+    }
+
+    @Test
+    void organizerCannotReduceCapacityBelowConfirmedPlayers() {
+        participant(profile("player"));
+        participant(profile("player2"));
+        session.setMaxParticipants(5);
+        sessionRepository.saveAndFlush(session);
+
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> service.updateCapacity(session.getId(), 2, creator.getUsername()));
+        assertEquals(5, sessionRepository.findById(session.getId()).orElseThrow().getMaxParticipants());
+        service.updateCapacity(session.getId(), 3, creator.getUsername());
+        assertEquals(SessionStatus.FULL,
+                sessionRepository.findById(session.getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void capacityChangesAreOwnerOnlyAndRequireFutureActiveSession() {
+        Profile other = profile("player");
+        participant(other);
+        assertThrows(AccessDeniedException.class,
+                () -> service.updateCapacity(session.getId(), 5, other.getUsername()));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.updateCapacity(session.getId(), 101, creator.getUsername()));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.updateCapacity(session.getId(), 1, creator.getUsername()));
+        session.setGameDate(Date.from(Instant.now().minusSeconds(60)));
+        sessionRepository.saveAndFlush(session);
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> service.updateCapacity(session.getId(), 5, creator.getUsername()));
+    }
+
+    @Test
     void editingMeetingPointNotifiesOnlyActivePlayersAndOnlyOnRealChanges() {
         Profile active = profile("player");
         participant(active);
