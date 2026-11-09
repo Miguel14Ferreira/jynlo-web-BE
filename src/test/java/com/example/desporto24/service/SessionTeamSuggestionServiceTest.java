@@ -238,6 +238,23 @@ class SessionTeamSuggestionServiceTest {
                 () -> service.confirm(42L, "organizer", "RANDOM",
                         new com.example.desporto24.model.dto.session.ConfirmRandomSessionTeamsRequest(
                                 List.of("player1", "player1"), List.of("player3", "player4"))));
+
+        // Manual selection starts from a stable roster, never a random shuffle.
+        var manual = service.suggest(42L, "organizer", "MANUAL");
+        assertEquals(List.of("player1", "player2"),
+                manual.teamA().stream().map(p -> p.username()).toList());
+        assertEquals(List.of("player3", "player4"),
+                manual.teamB().stream().map(p -> p.username()).toList());
+        var custom = new com.example.desporto24.model.dto.session.ConfirmRandomSessionTeamsRequest(
+                List.of("player1", "player4"), List.of("player2", "player3"));
+        var confirmedManual = service.confirm(42L, "organizer", "MANUAL", custom);
+        assertEquals(custom.teamA(),
+                confirmedManual.teamA().stream().map(p -> p.username()).toList());
+        assertEquals(2, active.stream().filter(p -> "A".equals(p.getTeamCode())).count());
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> service.confirm(42L, "organizer", "MANUAL",
+                        new com.example.desporto24.model.dto.session.ConfirmRandomSessionTeamsRequest(
+                                List.of("player1", "player2", "player3"), List.of("player4"))));
     }
 
 }
