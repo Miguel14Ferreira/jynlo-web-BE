@@ -37,7 +37,13 @@ public final class CommunityChampionshipStandingsCalculator {
             Map<Long, List<com.example.desporto24.model.dto.community.CommunityTournamentTeamStandingRowResponse>> verifiedTeamPlacements) {
         Map<String, Mutable> scores = new HashMap<>();
         int full = 0, winners = 0, pending = 0;
+        // A competition contributes only once, even if a caller accidentally
+        // provides repeated tournament rows after joining related records.
+        Set<Long> processedTournamentIds = new HashSet<>();
         for (CommunityTournament tournament : tournaments) {
+            if (tournament.getId() != null && !processedTournamentIds.add(tournament.getId())) {
+                continue;
+            }
             if (tournament.getStatus() != TournamentStatus.COMPLETED || tournament.isChampionTied()) {
                 pending++;
                 continue;
