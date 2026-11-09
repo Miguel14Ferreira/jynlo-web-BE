@@ -7,6 +7,7 @@ on:
       - '.github/workflows/championship-owned-events-ci.yml'
       - 'src/main/java/com/example/desporto24/model/community/CommunityChampionshipEvent.java'
       - 'src/main/java/com/example/desporto24/repository/community/CommunityChampionshipEventRepository.java'
+      - 'src/main/java/com/example/desporto24/controllers/CommunityChampionshipController.java'
       - 'src/main/java/com/example/desporto24/service/CommunityChampionshipEventService.java'
       - 'src/main/java/com/example/desporto24/service/CommunityChampionshipService.java'
       - 'src/main/java/com/example/desporto24/controllers/CommunityChampionshipController.java'
