@@ -47,6 +47,10 @@ public class ChatServiceImpl implements ChatService {
     private final ApplicationEventPublisher eventPublisher;
     private final UserBlockService userBlockService;
 
+    /** Session-scoped contact permission is additive to normal friendship. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.service.SessionContactAccessService sessionContactAccess;
+
     @Override
     @Transactional
     public Chat sendMessage(Chat chat) {
@@ -196,6 +200,14 @@ public class ChatServiceImpl implements ChatService {
         userBlockService.ensureInteractionAllowed(first, second);
 
         return friendRepository.findConnection(first.getId(), second.getId())
-                .orElseThrow(() -> new AccessDeniedException("Users are not friends"));
+                .orElseGet(() -> {
+                    // This is an ephemeral conversation permission, not a saved friendship.
+                    // A fresh server-side session check is required for every read/write/call.
+                    if (sessionContactAccess != null
+                            && sessionContactAccess.mayContact(first.getUsername(), second.getUsername())) {
+                        return new Friend(); // Unblocked session contact; never persisted.
+                    }
+                    throw new AccessDeniedException("Users are not friends or session contacts");
+                });
     }
 }
