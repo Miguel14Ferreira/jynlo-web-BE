@@ -805,6 +805,62 @@ public class SessionServiceImpl implements SessionService {
         );
     }
 
+    /**
+     * Correct the maximum number of places without touching registrations.
+     * The session row lock is shared with join(), so concurrent joins cannot
+     * slip past a capacity reduction. New places go to the waitlist first.
+     */
+    @Override
+    @Transactional
+    public SessionDetailResponse updateCapacity(Long sessionId, int maxParticipants, String username) {
+        Session session = sessionRepository.findByIdForUpdate(sessionId)
+                .orElseThrow(() -> new SessionNotFound("Session not found"));
+        Profile actor = profileRepository.findUserByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException(NO_USER_FOUND_BY_USERNAME));
+        requireCreator(session, actor);
+        if ((session.getStatus() != SessionStatus.OPEN && session.getStatus() != SessionStatus.FULL)
+                || session.getGameDate() == null
+                || !session.getGameDate().toInstant().isAfter(Instant.now())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "A lotação só pode ser alterada antes do início da sessão");
+        }
+        if (maxParticipants < 2 || maxParticipants > 100) {
+            throw new IllegalArgumentException("A lotação deve estar entre 2 e 100 jogadores");
+        }
+        long active = participantRepository.countBySessionIdAndState(sessionId, ParticipantState.ACTIVE);
+        int confirmed = SessionCapacity.totalConfirmed(session, active);
+        if (maxParticipants < confirmed) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "Não podes reduzir a lotação abaixo dos jogadores já confirmados");
+        }
+        int previous = session.getMaxParticipants() == null ? 0 : session.getMaxParticipants();
+        if (previous == maxParticipants) return sessionViewMapper.toDetail(session, actor);
+
+        // Preserve a valid custom minimum when possible, but never leave a
+        // minimum greater than the new capacity.
+        int minimum = com.example.desporto24.service.SessionMinimumPlayers.required(session);
+        session.setMaxParticipants(maxParticipants);
+        if (minimum > maxParticipants) session.setMinParticipants(maxParticipants);
+        Instant now = Instant.now();
+        session.setStatus(confirmed == maxParticipants ? SessionStatus.FULL : SessionStatus.OPEN);
+        session.setUpdatedAt(now);
+        sessionRepository.save(session);
+
+        if (maxParticipants > previous) {
+            boolean promoted = false;
+            while (SessionCapacity.remainingPlaces(session,
+                    participantRepository.countBySessionIdAndState(
+                            sessionId, ParticipantState.ACTIVE)) > 0) {
+                if (waitlistPromotionService.promoteNext(session, now).isEmpty()) break;
+                promoted = true;
+            }
+            if (promoted) invalidateConfirmedTeams(sessionId);
+        }
+        return sessionViewMapper.toDetail(session, actor);
+    }
+
     /** Update only private arrival instructions, not the catalogue venue or
      * its reference point. Row locking serializes concurrent organizer edits.
      */
