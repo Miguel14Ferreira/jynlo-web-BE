@@ -16,6 +16,16 @@ on:
       - 'src/main/resources/db/changelog/changes/2026-11-08-community-championship-custom-rules.yaml'
       - 'src/main/java/com/example/desporto24/service/CommunityChampionshipService.java'
       - 'src/main/java/com/example/desporto24/service/CommunityChampionshipHonours.java'
+      - 'src/main/java/com/example/desporto24/service/CommunityPermanentTeamsService.java'
+      - 'src/main/java/com/example/desporto24/model/community/CommunityPermanentTeam.java'
+      - 'src/main/java/com/example/desporto24/model/community/CommunityChampionshipTeam.java'
+      - 'src/main/java/com/example/desporto24/repository/community/CommunityPermanentTeamRepository.java'
+      - 'src/main/java/com/example/desporto24/repository/community/CommunityChampionshipTeamRepository.java'
+      - 'src/main/java/com/example/desporto24/model/dto/community/CommunityPermanentTeamsResponse.java'
+      - 'src/main/java/com/example/desporto24/model/dto/community/CommunityChampionshipHonoursResponse.java'
+      - 'src/main/java/com/example/desporto24/model/dto/community/CommunityChampionshipTeamsResponse.java'
+      - 'src/main/resources/db/changelog/changes/2026-11-09-community-permanent-team-identities.yaml'
+      - 'src/test/java/com/example/desporto24/service/CommunityPermanentTeamsServiceTest.java'
       - 'src/main/java/com/example/desporto24/model/dto/community/CommunityChampionshipHonoursResponse.java'
       - 'src/test/java/com/example/desporto24/service/CommunityChampionshipHonoursTest.java'
       - 'src/main/java/com/example/desporto24/service/ChampionshipFinalizationPolicy.java'
@@ -55,4 +65,4 @@ jobs:
       - name: Test championship entitlement policy
         run: |
           chmod +x mvnw
-          ./mvnw -B -Dtest=CommunityChampionshipPlanPolicyTest,ChampionshipCustomScoringPolicyTest,ChampionshipCustomScoringPersistenceContractTest,CommunityChampionshipServiceTest,ChampionshipWinnerStandingsTest,ChampionshipPlacementPointsPolicyTest,ChampionshipFinalizationPolicyTest,CommunityChampionshipStandingsCalculatorTest,CommunityChampionshipTeamsServiceTest,CommunityChampionshipHonoursTest -Dsurefire.failIfNoSpecifiedTests=false test
+          ./mvnw -B -Dtest=CommunityChampionshipPlanPolicyTest,ChampionshipCustomScoringPolicyTest,ChampionshipCustomScoringPersistenceContractTest,CommunityChampionshipServiceTest,ChampionshipWinnerStandingsTest,ChampionshipPlacementPointsPolicyTest,ChampionshipFinalizationPolicyTest,CommunityChampionshipStandingsCalculatorTest,CommunityChampionshipTeamsServiceTest,CommunityChampionshipHonoursTest,CommunityPermanentTeamsServiceTest -Dsurefire.failIfNoSpecifiedTests=false test
