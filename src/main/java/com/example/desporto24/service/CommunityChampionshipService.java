@@ -28,6 +28,7 @@ public class CommunityChampionshipService {
     private final CommunityTournamentStandingsService leagueStandings;
     private final CommunityTournamentTeamStandingsService teamLeagueStandings;
     private final CommunityTournamentTeamRepository tournamentTeams;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     public CommunityChampionshipResponse create(Long communityId, String username,
                                                   CreateCommunityChampionshipRequest request) {
@@ -65,6 +66,7 @@ public class CommunityChampionshipService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A prova deve ter a modalidade do campeonato");
         if (championship.getCompetitions().stream().anyMatch(t -> t.getId().equals(tournamentId)))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Prova já associada ao campeonato");
+        ensureOpen(championship);
         // Unique database constraint prevents the same tournament being attached to two championships.
         tournament.setChampionshipWinnerPoints(10);
         championship.getCompetitions().add(tournament);
@@ -81,6 +83,7 @@ public class CommunityChampionshipService {
         CommunityTournament tournament = championship.getCompetitions().stream()
                 .filter(t -> t.getId().equals(tournamentId)).findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prova não associada"));
+        ensureOpen(championship);
         if (tournament.getStatus() != com.example.desporto24.enumeration.TournamentStatus.DRAFT)
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Os pontos devem ser definidos antes do início da prova");
@@ -117,6 +120,7 @@ public class CommunityChampionshipService {
         CommunityTournament tournament = championship.getCompetitions().stream()
                 .filter(t -> t.getId().equals(tournamentId)).findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prova não associada"));
+        ensureOpen(championship);
         if (tournament.getStatus() != com.example.desporto24.enumeration.TournamentStatus.DRAFT) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "A pontuação por posição só pode ser alterada antes do início da prova");
@@ -138,6 +142,14 @@ public class CommunityChampionshipService {
         requireMember(communityId, username);
         CommunityChampionship championship = championships.findByIdAndCommunityId(championshipId, communityId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Campeonato não encontrado"));
+        if (championship.getClosedAt() != null) {
+            try {
+                return objectMapper.readValue(championship.getFinalStandingsJson(),
+                        CommunityChampionshipStandingsResponse.class);
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                throw new IllegalStateException("Classificação final guardada inválida", e);
+            }
+        }
         java.util.Map<Long, java.util.List<CommunityTournamentStandingRowResponse>> accepted =
                 new java.util.HashMap<>();
         for (CommunityTournament t : championship.getCompetitions()) {
@@ -232,6 +244,31 @@ public class CommunityChampionshipService {
                 championshipId, championship.getCompetitions(), accepted, teamIdentity, teamPlacements);
     }
 
+    public CommunityChampionshipResponse close(Long communityId, Long championshipId, String username) {
+        requireOrganizer(communityId, username);
+        CommunityChampionship championship = championships.findForClosing(championshipId, communityId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Campeonato não encontrado"));
+        ensureOpen(championship);
+        CommunityChampionshipStandingsResponse result = standings(communityId, championshipId, username);
+        var champion = ChampionshipFinalizationPolicy.champion(result);
+        try {
+            championship.setFinalStandingsJson(objectMapper.writeValueAsString(result));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("Não foi possível guardar a classificação", e);
+        }
+        championship.setChampionEntryType(champion.entryType());
+        championship.setChampionParticipantId(champion.participantId());
+        championship.setChampionDisplayName(champion.name());
+        championship.setClosedAt(Instant.now());
+        return toResponse(championships.saveAndFlush(championship));
+    }
+
+    private void ensureOpen(CommunityChampionship championship) {
+        if (championship.getClosedAt() != null)
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "O campeonato está encerrado e o histórico não pode ser alterado");
+    }
+
     private void requireMember(Long communityId, String username) {
         Profile profile = profiles.findUserByUsername(username)
                 .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
@@ -261,6 +298,8 @@ public class CommunityChampionshipService {
                                         && (t.getChampionProfileId() != null || t.getChampionTeamId() != null),
                                 t.getChampionshipPlacePoints()))
                         .toList(),
-                ChampionshipWinnerStandings.calculate(championship.getCompetitions()));
+                ChampionshipWinnerStandings.calculate(championship.getCompetitions()),
+                championship.getClosedAt(), championship.getChampionEntryType(),
+                championship.getChampionParticipantId(), championship.getChampionDisplayName());
     }
 }
