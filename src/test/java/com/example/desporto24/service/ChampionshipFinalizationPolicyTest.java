@@ -20,6 +20,16 @@ class ChampionshipFinalizationPolicyTest {
         assertEquals(winner, ChampionshipFinalizationPolicy.champion(
                 result(0, winner, row("TEAM", 8L, 39, 3))));
     }
+    @Test void selectsSportingLeaderEvenWhenStandingsArriveUnsorted() {
+        var winner = row("TEAM", 4L, 40, 2);
+        assertEquals(winner, ChampionshipFinalizationPolicy.champion(
+                result(0, row("TEAM", 8L, 39, 5), winner, row("TEAM", 9L, 20, 8))));
+    }
+    @Test void rejectsTopTieEvenWhenTiedEntriesAreNotAdjacent() {
+        assertThrows(ResponseStatusException.class, () -> ChampionshipFinalizationPolicy.champion(
+                result(0, row("TEAM", 4L, 40, 2),
+                        row("TEAM", 9L, 10, 8), row("TEAM", 8L, 40, 2))));
+    }
     @Test void blocksUnresolvedTopTie() {
         assertThrows(ResponseStatusException.class, () -> ChampionshipFinalizationPolicy.champion(
                 result(0, row("TEAM", 4L, 40, 2), row("TEAM", 8L, 40, 2))));
