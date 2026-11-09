@@ -18,6 +18,7 @@ import java.util.List;
 @PreAuthorize("isAuthenticated()")
 public class CommunityChampionshipController {
     private final CommunityChampionshipService championships;
+    private final com.example.desporto24.service.CommunityChampionshipEventService ownedEvents;
     private final com.example.desporto24.service.CommunityChampionshipTeamsService championshipTeams;
     private final com.example.desporto24.service.CommunityPermanentTeamsService permanentTeams;
 
@@ -120,6 +121,21 @@ public class CommunityChampionshipController {
 
     public record WinnerPointsRequest(@jakarta.validation.constraints.Min(0)
                                       @jakarta.validation.constraints.Max(10000) int points) {}
+
+    @GetMapping("/{championshipId}/owned-events")
+    public List<com.example.desporto24.service.CommunityChampionshipEventService.Event> ownedEvents(
+            @PathVariable Long communityId, @PathVariable Long championshipId, Authentication auth) {
+        return ownedEvents.list(communityId, championshipId, auth.getName());
+    }
+
+    @PostMapping("/{championshipId}/owned-events")
+    public ResponseEntity<com.example.desporto24.service.CommunityChampionshipEventService.Event> createOwnedEvent(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @RequestBody com.example.desporto24.service.CommunityChampionshipEventService.CreateEvent request,
+            Authentication auth) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ownedEvents.create(communityId, championshipId, auth.getName(), request));
+    }
 
     @PostMapping("/{championshipId}/competitions/{tournamentId}")
     public CommunityChampionshipResponse addCompetition(
