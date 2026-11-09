@@ -286,6 +286,9 @@ class CommunityChampionshipServiceTest {
         assertEquals("Ana", historical.standings().get(0).name());
         assertThrows(ResponseStatusException.class,
                 () -> service.close(7L,15L,"organizer"));
+        when(tournaments.findById(99L)).thenReturn(Optional.of(
+                CommunityTournament.builder().id(99L).name("Outra prova")
+                        .sport("Futebol").community(community).build()));
         assertThrows(ResponseStatusException.class,
                 () -> service.addCompetition(7L,15L,99L,"organizer"));
     }
