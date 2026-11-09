@@ -2439,13 +2439,27 @@ public class CommunityCompetitionService {
 
             CommunityPlayer communityPlayer = playerRepository
                     .findByCommunityIdAndProfileId(communityId, player.getId())
-                    .orElseGet(() -> playerRepository.save(CommunityPlayer.builder()
-                            .community(community)
-                            .displayName(playerDisplayName(player))
-                            .normalizedName(normalizePlayerName(playerDisplayName(player)))
-                            .profile(player)
-                            .createdAt(Instant.now())
-                            .build()));
+                    .orElseGet(() -> {
+                        var identity = CommunityPlayerIdentityNames.allocate(
+                                playerDisplayName(player), player.getUsername(), player.getId(),
+                                normalized -> playerRepository
+                                        .findByCommunityIdAndNormalizedName(communityId, normalized)
+                                        .isPresent());
+                        try {
+                            return playerRepository.saveAndFlush(CommunityPlayer.builder()
+                                    .community(community)
+                                    .displayName(identity.display())
+                                    .normalizedName(identity.normalized())
+                                    .profile(player)
+                                    .createdAt(Instant.now())
+                                    .build());
+                        } catch (org.springframework.dao.DataIntegrityViolationException conflict) {
+                            // Concurrent inserts may still win the unique key after our lookup.
+                            // Do not leak the DB constraint as HTTP 500 or merge identities.
+                            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                    "Identidade do jogador em conflito; tenta novamente", conflict);
+                        }
+                    });
 
             entries.add(CommunityRoundEntry.builder()
                     .round(round)
