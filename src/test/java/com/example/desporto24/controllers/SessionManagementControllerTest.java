@@ -42,6 +42,17 @@ class SessionManagementControllerTest {
     }
 
     @Test
+    void patchSessionDetailsUsesAuthenticatedIdentity() {
+        when(authentication.getName()).thenReturn("miguel");
+        var request = new SessionController.EditSessionDetailsRequest(
+                java.time.Instant.parse("2026-12-01T19:00:00Z"), 10, 6,
+                new java.math.BigDecimal("5.00"), "Lisboa", "Rua A", "Portão B");
+        controller.updateDetails(10L, request, authentication);
+        verify(sessionService).updateDetails(10L, request.gameDate(), 10, 6,
+                request.priceAmount(), "Lisboa", "Rua A", "Portão B", "miguel");
+    }
+
+    @Test
     void patchCapacityUsesAuthenticatedIdentity() {
         when(authentication.getName()).thenReturn("miguel");
         controller.updateCapacity(10L, 12, authentication);
