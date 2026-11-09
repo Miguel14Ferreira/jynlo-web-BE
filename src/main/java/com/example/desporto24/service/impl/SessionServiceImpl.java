@@ -853,6 +853,7 @@ public class SessionServiceImpl implements SessionService {
                     || SessionCapacity.totalConfirmed(session, activeCount) != 1
                     || !waitlistRepository.findBySessionIdOrderByPriorityTierAscCreatedAtAsc(sessionId).isEmpty()
                     || session.getCommunity() != null || session.getSeasonCompetition() != null
+                    || sessionCommunityShareRepository.existsBySession_Id(sessionId)
                     || session.getVenue() != null || session.getRecurrenceSeriesId() != null) {
                 throw new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.CONFLICT,
