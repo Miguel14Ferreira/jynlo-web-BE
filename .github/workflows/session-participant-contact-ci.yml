@@ -6,6 +6,7 @@ on:
       - 'src/main/java/com/example/desporto24/service/SessionContactAccessService.java'
       - 'src/main/java/com/example/desporto24/service/impl/ChatServiceImpl.java'
       - 'src/main/java/com/example/desporto24/repository/SessionRepository.java'
+      - 'src/main/java/com/example/desporto24/service/CommunityChampionshipEventService.java'
       - 'src/test/java/com/example/desporto24/service/SessionContactAccessServiceTest.java'
       - 'src/test/java/com/example/desporto24/service/SessionContactChatAuthorizationTest.java'
       - '.github/workflows/session-participant-contact-ci.yml'
