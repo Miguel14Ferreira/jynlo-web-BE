@@ -31,11 +31,14 @@ public class CommunityChampionshipEventService {
 
     private final CommunityChampionshipRepository championships;
     private final CommunityChampionshipEventRepository events;
+    private final CommunityChampionshipEventTeamRepository eventTeams;
+    private final CommunityChampionshipTeamRepository championshipTeams;
     private final CommunityMemberRepository members;
     private final ProfileRepository profiles;
 
     public record CreateEvent(String name, String format) {}
     public record Event(Long id, Long championshipId, String name, String format, String status, Instant createdAt) {}
+    public record TeamRegistration(Long id, Long championshipTeamId, String name) {}
 
     @Transactional(readOnly = true)
     public List<Event> list(Long communityId, Long championshipId, String username) {
@@ -79,7 +82,59 @@ public class CommunityChampionshipEventService {
         ensureOpen(championship);
         CommunityChampionshipEvent event = getOwnedEvent(championshipId, eventId);
         ensureDraft(event);
+        // A draft can be withdrawn together with its own registrations.
+        // Championship-season team identities remain intact for other competitions.
+        eventTeams.deleteAll(eventTeams.findByEventIdOrderByIdAsc(eventId));
         events.delete(event);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TeamRegistration> teams(Long communityId, Long championshipId,
+                                        Long eventId, String username) {
+        requireMember(communityId, username, false);
+        getChampionship(communityId, championshipId);
+        getOwnedEvent(championshipId, eventId);
+        return eventTeams.findByEventIdOrderByIdAsc(eventId).stream()
+                .map(this::teamResponse).toList();
+    }
+
+    public TeamRegistration addTeam(Long communityId, Long championshipId, Long eventId,
+                                    Long seasonTeamId, String username) {
+        requireMember(communityId, username, true);
+        ensureOpen(getChampionship(communityId, championshipId));
+        CommunityChampionshipEvent event = getOwnedEvent(championshipId, eventId);
+        ensureDraft(event);
+        CommunityChampionshipTeam team = championshipTeams.findById(seasonTeamId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Equipa não encontrada no campeonato"));
+        if (!championshipId.equals(team.getChampionship().getId()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A equipa pertence a outro campeonato");
+        if (eventTeams.existsByEventIdAndTeamId(eventId, seasonTeamId))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Equipa já inscrita nesta prova");
+        try {
+            return teamResponse(eventTeams.saveAndFlush(CommunityChampionshipEventTeam.builder()
+                    .event(event).team(team).build()));
+        } catch (org.springframework.dao.DataIntegrityViolationException conflict) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Equipa já inscrita nesta prova", conflict);
+        }
+    }
+
+    public void removeTeam(Long communityId, Long championshipId, Long eventId,
+                           Long seasonTeamId, String username) {
+        requireMember(communityId, username, true);
+        ensureOpen(getChampionship(communityId, championshipId));
+        ensureDraft(getOwnedEvent(championshipId, eventId));
+        CommunityChampionshipEventTeam entry = eventTeams.findByEventIdAndTeamId(eventId, seasonTeamId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Inscrição não encontrada nesta prova"));
+        eventTeams.delete(entry);
+    }
+
+    private TeamRegistration teamResponse(CommunityChampionshipEventTeam registration) {
+        return new TeamRegistration(registration.getId(), registration.getTeam().getId(),
+                registration.getTeam().getName());
     }
 
     private CommunityChampionshipEvent getOwnedEvent(Long championshipId, Long eventId) {
