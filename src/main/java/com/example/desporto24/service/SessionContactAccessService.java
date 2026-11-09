@@ -13,7 +13,7 @@ import java.util.Date;
 import java.util.Objects;
 
 /**
- * Additional, short-lived contact permission created by a shared upcoming
+ * Additional, short-lived contact permission created by a shared recent or upcoming
  * sports session. Not a friendship and never an unrestricted inbox ACL.
  *
  * Both accounts must be active participants (or the session creator), and
@@ -38,7 +38,7 @@ public class SessionContactAccessService {
         }
         if (blocks.isBlockedBetween(first, second)) return false;
         return sessions.existsSharedUpcomingContactSession(
-                first.getId(), second.getId(), Date.from(Instant.now()));
+                first.getId(), second.getId(), Date.from(Instant.now().minus(java.time.Duration.ofHours(4))));
     }
 
     @Transactional(readOnly = true)
