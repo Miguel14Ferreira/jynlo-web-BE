@@ -270,6 +270,8 @@ class CommunityChampionshipServiceTest {
         championship.getCompetitions().add(cup);
         when(championships.findForClosing(15L,7L)).thenReturn(Optional.of(championship));
         when(championships.findByIdAndCommunityId(15L,7L)).thenReturn(Optional.of(championship));
+        when(championships.findByCommunityIdOrderByCreatedAtDescIdDesc(7L))
+                .thenReturn(java.util.List.of(championship));
         when(championships.saveAndFlush(championship)).thenReturn(championship);
 
         var closed = service.close(7L,15L,"organizer");
@@ -277,9 +279,14 @@ class CommunityChampionshipServiceTest {
         assertEquals("Ana", closed.championDisplayName());
         assertEquals(44L, closed.championParticipantId());
         assertNotNull(championship.getFinalStandingsJson());
+        assertNotNull(championship.getFinalCompetitionsJson());
+        assertEquals("Taça", closed.competitions().get(0).name());
         assertEquals(25, service.standings(7L,15L,"organizer").standings().get(0).points());
 
-        cup.setChampionDisplayName("Nome alterado");
+        cup.setName("Prova alterada");
+        cup.setChampionshipWinnerPoints(999);
+        assertEquals("Taça", service.list(7L,"organizer").get(0).competitions().get(0).name());
+                cup.setChampionDisplayName("Nome alterado");
         cup.setChampionshipWinnerPoints(999);
         var historical = service.standings(7L,15L,"organizer");
         assertEquals(25, historical.standings().get(0).points());
