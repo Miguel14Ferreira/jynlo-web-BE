@@ -1,0 +1,15 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-09-community-championship-finalization
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: community_championship
+            columns:
+              - column: {name: closed_at, type: timestamp with time zone}
+              - column: {name: final_standings_json, type: text}
+              - column: {name: champion_entry_type, type: varchar(24)}
+              - column: {name: champion_participant_id, type: bigint}
+              - column: {name: champion_display_name, type: varchar(255)}
+              - column: {name: version, type: bigint, defaultValueNumeric: 0, constraints: {nullable: false}}
