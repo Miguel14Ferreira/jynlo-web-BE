@@ -30,6 +30,7 @@ class CommunityChampionshipServiceTest {
     @Mock CommunityRepository communities;
     @Mock CommunityMemberRepository members;
     @Mock CommunityChampionshipRepository championships;
+    @Mock CommunityChampionshipEventRepository ownedEvents;
     @Mock CommunityTournamentRepository tournaments;
     @Mock ProfileRepository profiles;
     @Mock CommunityTournamentStandingsService leagueStandings;
