@@ -19,10 +19,35 @@ import java.util.List;
 public class CommunityChampionshipController {
     private final CommunityChampionshipService championships;
     private final com.example.desporto24.service.CommunityChampionshipTeamsService championshipTeams;
+    private final com.example.desporto24.service.CommunityPermanentTeamsService permanentTeams;
 
     @GetMapping
     public List<CommunityChampionshipResponse> list(@PathVariable Long communityId, Authentication auth) {
         return championships.list(communityId, auth.getName());
+    }
+
+    @GetMapping("/permanent-teams")
+    public com.example.desporto24.model.dto.community.CommunityPermanentTeamsResponse permanentTeams(
+            @PathVariable Long communityId, Authentication auth) {
+        return permanentTeams.list(communityId, auth.getName());
+    }
+
+    @PostMapping("/permanent-teams")
+    public com.example.desporto24.model.dto.community.CommunityPermanentTeamsResponse createPermanentTeam(
+            @PathVariable Long communityId,
+            @RequestBody @Valid com.example.desporto24.model.dto.community.CreateCommunityChampionshipTeamRequest request,
+            Authentication auth) {
+        return permanentTeams.create(communityId, request.name(), auth.getName());
+    }
+
+    @PutMapping("/{championshipId}/teams/{seasonTeamId}/permanent-team")
+    public com.example.desporto24.model.dto.community.CommunityPermanentTeamsResponse linkPermanentTeam(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long seasonTeamId,
+            @RequestBody @Valid com.example.desporto24.model.dto.community.LinkCommunityChampionshipTeamRequest request,
+            Authentication auth) {
+        return permanentTeams.link(communityId, championshipId,
+                seasonTeamId, request.championshipTeamId(), auth.getName());
     }
 
     @GetMapping("/honours")
