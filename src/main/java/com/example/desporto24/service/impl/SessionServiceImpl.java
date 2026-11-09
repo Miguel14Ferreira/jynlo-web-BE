@@ -593,7 +593,8 @@ public class SessionServiceImpl implements SessionService {
         // Only share coarse discovery grid positions for genuinely public sessions.
         // Never expose exact session or venue coordinates through this endpoint.
         boolean publicSession = !Boolean.TRUE.equals(session.getPrivateGame())
-                && session.getAudience() == SessionAudience.PUBLIC;
+                && (session.getAudience() == SessionAudience.PUBLIC
+                    || (session.getAudience() == null && session.getCommunity() == null));
         Double latitude = session.getLatitude();
         Double longitude = session.getLongitude();
         if ((latitude == null || longitude == null)
