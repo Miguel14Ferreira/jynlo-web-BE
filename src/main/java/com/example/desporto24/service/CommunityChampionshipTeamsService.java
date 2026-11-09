@@ -37,6 +37,7 @@ public class CommunityChampionshipTeamsService {
                                                       String name, String username) {
         requireOrganizer(communityId, username);
         CommunityChampionship championship = getChampionship(communityId, championshipId);
+        ensureOpen(championship);
         String trimmed = name == null ? "" : name.trim().replaceAll("\\s+", " ");
         if (trimmed.isEmpty() || trimmed.length() > 100)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome da equipa inválido");
@@ -54,6 +55,7 @@ public class CommunityChampionshipTeamsService {
                                                     String username) {
         requireOrganizer(communityId, username);
         CommunityChampionship championship = getChampionship(communityId, championshipId);
+        ensureOpen(championship);
         CommunityChampionshipTeam seasonTeam = seasonTeams.findById(seasonTeamId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Equipa de campeonato inexistente"));
         if (!seasonTeam.getChampionship().getId().equals(championshipId))
@@ -71,6 +73,11 @@ public class CommunityChampionshipTeamsService {
         tournamentTeam.setChampionshipTeam(seasonTeam);
         tournamentTeams.saveAndFlush(tournamentTeam);
         return response(championship);
+    }
+
+    private void ensureOpen(CommunityChampionship championship) {
+        if (championship.getClosedAt() != null)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "O campeonato está encerrado");
     }
 
     private CommunityChampionship getChampionship(Long communityId, Long championshipId) {
