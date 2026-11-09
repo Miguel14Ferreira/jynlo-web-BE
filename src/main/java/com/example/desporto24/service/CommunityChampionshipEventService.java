@@ -13,6 +13,7 @@ import com.example.desporto24.repository.community.CommunityChampionshipEventRep
 import com.example.desporto24.repository.community.CommunityChampionshipEventTeamRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipTeamRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipFixtureRepository;
+import com.example.desporto24.repository.community.CommunityChampionshipCupByeRepository;
 import com.example.desporto24.repository.community.CommunityMemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
