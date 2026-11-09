@@ -24,6 +24,10 @@ public class CommunityChampionshipTeam {
     @Column(name = "normalized_name", nullable = false, length = 100)
     private String normalizedName;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "permanent_team_id")
+    private CommunityPermanentTeam permanentTeam;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 }
