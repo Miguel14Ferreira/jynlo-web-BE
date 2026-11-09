@@ -281,6 +281,8 @@ class CommunityChampionshipServiceTest {
         assertEquals(44L, closed.championParticipantId());
         assertNotNull(championship.getFinalStandingsJson());
         assertNotNull(championship.getFinalCompetitionsJson());
+        assertNotNull(championship.getFinalTrophiesJson());
+        assertTrue(championship.getFinalTrophiesJson().contains("\\"tournamentName\\":\\"Taça\\""));
         assertEquals("Taça", closed.competitions().get(0).name());
         assertEquals(25, service.standings(7L,15L,"organizer").standings().get(0).points());
 
