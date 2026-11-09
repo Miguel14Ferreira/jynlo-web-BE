@@ -96,6 +96,66 @@ class CommunityChampionshipEventServiceTest {
     }
 
     @Test
+    void ownerMayRenameDraftAndChangeItsFormatWithoutCreatingStandaloneTournament() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var draft = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Liga Original").format("LEAGUE").status("DRAFT").createdAt(Instant.now()).build();
+        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(draft));
+        when(events.save(draft)).thenReturn(draft);
+        var result = service.update(7L, 15L, 100L, "member",
+                new CommunityChampionshipEventService.CreateEvent("Taça da Comunidade", "CUP"));
+        assertEquals("Taça da Comunidade", result.name());
+        assertEquals("CUP", result.format());
+        verify(events).save(draft);
+    }
+
+    @Test
+    void cannotModifyOrDeleteAnotherChampionshipEvent() {
+        member(CommunityRole.ADMIN);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        when(events.findByIdAndChampionshipId(200L, 15L)).thenReturn(Optional.empty());
+        assertThrows(ResponseStatusException.class, () -> service.update(7L, 15L, 200L,
+                "member", new CommunityChampionshipEventService.CreateEvent("Taça", "CUP")));
+        assertThrows(ResponseStatusException.class, () -> service.delete(7L, 15L, 200L, "member"));
+        verify(events, never()).save(any());
+        verify(events, never()).delete(any());
+    }
+
+    @Test
+    void ordinaryMemberCannotEditOrDeleteOwnedCompetition() {
+        member(CommunityRole.MEMBER);
+        assertThrows(AccessDeniedException.class, () -> service.update(7L, 15L, 100L,
+                "member", new CommunityChampionshipEventService.CreateEvent("Liga", "LEAGUE")));
+        assertThrows(AccessDeniedException.class, () -> service.delete(7L, 15L, 100L, "member"));
+        verifyNoInteractions(events);
+    }
+
+    @Test
+    void cannotDeleteCompetitionAlreadyStartedOrBelongingToClosedChampionship() {
+        member(CommunityRole.ADMIN);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var started = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Liga").format("LEAGUE").status("ACTIVE").createdAt(Instant.now()).build();
+        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(started));
+        assertThrows(ResponseStatusException.class, () -> service.delete(7L, 15L, 100L, "member"));
+        championship.setClosedAt(Instant.now());
+        assertThrows(ResponseStatusException.class, () -> service.delete(7L, 15L, 100L, "member"));
+        verify(events, never()).delete(any());
+    }
+
+    @Test
+    void organizerCanDeleteOwnDraft() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var draft = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Supertaça").format("SUPERCUP").status("DRAFT").createdAt(Instant.now()).build();
+        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(draft));
+        service.delete(7L, 15L, 100L, "member");
+        verify(events).delete(draft);
+    }
+
+    @Test
     void memberMayListOnlyTheSpecifiedChampionshipOwnEvents() {
         member(CommunityRole.MEMBER);
         when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
