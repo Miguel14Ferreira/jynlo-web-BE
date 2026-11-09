@@ -4,6 +4,7 @@ import com.example.desporto24.enumeration.CommunityRole;
 import com.example.desporto24.model.community.CommunityChampionshipEvent;
 import com.example.desporto24.model.community.CommunityChampionship;
 import com.example.desporto24.model.community.CommunityChampionshipEventTeam;
+import com.example.desporto24.model.community.CommunityChampionshipCupBye;
 import com.example.desporto24.model.community.CommunityChampionshipTeam;
 import com.example.desporto24.model.community.CommunityMember;
 import com.example.desporto24.repository.ProfileRepository;
@@ -38,6 +39,7 @@ public class CommunityChampionshipEventService {
     private final CommunityChampionshipEventRepository events;
     private final CommunityChampionshipEventTeamRepository eventTeams;
     private final CommunityChampionshipFixtureRepository fixtures;
+    private final CommunityChampionshipCupByeRepository cupByes;
     private final CommunityChampionshipTeamRepository championshipTeams;
     private final CommunityMemberRepository members;
     private final ProfileRepository profiles;
@@ -193,6 +195,73 @@ public class CommunityChampionshipEventService {
         event.setStatus("SCHEDULED");
         events.saveAndFlush(event);
         return List.copyOf(saved);
+    }
+
+    public record CupBye(Long id, int slot, Long teamId, String teamName) {}
+    public record CupOpeningRound(List<LeagueFixture> matches, List<CupBye> byes) {}
+
+    @Transactional(readOnly = true)
+    public CupOpeningRound cupOpeningRound(Long communityId, Long championshipId,
+                                           Long eventId, String username) {
+        requireMember(communityId, username, false);
+        getChampionship(communityId, championshipId);
+        CommunityChampionshipEvent event = getOwnedEvent(championshipId, eventId);
+        if (!"CUP".equals(event.getFormat()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A prova não é uma taça");
+        return new CupOpeningRound(
+                fixtures.findByEventIdOrderByRoundNumberAscMatchNumberAsc(eventId)
+                        .stream().map(this::fixtureResponse).toList(),
+                cupByes.findByEventIdOrderBySlotNumberAsc(eventId).stream().map(this::cupByeResponse).toList());
+    }
+
+    public CupOpeningRound drawCup(Long communityId, Long championshipId,
+                                   Long eventId, String username) {
+        requireMember(communityId, username, true);
+        ensureOpen(getChampionship(communityId, championshipId));
+        CommunityChampionshipEvent event = lockOwnedEvent(championshipId, eventId);
+        if (!"CUP".equals(event.getFormat()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A prova não é uma taça");
+        ensureDraft(event);
+        if (fixtures.existsByEventId(eventId) || cupByes.existsByEventId(eventId))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "O sorteio desta taça já existe");
+
+        var byId = new java.util.HashMap<Long, CommunityChampionshipTeam>();
+        for (CommunityChampionshipEventTeam registration : eventTeams.findByEventIdOrderByIdAsc(eventId)) {
+            CommunityChampionshipTeam team = registration.getTeam();
+            if (!championshipId.equals(team.getChampionship().getId())
+                    || byId.putIfAbsent(team.getId(), team) != null)
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Inscrições inconsistentes com o campeonato");
+        }
+        final ChampionshipCupOpeningDraw.Draw draw;
+        try {
+            draw = ChampionshipCupOpeningDraw.generate(
+                    new java.util.ArrayList<>(byId.keySet()), new java.security.SecureRandom());
+        } catch (IllegalArgumentException invalid) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, invalid.getMessage());
+        }
+        var matches = new java.util.ArrayList<LeagueFixture>();
+        for (ChampionshipCupOpeningDraw.Pairing pair : draw.matches()) {
+            var fixture = fixtures.save(com.example.desporto24.model.community.CommunityChampionshipFixture.builder()
+                    .event(event).roundNumber(1).matchNumber(pair.matchNumber())
+                    .homeTeam(byId.get(pair.firstTeamId()))
+                    .awayTeam(byId.get(pair.secondTeamId())).build());
+            matches.add(fixtureResponse(fixture));
+        }
+        var automatic = new java.util.ArrayList<CupBye>();
+        for (ChampionshipCupOpeningDraw.Bye bye : draw.byes()) {
+            var saved = cupByes.save(CommunityChampionshipCupBye.builder()
+                    .event(event).team(byId.get(bye.teamId())).slotNumber(bye.slotNumber()).build());
+            automatic.add(cupByeResponse(saved));
+        }
+        event.setStatus("SCHEDULED");
+        events.saveAndFlush(event);
+        return new CupOpeningRound(List.copyOf(matches), List.copyOf(automatic));
+    }
+
+    private CupBye cupByeResponse(CommunityChampionshipCupBye bye) {
+        return new CupBye(bye.getId(), bye.getSlotNumber(),
+                bye.getTeam().getId(), bye.getTeam().getName());
     }
 
     private LeagueFixture fixtureResponse(com.example.desporto24.model.community.CommunityChampionshipFixture fixture) {
