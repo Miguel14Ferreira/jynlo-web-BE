@@ -1,0 +1,28 @@
+name: Jynlo community round homonym safety CI
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/community-round-homonyms-ci.yml'
+      - 'src/main/java/com/example/desporto24/service/CommunityPlayerIdentityNames.java'
+      - 'src/main/java/com/example/desporto24/service/CommunityCompetitionService.java'
+      - 'src/test/java/com/example/desporto24/service/CommunityPlayerIdentityNamesTest.java'
+      - 'src/test/java/com/example/desporto24/service/CommunityCompetitionServiceTest.java'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  homonyms:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Test homonym isolation and existing community competitions
+        env:
+          AES_ENCRYPTION_KEY: ciKey1
+        run: bash ./mvnw -B -ntp -Dtest=CommunityPlayerIdentityNamesTest,CommunityCompetitionServiceTest test
