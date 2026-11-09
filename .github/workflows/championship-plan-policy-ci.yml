@@ -15,6 +15,9 @@ on:
       - 'src/main/resources/db/changelog/db.changelog-master.yaml'
       - 'src/main/resources/db/changelog/changes/2026-11-08-community-championship-custom-rules.yaml'
       - 'src/main/java/com/example/desporto24/service/CommunityChampionshipService.java'
+      - 'src/main/java/com/example/desporto24/service/CommunityChampionshipHonours.java'
+      - 'src/main/java/com/example/desporto24/model/dto/community/CommunityChampionshipHonoursResponse.java'
+      - 'src/test/java/com/example/desporto24/service/CommunityChampionshipHonoursTest.java'
       - 'src/main/java/com/example/desporto24/service/ChampionshipFinalizationPolicy.java'
       - 'src/main/java/com/example/desporto24/model/dto/community/CommunityChampionshipStandingsResponse.java'
       - 'src/main/resources/db/changelog/changes/2026-11-09-community-championship-finalization.yaml'
@@ -52,4 +55,4 @@ jobs:
       - name: Test championship entitlement policy
         run: |
           chmod +x mvnw
-          ./mvnw -B -Dtest=CommunityChampionshipPlanPolicyTest,ChampionshipCustomScoringPolicyTest,ChampionshipCustomScoringPersistenceContractTest,CommunityChampionshipServiceTest,ChampionshipWinnerStandingsTest,ChampionshipPlacementPointsPolicyTest,ChampionshipFinalizationPolicyTest,CommunityChampionshipStandingsCalculatorTest,CommunityChampionshipTeamsServiceTest -Dsurefire.failIfNoSpecifiedTests=false test
+          ./mvnw -B -Dtest=CommunityChampionshipPlanPolicyTest,ChampionshipCustomScoringPolicyTest,ChampionshipCustomScoringPersistenceContractTest,CommunityChampionshipServiceTest,ChampionshipWinnerStandingsTest,ChampionshipPlacementPointsPolicyTest,ChampionshipFinalizationPolicyTest,CommunityChampionshipStandingsCalculatorTest,CommunityChampionshipTeamsServiceTest,CommunityChampionshipHonoursTest -Dsurefire.failIfNoSpecifiedTests=false test
