@@ -44,10 +44,10 @@ public class CommunityChampionshipController {
     public com.example.desporto24.model.dto.community.CommunityPermanentTeamsResponse linkPermanentTeam(
             @PathVariable Long communityId, @PathVariable Long championshipId,
             @PathVariable Long seasonTeamId,
-            @RequestBody @Valid com.example.desporto24.model.dto.community.LinkCommunityChampionshipTeamRequest request,
+            @RequestBody @Valid com.example.desporto24.model.dto.community.LinkCommunityPermanentTeamRequest request,
             Authentication auth) {
         return permanentTeams.link(communityId, championshipId,
-                seasonTeamId, request.championshipTeamId(), auth.getName());
+                seasonTeamId, request.permanentTeamId(), auth.getName());
     }
 
     @GetMapping("/honours")
