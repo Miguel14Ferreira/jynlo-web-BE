@@ -137,6 +137,22 @@ public class CommunityChampionshipController {
                 .body(ownedEvents.create(communityId, championshipId, auth.getName(), request));
     }
 
+    @PutMapping("/{championshipId}/owned-events/{eventId}")
+    public com.example.desporto24.service.CommunityChampionshipEventService.Event updateOwnedEvent(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId,
+            @RequestBody com.example.desporto24.service.CommunityChampionshipEventService.CreateEvent request,
+            Authentication auth) {
+        return ownedEvents.update(communityId, championshipId, eventId, auth.getName(), request);
+    }
+
+    @DeleteMapping("/{championshipId}/owned-events/{eventId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteOwnedEvent(@PathVariable Long communityId, @PathVariable Long championshipId,
+                                 @PathVariable Long eventId, Authentication auth) {
+        ownedEvents.delete(communityId, championshipId, eventId, auth.getName());
+    }
+
     @PostMapping("/{championshipId}/competitions/{tournamentId}")
     public CommunityChampionshipResponse addCompetition(
             @PathVariable Long communityId, @PathVariable Long championshipId,
