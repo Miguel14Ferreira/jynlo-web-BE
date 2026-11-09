@@ -1,0 +1,51 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-09-championship-owned-league-fixtures
+      author: jynlo
+      changes:
+        - createTable:
+            schemaName: desporto24
+            tableName: community_championship_fixture
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: event_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: round_number, type: int, constraints: {nullable: false}}
+              - column: {name: match_number, type: int, constraints: {nullable: false}}
+              - column: {name: home_team_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: away_team_id, type: bigint, constraints: {nullable: false}}
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: community_championship_fixture
+            baseColumnNames: event_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: community_championship_event
+            referencedColumnNames: id
+            constraintName: fk_owned_fixture_event
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: community_championship_fixture
+            baseColumnNames: home_team_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: community_championship_team
+            referencedColumnNames: id
+            constraintName: fk_owned_fixture_home
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: community_championship_fixture
+            baseColumnNames: away_team_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: community_championship_team
+            referencedColumnNames: id
+            constraintName: fk_owned_fixture_away
+        - addUniqueConstraint:
+            schemaName: desporto24
+            tableName: community_championship_fixture
+            columnNames: event_id,round_number,match_number
+            constraintName: uk_championship_fixture_round
+        - createIndex:
+            schemaName: desporto24
+            tableName: community_championship_fixture
+            indexName: idx_championship_fixture_event
+            columns:
+              - column: {name: event_id}
+              - column: {name: round_number}
