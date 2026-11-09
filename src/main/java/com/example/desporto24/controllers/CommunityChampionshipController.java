@@ -153,6 +153,24 @@ public class CommunityChampionshipController {
         ownedEvents.delete(communityId, championshipId, eventId, auth.getName());
     }
 
+    @GetMapping("/{championshipId}/owned-events/{eventId}/fixtures")
+    public List<com.example.desporto24.service.CommunityChampionshipEventService.LeagueFixture> ownedLeagueFixtures(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, Authentication auth) {
+        return ownedEvents.fixtures(communityId, championshipId, eventId, auth.getName());
+    }
+
+    public record ScheduleOwnedLeagueRequest(@jakarta.validation.constraints.Min(1)
+                                             @jakarta.validation.constraints.Max(2) int legs) {}
+
+    @PostMapping("/{championshipId}/owned-events/{eventId}/schedule")
+    public List<com.example.desporto24.service.CommunityChampionshipEventService.LeagueFixture> scheduleOwnedLeague(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, @RequestBody @Valid ScheduleOwnedLeagueRequest request,
+            Authentication auth) {
+        return ownedEvents.scheduleLeague(communityId, championshipId, eventId, request.legs(), auth.getName());
+    }
+
     @GetMapping("/{championshipId}/owned-events/{eventId}/teams")
     public List<com.example.desporto24.service.CommunityChampionshipEventService.TeamRegistration> ownedEventTeams(
             @PathVariable Long communityId, @PathVariable Long championshipId,
