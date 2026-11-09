@@ -105,7 +105,7 @@ class CommunityChampionshipEventServiceTest {
         when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
         var draft = CommunityChampionshipEvent.builder().id(100L).championship(championship)
                 .name("Liga Original").format("LEAGUE").status("DRAFT").createdAt(Instant.now()).build();
-        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(draft));
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(draft));
         when(events.save(draft)).thenReturn(draft);
         var result = service.update(7L, 15L, 100L, "member",
                 new CommunityChampionshipEventService.CreateEvent("Taça da Comunidade", "CUP"));
@@ -118,7 +118,7 @@ class CommunityChampionshipEventServiceTest {
     void cannotModifyOrDeleteAnotherChampionshipEvent() {
         member(CommunityRole.ADMIN);
         when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
-        when(events.findByIdAndChampionshipId(200L, 15L)).thenReturn(Optional.empty());
+        when(events.lockForScheduling(200L, 15L)).thenReturn(Optional.empty());
         assertThrows(ResponseStatusException.class, () -> service.update(7L, 15L, 200L,
                 "member", new CommunityChampionshipEventService.CreateEvent("Taça", "CUP")));
         assertThrows(ResponseStatusException.class, () -> service.delete(7L, 15L, 200L, "member"));
@@ -141,7 +141,7 @@ class CommunityChampionshipEventServiceTest {
         when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
         var started = CommunityChampionshipEvent.builder().id(100L).championship(championship)
                 .name("Liga").format("LEAGUE").status("ACTIVE").createdAt(Instant.now()).build();
-        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(started));
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(started));
         assertThrows(ResponseStatusException.class, () -> service.delete(7L, 15L, 100L, "member"));
         championship.setClosedAt(Instant.now());
         assertThrows(ResponseStatusException.class, () -> service.delete(7L, 15L, 100L, "member"));
@@ -154,7 +154,7 @@ class CommunityChampionshipEventServiceTest {
         when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
         var draft = CommunityChampionshipEvent.builder().id(100L).championship(championship)
                 .name("Supertaça").format("SUPERCUP").status("DRAFT").createdAt(Instant.now()).build();
-        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(draft));
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(draft));
         service.delete(7L, 15L, 100L, "member");
         verify(events).delete(draft);
     }
@@ -218,7 +218,7 @@ class CommunityChampionshipEventServiceTest {
                 .name("Taça").format("CUP").status("DRAFT").createdAt(Instant.now()).build();
         var team = CommunityChampionshipTeam.builder().id(30L).championship(championship)
                 .name("Águias").normalizedName("águias").createdAt(Instant.now()).build();
-        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(cup));
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(cup));
         when(championshipTeams.findById(30L)).thenReturn(Optional.of(team));
         when(eventTeams.saveAndFlush(any())).thenAnswer(invocation -> {
             CommunityChampionshipEventTeam saved = invocation.getArgument(0);
@@ -241,7 +241,7 @@ class CommunityChampionshipEventServiceTest {
         var otherChampionship = CommunityChampionship.builder().id(16L).build();
         var team = CommunityChampionshipTeam.builder().id(30L).championship(otherChampionship)
                 .name("Equipa externa").build();
-        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(cup));
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(cup));
         when(championshipTeams.findById(30L)).thenReturn(Optional.of(team));
         assertThrows(ResponseStatusException.class,
                 () -> service.addTeam(7L, 15L, 100L, 30L, "member"));
@@ -256,7 +256,7 @@ class CommunityChampionshipEventServiceTest {
                 .name("Liga").format("LEAGUE").status("DRAFT").build();
         var team = CommunityChampionshipTeam.builder().id(30L).championship(championship)
                 .name("Águias").build();
-        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(league));
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
         when(championshipTeams.findById(30L)).thenReturn(Optional.of(team));
         when(eventTeams.existsByEventIdAndTeamId(100L, 30L)).thenReturn(true);
         assertThrows(ResponseStatusException.class,
@@ -283,7 +283,7 @@ class CommunityChampionshipEventServiceTest {
         var team = CommunityChampionshipTeam.builder().id(30L).championship(championship).name("Águias").build();
         var registration = CommunityChampionshipEventTeam.builder()
                 .id(900L).event(league).team(team).build();
-        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(league));
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
         when(eventTeams.findByEventIdAndTeamId(100L, 30L)).thenReturn(Optional.of(registration));
         service.removeTeam(7L, 15L, 100L, 30L, "member");
         verify(eventTeams).delete(registration);
