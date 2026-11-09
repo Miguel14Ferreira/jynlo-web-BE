@@ -166,9 +166,10 @@ class SessionLifecycleServiceTest {
     @Test
     void cannotEditDetailsAfterKickoffOrBelowConfirmedCount() {
         participant(profile("player"));
+        participant(profile("player2"));
         assertThrows(org.springframework.web.server.ResponseStatusException.class,
                 () -> service.updateDetails(session.getId(), Instant.now().plusSeconds(7200),
-                        1, 2, java.math.BigDecimal.ZERO, "Lisboa", "Rua Nova", null,
+                        2, 2, java.math.BigDecimal.ZERO, "Lisboa", "Rua Nova", null,
                         creator.getUsername()));
         session.setGameDate(Date.from(Instant.now().minusSeconds(10)));
         sessionRepository.saveAndFlush(session);
