@@ -16,16 +16,18 @@ public final class ChampionshipFinalizationPolicy {
         if (result.standings().stream().anyMatch(row -> "TEAM_UNLINKED".equals(row.entryType())))
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Associa todas as equipas pontuadas antes de fechar o campeonato");
-        Standing first = result.standings().get(0);
+        // A final sporting decision cannot depend on the incoming display order.
+        Standing first = result.standings().stream()
+                .max(java.util.Comparator.comparingLong(Standing::points)
+                        .thenComparingInt(Standing::victories))
+                .orElseThrow();
         if (result.standings().stream().anyMatch(row -> !row.entryType().equals(first.entryType())))
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Não é possível atribuir o mesmo título a equipas e atletas individuais");
-        if (result.standings().size() > 1) {
-            Standing second = result.standings().get(1);
-            if (first.points() == second.points() && first.victories() == second.victories())
-                throw new ResponseStatusException(HttpStatus.CONFLICT,
-                        "Empate no primeiro lugar: é necessária uma decisão desportiva");
-        }
+        if (result.standings().stream().anyMatch(row -> row != first
+                && row.points() == first.points() && row.victories() == first.victories()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Empate no primeiro lugar: é necessária uma decisão desportiva");
         return first;
     }
 }
