@@ -81,7 +81,7 @@ public final class CommunityChampionshipHonours {
                 .reversed().thenComparing(CommunityChampionshipHonoursResponse.Title::championshipId));
         var leaders = individuals.values().stream().map(x ->
                         new CommunityChampionshipHonoursResponse.IndividualHonour(
-                                x.id, x.name, x.ids.size(), List.copyOf(x.ids), x.leagues, x.cups))
+                                x.id, x.name, x.ids.size(), List.copyOf(x.ids)))
                 .sorted(Comparator.comparingInt(
                         CommunityChampionshipHonoursResponse.IndividualHonour::titles).reversed()
                         .thenComparing(CommunityChampionshipHonoursResponse.IndividualHonour::name)
@@ -89,7 +89,7 @@ public final class CommunityChampionshipHonours {
                 .toList();
         var teamLeaders = teams.values().stream()
                 .map(x -> new CommunityChampionshipHonoursResponse.TeamHonour(
-                        x.id, x.name, x.ids.size(), List.copyOf(x.ids)))
+                        x.id, x.name, x.ids.size(), List.copyOf(x.ids), x.leagues, x.cups))
                 .sorted(Comparator.comparingInt(
                         CommunityChampionshipHonoursResponse.TeamHonour::titles).reversed()
                         .thenComparing(CommunityChampionshipHonoursResponse.TeamHonour::name)
