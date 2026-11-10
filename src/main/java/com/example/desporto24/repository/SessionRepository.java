@@ -29,6 +29,7 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
             select case when count(s.id) > 0 then true else false end
             from Session s
             where s.gameDate > :now
+              and s.gameDate <= :contactUntil
               and s.status in (
                   com.example.desporto24.enumeration.SessionStatus.OPEN,
                   com.example.desporto24.enumeration.SessionStatus.FULL)
@@ -45,7 +46,8 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
     boolean existsSharedUpcomingContactSession(
             @Param("firstId") Long firstId,
             @Param("secondId") Long secondId,
-            @Param("now") Date now);
+            @Param("now") Date now,
+            @Param("contactUntil") Date contactUntil);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from Session s where s.id = :sessionId and " +
