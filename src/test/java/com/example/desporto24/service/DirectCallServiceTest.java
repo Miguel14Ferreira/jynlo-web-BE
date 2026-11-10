@@ -393,6 +393,53 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void revokedOriginalParticipantClosesLiveKitRoomForEveryone() throws Exception {
+        Profile carlos = mock(Profile.class);
+        lenient().when(carlos.getId()).thenReturn(14L);
+        lenient().when(profiles.findUserByUsernameIgnoreCase("carlos"))
+                .thenReturn(Optional.of(carlos));
+        DirectCallService protectedCalls = spy(calls);
+        doReturn(true).when(protectedCalls).deleteLiveKitRoom(anyString());
+
+        var call = protectedCalls.start("ana", "bea", "voice");
+        protectedCalls.accept(call.callId(), "bea");
+        protectedCalls.invite(call.callId(), "ana", "carlos");
+        protectedCalls.accept(call.callId(), "carlos");
+
+        lenient().doThrow(new org.springframework.security.access.AccessDeniedException("Revoked"))
+                .when(inbox).requireConversationAccess("ana", "direct", "bea");
+
+        protectedCalls.revokeDisconnectedGuests();
+        verify(protectedCalls).deleteLiveKitRoom("jynlo-" + call.callId());
+        verify(gateway).publishDirectCallEvent(eq("ana"), eq("bea"),
+                eq(call.callId().toString()), eq("voice"), eq("ENDED"), eq("ana"), any());
+        verify(gateway).publishDirectCallEventTo(eq("carlos"), eq("ana"), eq("carlos"),
+                eq(call.callId().toString()), eq("voice"), eq("ENDED"), eq("ana"), any());
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
+                () -> protectedCalls.members(call.callId(), "bea")).getStatusCode());
+        assertNull(protectedCalls.pendingFor("carlos"));
+    }
+
+    @Test
+    void providerRoomDeletionFailureRetainsOriginalCallForRetry() throws Exception {
+        DirectCallService protectedCalls = spy(calls);
+        doReturn(false).when(protectedCalls).deleteLiveKitRoom(anyString());
+        var call = protectedCalls.start("ana", "bea", "voice");
+        protectedCalls.accept(call.callId(), "bea");
+        lenient().doThrow(new org.springframework.security.access.AccessDeniedException("Revoked"))
+                .when(inbox).requireConversationAccess("ana", "direct", "bea");
+
+        protectedCalls.revokeDisconnectedGuests();
+        verify(protectedCalls).deleteLiveKitRoom("jynlo-" + call.callId());
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> protectedCalls.members(call.callId(), "ana"));
+        doReturn(true).when(protectedCalls).deleteLiveKitRoom(anyString());
+        protectedCalls.revokeDisconnectedGuests();
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
+                () -> protectedCalls.members(call.callId(), "bea")).getStatusCode());
+    }
+
+    @Test
     void revokedAcceptedGuestIsDisconnectedFromProviderAndRemovedLocally() throws Exception {
         Profile carlos = mock(Profile.class);
         lenient().when(carlos.getId()).thenReturn(14L);
