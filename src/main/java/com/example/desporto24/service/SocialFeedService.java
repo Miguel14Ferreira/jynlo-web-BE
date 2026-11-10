@@ -159,6 +159,9 @@ public class SocialFeedService {
         SocialPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("Publicação não encontrada"));
 
+        if (post.getActivityType() != null) {
+            throw new AccessDeniedException("As atividades automáticas não podem ser apagadas como publicações");
+        }
         if (!post.getAuthor().getId().equals(actor.getId())) {
             throw new AccessDeniedException("Só podes apagar as tuas publicações");
         }
