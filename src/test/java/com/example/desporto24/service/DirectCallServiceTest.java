@@ -104,21 +104,21 @@ class DirectCallServiceTest {
     }
 
     @Test
-    void revokedRingDoesNotHideAnotherAuthorizedRingForSameRecipient() {
+    void simultaneousIncomingRingsAreRejectedEvenIfEarlierPermissionIsRevoked() {
         Profile carlos = mock(Profile.class);
         lenient().when(carlos.getId()).thenReturn(14L);
         lenient().when(profiles.findUserByUsernameIgnoreCase("carlos"))
                 .thenReturn(Optional.of(carlos));
 
         calls.start("ana", "bea", "voice");
-        var valid = calls.start("carlos", "bea", "voice");
         doThrow(new org.springframework.security.access.AccessDeniedException("Blocked"))
                 .when(inbox).requireConversationAccess("bea", "direct", "ana");
 
-        var recovered = calls.pendingFor("bea");
-        assertNotNull(recovered);
-        assertEquals(valid.callId(), recovered.callId());
-        assertEquals("carlos", recovered.caller());
+        assertNull(calls.pendingFor("bea"), "Revoked ring must not be exposed");
+        var conflict = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> calls.start("carlos", "bea", "voice"));
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, conflict.getStatusCode(),
+                "A still-ringing call reserves its recipient until it expires or ends");
     }
 
     @Test
@@ -191,7 +191,7 @@ class DirectCallServiceTest {
     }
 
     @Test
-    void revokedGroupInviteDoesNotHideSeparateAuthorizedIncomingCall() {
+    void groupInviteReservesRecipientEvenAfterOriginalContactIsRevoked() {
         Profile carlos = mock(Profile.class);
         Profile dora = mock(Profile.class);
         lenient().when(carlos.getId()).thenReturn(14L);
@@ -204,15 +204,14 @@ class DirectCallServiceTest {
         var group = calls.start("ana", "bea", "voice");
         calls.accept(group.callId(), "bea");
         calls.invite(group.callId(), "ana", "carlos");
-        var valid = calls.start("dora", "carlos", "voice");
-
         doThrow(new org.springframework.security.access.AccessDeniedException("Session permission revoked"))
                 .when(inbox).requireConversationAccess("ana", "direct", "bea");
 
-        var recovered = calls.pendingFor("carlos");
-        assertNotNull(recovered, "A revoked group invitation must not suppress another incoming call");
-        assertEquals(valid.callId(), recovered.callId());
-        assertEquals("dora", recovered.caller());
+        assertNull(calls.pendingFor("carlos"), "Revoked group invite must not be recovered");
+        var conflict = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> calls.start("dora", "carlos", "voice"));
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, conflict.getStatusCode(),
+                "A pending group invitation still reserves the recipient");
         verify(inbox, never()).requireConversationAccess("carlos", "direct", "ana");
     }
 
