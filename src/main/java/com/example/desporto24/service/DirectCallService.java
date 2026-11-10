@@ -343,8 +343,9 @@ public class DirectCallService {
                 && !Instant.now().isBefore(e.getValue().expiresAt()));
         if (list.size() >= MAX_PARTICIPANTS - 2)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Call full");
-        Instant expiry = Instant.now().plusSeconds(RING_SECONDS);
-        enforceInviteRateLimit(actor, recipient, expiry);
+        Instant now = Instant.now();
+        Instant expiry = now.plusSeconds(RING_SECONDS);
+        enforceInviteRateLimit(actor, recipient, now);
         list.put(key(recipient), new Guest(recipient, actor, expiry, false));
         gateway.publishDirectCallEvent(actor, recipient, id.toString(), call.media(),
                 "RINGING", actor, expiry);
