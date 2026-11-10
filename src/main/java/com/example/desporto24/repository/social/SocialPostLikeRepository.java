@@ -24,5 +24,8 @@ public interface SocialPostLikeRepository extends JpaRepository<SocialPostLike, 
     @Query("select l.post.id from SocialPostLike l where l.post.id in :postIds and l.profile.id = :profileId")
     Set<Long> findLikedPostIds(@Param("postIds") Set<Long> postIds, @Param("profileId") Long profileId);
 
+    @Query("select l from SocialPostLike l join fetch l.profile where l.post.id = :postId order by l.createdAt desc")
+    List<com.example.desporto24.model.social.SocialPostLike> findLikers(@Param("postId") Long postId, org.springframework.data.domain.Pageable pageable);
+
     long deleteByProfileId(Long profileId);
 }
