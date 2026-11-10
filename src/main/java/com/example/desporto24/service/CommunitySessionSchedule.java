@@ -101,6 +101,7 @@ public final class CommunitySessionSchedule {
         }
 
         List<Occurrence> result = new ArrayList<>(repetitions * week.size());
+        Set<Instant> plannedKickoffs = new HashSet<>();
         int intervalWeeks = recurrence == SessionRecurrence.BIWEEKLY ? 2 : 1;
         for (int repeat = 0; repeat < repetitions; repeat++) {
             for (ZonedDateTime slot : week) {
@@ -108,6 +109,12 @@ public final class CommunitySessionSchedule {
                 Instant kickoff = future.toInstant();
                 if (!kickoff.isAfter(now)) {
                     throw new IllegalArgumentException("Todas as sessões devem ser futuras");
+                }
+                // Distinct instants inside a DST overlap can resolve to the
+                // same local time in following weeks. Reject the entire plan
+                // before persisting any duplicate session.
+                if (!plannedKickoffs.add(kickoff)) {
+                    throw new IllegalArgumentException("Não podes repetir o mesmo dia e hora");
                 }
                 Instant opensAt = null;
                 if (wallClockLead != null) {
