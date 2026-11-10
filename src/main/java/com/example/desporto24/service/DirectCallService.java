@@ -45,6 +45,8 @@ public class DirectCallService {
     private static final int MAX_CALL_MINUTES = 120;
     private static final int START_COOLDOWN_SECONDS = 10;
     private static final int MAX_PARTICIPANTS = 6;
+    private static final int MAX_INVITES_PER_PEER_PER_MINUTE = 3;
+    private static final Duration INVITE_WINDOW = Duration.ofMinutes(1);
     private static final Logger log = LoggerFactory.getLogger(DirectCallService.class);
     private static final Duration PROVIDER_CACHE = Duration.ofSeconds(60);
     private static final HttpClient PROVIDER_HTTP = HttpClient.newBuilder()
@@ -66,6 +68,9 @@ public class DirectCallService {
 
     private final ConcurrentHashMap<UUID, Call> calls = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Instant> lastStarted = new ConcurrentHashMap<>();
+    /** Per-sender/recipient throttling; rejecting or declining a ring does not reset it. */
+    private final ConcurrentHashMap<String, InviteBudget> inviteBudgets = new ConcurrentHashMap<>();
+    private record InviteBudget(Instant since, int count) {}
     /** Node-local, explicit invitations: no LiveKit credential is minted
      * until an authenticated invitee accepts. Mutations are synchronized. */
     private final ConcurrentHashMap<UUID, LinkedHashMap<String, Guest>> guests = new ConcurrentHashMap<>();
@@ -339,10 +344,31 @@ public class DirectCallService {
         if (list.size() >= MAX_PARTICIPANTS - 2)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Call full");
         Instant expiry = Instant.now().plusSeconds(RING_SECONDS);
+        enforceInviteRateLimit(actor, recipient, expiry);
         list.put(key(recipient), new Guest(recipient, actor, expiry, false));
         gateway.publishDirectCallEvent(actor, recipient, id.toString(), call.media(),
                 "RINGING", actor, expiry);
         notifyParticipantsChanged(call, actor);
+    }
+
+    /** Avoid repeated ringing after a decline. Never consume the budget for a rejected ACL. */
+    private void enforceInviteRateLimit(String inviter, String recipient, Instant now) {
+        String budgetKey = key(inviter) + ":" + key(recipient);
+        InviteBudget previous = inviteBudgets.get(budgetKey);
+        if (previous != null && now.isBefore(previous.since().plus(INVITE_WINDOW))
+                && previous.count() >= MAX_INVITES_PER_PEER_PER_MINUTE) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Invite rate limit");
+        }
+        // Node-local signalling: expire stale counters instead of accumulating
+        // an entry for every person a user has ever called.
+        if (inviteBudgets.size() >= 512) {
+            inviteBudgets.entrySet().removeIf(entry ->
+                    !now.isBefore(entry.getValue().since().plus(INVITE_WINDOW)));
+        }
+        inviteBudgets.put(budgetKey,
+                previous == null || !now.isBefore(previous.since().plus(INVITE_WINDOW))
+                        ? new InviteBudget(now, 1)
+                        : new InviteBudget(previous.since(), previous.count() + 1));
     }
 
     /** Only current participants can inspect participants and invitations. */
