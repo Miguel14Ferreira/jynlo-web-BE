@@ -89,6 +89,13 @@ public final class CommunitySessionSchedule {
             wallClockLead = Duration.between(
                     request.registrationOpensAt().atZone(zone).toLocalDateTime(),
                     first.toLocalDateTime());
+            // During the autumn DST overlap, the clock can move backwards
+            // between a valid opening and kickoff. Local-time subtraction then
+            // yields zero or a negative lead despite the opening being earlier.
+            // In that case preserve the actual positive lead for the series.
+            if (!wallClockLead.isPositive()) {
+                wallClockLead = Duration.between(request.registrationOpensAt(), request.gameDate());
+            }
         }
 
         List<Occurrence> result = new ArrayList<>(repetitions * week.size());
