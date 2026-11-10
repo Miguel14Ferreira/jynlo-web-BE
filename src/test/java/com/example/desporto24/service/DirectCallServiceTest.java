@@ -132,6 +132,19 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void revokedInviterOriginalContactPreventsGuestAcceptance() {
+        var outgoing = calls.start("ana", "bea", "voice");
+        calls.accept(outgoing.callId(), "bea");
+        calls.invite(outgoing.callId(), "ana", "carlos");
+        doThrow(new org.springframework.security.access.AccessDeniedException("Session participation revoked"))
+                .when(inbox).requireConversationAccess("ana", "direct", "bea");
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.accept(outgoing.callId(), "carlos"));
+        verify(inbox, never()).requireConversationAccess("carlos", "direct", "ana");
+    }
+
+    @Test
     void deniesUnknownParticipantAndCallerAcceptance() {
         var outgoing = calls.start("ana", "bea", "voice");
         ResponseStatusException outsider = assertThrows(ResponseStatusException.class,
