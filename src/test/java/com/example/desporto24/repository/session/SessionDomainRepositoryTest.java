@@ -4,6 +4,12 @@ import com.example.desporto24.enumeration.AttendanceStatus;
 import com.example.desporto24.enumeration.ParticipantState;
 import com.example.desporto24.model.Profile;
 import com.example.desporto24.model.Session;
+import com.example.desporto24.model.community.Community;
+import com.example.desporto24.model.community.CommunitySeason;
+import com.example.desporto24.enumeration.CommunityVisibility;
+import com.example.desporto24.repository.community.CommunityRepository;
+import com.example.desporto24.repository.community.CommunitySeasonRepository;
+import jakarta.persistence.EntityManager;
 import com.example.desporto24.model.session.SessionParticipant;
 import com.example.desporto24.model.session.SessionWaitlist;
 import com.example.desporto24.repository.ProfileRepository;
@@ -20,6 +26,9 @@ import java.time.Instant;
 import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -35,6 +44,9 @@ class SessionDomainRepositoryTest {
 
     @Autowired private ProfileRepository profileRepository;
     @Autowired private SessionRepository sessionRepository;
+    @Autowired private CommunityRepository communityRepository;
+    @Autowired private CommunitySeasonRepository seasonRepository;
+    @Autowired private EntityManager entityManager;
     @Autowired private SessionParticipantRepository participantRepository;
     @Autowired private SessionWaitlistRepository waitlistRepository;
 
@@ -68,6 +80,58 @@ class SessionDomainRepositoryTest {
         waitlistRepository.saveAndFlush(waitlist());
         assertThrows(DataIntegrityViolationException.class,
                 () -> waitlistRepository.saveAndFlush(waitlist()));
+    }
+
+    @Test
+    void deletingSeasonDetachesSessionsButKeepsTheirAttendanceAndOtherSeasons() {
+        Community community = Community.builder()
+                .name("Season FK regression")
+                .visibility(CommunityVisibility.PRIVATE)
+                .owner(profile)
+                .createdAt(Instant.now())
+                .build();
+        community = communityRepository.saveAndFlush(community);
+
+        CommunitySeason deleted = seasonRepository.saveAndFlush(CommunitySeason.builder()
+                .community(community).name("Época anterior").active(false)
+                .startsAt(Instant.now()).createdAt(Instant.now()).build());
+        CommunitySeason retained = seasonRepository.saveAndFlush(CommunitySeason.builder()
+                .community(community).name("Época atual").active(true)
+                .startsAt(Instant.now()).createdAt(Instant.now()).build());
+
+        session.setSeasonCompetition(deleted);
+        sessionRepository.saveAndFlush(session);
+        Session other = new Session();
+        other.setSport("Futebol");
+        other.setGameDate(new Date(System.currentTimeMillis() + 7_200_000));
+        other.setCity("Cacem");
+        other.setProfile(profile);
+        other.setSeasonCompetition(retained);
+        other = sessionRepository.saveAndFlush(other);
+        participantRepository.saveAndFlush(participant());
+
+        Long oldGameId = session.getId();
+        Long otherGameId = other.getId();
+        Long retainedSeasonId = retained.getId();
+        Long deletedSeasonId = deleted.getId();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertEquals(1, sessionRepository.detachDeletedSeason(deletedSeasonId));
+        entityManager.flush();
+        entityManager.clear();
+        seasonRepository.deleteById(deletedSeasonId);
+        seasonRepository.flush();
+        entityManager.clear();
+
+        var oldGame = sessionRepository.findById(oldGameId).orElseThrow();
+        assertNull(oldGame.getSeasonCompetition());
+        assertTrue(participantRepository.findAll().stream()
+                .anyMatch(attendee -> attendee.getSession().getId().equals(oldGameId)));
+        var currentGame = sessionRepository.findById(otherGameId).orElseThrow();
+        assertEquals(retainedSeasonId, currentGame.getSeasonCompetition().getId());
+        assertTrue(seasonRepository.findById(retainedSeasonId).isPresent());
+        assertTrue(seasonRepository.findById(deletedSeasonId).isEmpty());
     }
 
     private SessionParticipant participant() {
