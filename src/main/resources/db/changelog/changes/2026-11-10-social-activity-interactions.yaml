@@ -1,0 +1,15 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-10-social-activity-interactions
+      author: jynlo
+      changes:
+        - addColumn:
+            tableName: social_post
+            columns:
+              - column:
+                  name: activity_type
+                  type: VARCHAR(32)
+        - addUniqueConstraint:
+            tableName: social_post
+            columnNames: activity_type,author_id,session_id
+            constraintName: uk_social_post_activity
