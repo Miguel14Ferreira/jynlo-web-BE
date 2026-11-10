@@ -31,11 +31,11 @@ class AdminPlayerControllerTest {
         profile.setRole("ROLE_USER");
         profile.setEnabled(true);
         profile.setNotLocked(false);
-        when(repository.searchAdminPlayers("a!%!_!!", PageRequest.of(0, 20)))
+        when(repository.searchAdminPlayers("a!%!_!!", PageRequest.of(0, 10)))
                 .thenReturn(new org.springframework.data.domain.SliceImpl<>(
-                        java.util.Collections.nCopies(20, profile), PageRequest.of(0, 20), true));
+                        java.util.Collections.nCopies(10, profile), PageRequest.of(0, 10), true));
         var response = controller.search(" A%_! ", 0);
-        assertEquals(20, response.players().size());
+        assertEquals(10, response.players().size());
         assertTrue(response.hasMore());
         assertEquals("ana", response.players().get(0).username());
         assertEquals(false, response.players().get(0).notLocked());
