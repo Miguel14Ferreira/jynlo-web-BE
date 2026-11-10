@@ -109,7 +109,12 @@ public final class CommunitySessionSchedule {
                 }
                 Instant opensAt = null;
                 if (wallClockLead != null) {
-                    opensAt = future.toLocalDateTime().minus(wallClockLead).atZone(zone).toInstant();
+                    // Keep the explicitly requested opening for the first game.
+                    // An overlapping local clock time is ambiguous when
+                    // reconstructed with atZone(), which picks the earlier offset.
+                    opensAt = repeat == 0 && slot.toInstant().equals(request.gameDate())
+                            ? request.registrationOpensAt()
+                            : future.toLocalDateTime().minus(wallClockLead).atZone(zone).toInstant();
                     if (!opensAt.isAfter(now) || !opensAt.isBefore(kickoff)) {
                         throw new IllegalArgumentException(
                                 "Cada convocatória deve abrir no futuro e antes da sessão");
