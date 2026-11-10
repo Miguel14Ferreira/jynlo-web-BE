@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-10-idea-admin-replies
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: ideas
+            columns:
+              - column: {name: admin_reply, type: text}
+              - column: {name: admin_replied_at, type: timestamp with time zone}
+              - column: {name: admin_replied_by, type: varchar(100)}
