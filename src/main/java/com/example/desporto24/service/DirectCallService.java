@@ -107,7 +107,12 @@ public class DirectCallService {
         calls.entrySet().removeIf(entry -> !now.isBefore(entry.getValue().expiresAt));
         for (Call call : calls.values()) {
             if ("RINGING".equals(call.state) && call.peer.equalsIgnoreCase(recipient)) {
-                inbox.requireConversationAccess(recipient, "direct", call.caller);
+                try {
+                    inbox.requireConversationAccess(recipient, "direct", call.caller);
+                } catch (org.springframework.security.access.AccessDeniedException denied) {
+                    // Revoked invitations must not hide other valid incoming calls.
+                    continue;
+                }
                 return new PendingInvitation(call.id, call.caller, call.peer,
                         call.media, call.expiresAt);
             }
@@ -116,8 +121,13 @@ public class DirectCallService {
             if (guest != null && !guest.accepted() && now.isBefore(guest.expiresAt())) {
                 // A stale group invitation must not be advertised after its inviter
                 // loses permission to participate in the original call.
-                requireInviterOriginalAccess(call, guest.inviter());
-                inbox.requireConversationAccess(recipient, "direct", guest.inviter());
+                try {
+                    requireInviterOriginalAccess(call, guest.inviter());
+                    inbox.requireConversationAccess(recipient, "direct", guest.inviter());
+                } catch (org.springframework.security.access.AccessDeniedException denied) {
+                    // Skip stale group invitations without suppressing valid ones.
+                    continue;
+                }
                 return new PendingInvitation(call.id, guest.inviter(), guest.username(),
                         call.media, guest.expiresAt());
             }
