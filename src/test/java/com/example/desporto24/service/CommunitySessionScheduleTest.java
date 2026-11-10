@@ -66,6 +66,34 @@ class CommunitySessionScheduleTest {
     }
 
     @Test
+    void scheduledCallUpUsesRealLeadTimeWhenSpringGapSkipsOpeningHour() {
+        // On 28 March 2027 Lisbon skips 01:00-01:59.
+        // A weekly 02:15 game has a 01:45 call-up in the first week.
+        // The following week's 01:45 does not exist; it must not be
+        // shifted to 02:45, after the 02:15 kickoff.
+        Instant first = Instant.parse("2027-03-21T02:15:00Z");
+        Instant opening = Instant.parse("2027-03-21T01:45:00Z");
+        var request = new CreateSessionRequest(
+                "Futebol", first, "Lisboa", "Rua do Campo",
+                10, BigDecimal.ZERO, false, null, null, null, 7L, null,
+                SessionRecurrence.WEEKLY, 3, 0,
+                RegistrationOpeningMode.SCHEDULED, opening,
+                List.of(), LISBON.getId());
+
+        var plan = CommunitySessionSchedule.expand(
+                request, Instant.parse("2027-03-20T12:00:00Z"));
+
+        assertEquals(3, plan.size());
+        assertEquals(first, plan.get(0).kickoff());
+        assertEquals(opening, plan.get(0).registrationOpensAt());
+        assertEquals(Instant.parse("2027-03-28T01:15:00Z"), plan.get(1).kickoff());
+        assertEquals(Instant.parse("2027-03-28T00:45:00Z"), plan.get(1).registrationOpensAt());
+        assertEquals(Instant.parse("2027-04-04T00:15:00Z"), plan.get(2).kickoff());
+        assertEquals(Instant.parse("2027-04-03T23:45:00Z"), plan.get(2).registrationOpensAt());
+        assertTrue(plan.stream().allMatch(slot -> slot.registrationOpensAt().isBefore(slot.kickoff())));
+    }
+
+    @Test
     void scheduledCallUpBeforeTheRepeatedHourRemainsValidAfterAutumnClockRollback() {
         // In Lisbon the clock goes from 01:59 WEST back to 01:00 WET.
         // The opening at 00:45Z is 30 minutes before the second 01:15,
