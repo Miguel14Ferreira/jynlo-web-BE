@@ -234,6 +234,29 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void repeatedGroupRingingToSamePlayerIsRateLimitedAfterThreeInvites() {
+        var call = calls.start("ana", "bea", "voice");
+        calls.accept(call.callId(), "bea");
+
+        for (int attempt = 0; attempt < 3; attempt++) {
+            calls.invite(call.callId(), "ana", "carlos");
+            calls.decline(call.callId(), "carlos");
+        }
+
+        ResponseStatusException throttled = assertThrows(ResponseStatusException.class,
+                () -> calls.invite(call.callId(), "ana", "carlos"));
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, throttled.getStatusCode());
+        assertNull(calls.pendingFor("carlos"));
+        assertEquals(2, calls.members(call.callId(), "bea").participants().size());
+        verify(gateway, times(3)).publishDirectCallEvent(eq("ana"), eq("carlos"),
+                eq(call.callId().toString()), eq("voice"), eq("RINGING"), eq("ana"), any());
+
+        // One recipient's throttle does not prevent contacting another authorized peer.
+        calls.invite(call.callId(), "ana", "dora");
+        assertNotNull(calls.pendingFor("dora"));
+    }
+
+    @Test
     void declinedOrExpiredGuestNeverTerminatesTheExistingRoom() {
         var call=calls.start("ana","bea","video");
         calls.accept(call.callId(),"bea");
