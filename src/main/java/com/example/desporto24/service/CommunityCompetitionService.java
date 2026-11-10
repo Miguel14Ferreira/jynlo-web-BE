@@ -35,6 +35,7 @@ import com.example.desporto24.model.community.CommunityRaceRule;
 import com.example.desporto24.model.community.CommunityRacketRule;
 import com.example.desporto24.model.community.CommunitySportPointsRule;
 import com.example.desporto24.repository.community.CommunitySeasonRepository;
+import com.example.desporto24.repository.SessionRepository;
 import com.example.desporto24.repository.community.CommunityStandingsArchiveRepository;
 import com.example.desporto24.repository.community.CommunityStandingsArchiveRowRepository;
 import com.example.desporto24.model.community.CommunityStandingsArchive;
@@ -67,6 +68,7 @@ public class CommunityCompetitionService {
     private final CommunitySportPointsRuleRepository sportPointsRuleRepository;
     private final CommunityRoundEntryRepository entryRepository;
     private final CommunitySeasonRepository seasonRepository;
+    private final SessionRepository sessionRepository;
     private final CommunityStandingsArchiveRepository standingsArchiveRepository;
     private final CommunityStandingsArchiveRowRepository standingsArchiveRowRepository;
     private final ProfileRepository profileRepository;
@@ -2116,6 +2118,9 @@ public class CommunityCompetitionService {
         standingsArchiveRepository.deleteAll(archives);
         standingsArchiveRepository.flush();
 
+        // Sessions and attendance are independent records: keep them, but
+        // remove the nullable FK before deleting the referenced season.
+        sessionRepository.detachDeletedSeason(seasonId);
         seasonRepository.delete(season);
         seasonRepository.flush();
 
