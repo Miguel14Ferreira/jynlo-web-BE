@@ -234,9 +234,22 @@ public class SocialFeedService {
                         PageRequest.of(0, FEED_LIMIT)
                 );
 
+        // Interaction backing posts never appear as separate feed entries.
+        Set<Long> attendanceSessionIds = attendedSessions.stream()
+                .map(participant -> participant.getSession().getId())
+                .collect(Collectors.toSet());
+        Map<String, SocialPost> activityPosts = attendanceSessionIds.isEmpty()
+                ? Map.of()
+                : postRepository.findByActivityTypeAndSessionIdIn(
+                        "SESSION_ATTENDED", attendanceSessionIds).stream()
+                  .collect(Collectors.toMap(
+                        post -> post.getAuthor().getId() + ":" + post.getSession().getId(),
+                        Function.identity()));
+
         Set<Long> postIds = posts.stream()
                 .map(SocialPost::getId)
                 .collect(Collectors.toSet());
+        activityPosts.values().stream().map(SocialPost::getId).forEach(postIds::add);
         Map<Long, Long> likeCounts = countsByPostId(
                 postIds.isEmpty() ? List.of() : likeRepository.countByPostIds(postIds));
         Map<Long, Long> commentCounts = countsByPostId(
@@ -250,7 +263,9 @@ public class SocialFeedService {
                 .map(post -> postItem(post, likeCounts, commentCounts, likedPostIds))
                 .forEach(items::add);
         sessions.stream().map(this::sessionItem).forEach(items::add);
-        attendedSessions.stream().map(this::attendanceItem).forEach(items::add);
+        attendedSessions.stream()
+                .map(participant -> attendanceItem(participant, activityPosts, likeCounts, commentCounts, likedPostIds))
+                .forEach(items::add);
 
         return items.stream()
                 .sorted((left, right) -> right.createdAt().compareTo(left.createdAt()))
@@ -330,13 +345,16 @@ public class SocialFeedService {
     }
 
     private FeedItemResponse attendanceItem(
-            SessionParticipant participant) {
+            SessionParticipant participant, Map<String, SocialPost> activityPosts,
+            Map<Long, Long> likeCounts, Map<Long, Long> commentCounts, Set<Long> likedPostIds) {
         Profile author = participant.getProfile();
         Session session = participant.getSession();
+        SocialPost activityPost = activityPosts.get(author.getId() + ":" + session.getId());
+        Long activityPostId = activityPost == null ? null : activityPost.getId();
 
         return new FeedItemResponse(
                 "SESSION_ATTENDED",
-                null,
+                activityPostId,
                 author.getUsername(),
                 displayName(author),
                 author.getProfilePicUrl(),
@@ -349,12 +367,37 @@ public class SocialFeedService {
                 session.getGameDate() == null
                         ? null
                         : session.getGameDate().toInstant(),
-                0,
-                false,
-                0,
+                activityPostId == null ? 0 : likeCounts.getOrDefault(activityPostId, 0L),
+                activityPostId != null && likedPostIds.contains(activityPostId),
+                activityPostId == null ? 0 : commentCounts.getOrDefault(activityPostId, 0L),
                 publicSessionImage(session),
                 null
         );
+    }
+
+    /** Materializes the interaction backing post only when someone interacts. */
+    public Long ensureAttendancePost(Long sessionId, String attendeeUsername, String viewerUsername) {
+        profile(viewerUsername);
+        Profile attendee = profile(attendeeUsername);
+        Session session = resolvePublicSession(sessionId);
+        SessionParticipant participant = participantRepository
+                .findBySessionIdAndProfileId(sessionId, attendee.getId())
+                .orElseThrow(() -> new AccessDeniedException("Atividade não disponível"));
+        if (participant.getAttendanceStatus() != AttendanceStatus.ATTENDED
+                || participant.getAttendanceRecordedAt() == null
+                || participant.isFeedHidden()) {
+            throw new AccessDeniedException("Atividade não disponível");
+        }
+        return postRepository.findByActivityTypeAndAuthorIdAndSessionId(
+                        "SESSION_ATTENDED", attendee.getId(), sessionId)
+                .orElseGet(() -> postRepository.save(SocialPost.builder()
+                        .activityType("SESSION_ATTENDED")
+                        .author(attendee)
+                        .session(session)
+                        .content("Atividade realizada")
+                        .createdAt(participant.getAttendanceRecordedAt())
+                        .build()))
+                .getId();
     }
 
     private Session resolvePublicSession(Long sessionId) {
