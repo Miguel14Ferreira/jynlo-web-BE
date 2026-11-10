@@ -46,6 +46,7 @@ public class DirectCallService {
     private static final int START_COOLDOWN_SECONDS = 10;
     private static final int MAX_PARTICIPANTS = 6;
     private static final int MAX_INVITES_PER_PEER_PER_MINUTE = 3;
+    private static final int MAX_DIRECT_RINGS_PER_PEER_PER_MINUTE = 3;
     private static final Duration INVITE_WINDOW = Duration.ofMinutes(1);
     private static final Logger log = LoggerFactory.getLogger(DirectCallService.class);
     private static final Duration PROVIDER_CACHE = Duration.ofSeconds(60);
@@ -70,6 +71,8 @@ public class DirectCallService {
     private final ConcurrentHashMap<String, Instant> lastStarted = new ConcurrentHashMap<>();
     /** Per-sender/recipient throttling; rejecting or declining a ring does not reset it. */
     private final ConcurrentHashMap<String, InviteBudget> inviteBudgets = new ConcurrentHashMap<>();
+    /** Repeated 1:1 calls are capped separately from group invitations. */
+    private final ConcurrentHashMap<String, InviteBudget> directRingBudgets = new ConcurrentHashMap<>();
     private record InviteBudget(Instant since, int count) {}
     /** Node-local, explicit invitations: no LiveKit credential is minted
      * until an authenticated invitee accepts. Mutations are synchronized. */
@@ -200,6 +203,12 @@ public class DirectCallService {
         if (previous != null && now.isBefore(previous.plusSeconds(START_COOLDOWN_SECONDS))) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Call rate limit");
         }
+        String peerBudgetKey = normalized + ":" + key(peer);
+        InviteBudget ringBudget = directRingBudgets.get(peerBudgetKey);
+        if (ringBudget != null && now.isBefore(ringBudget.since().plus(INVITE_WINDOW))
+                && ringBudget.count() >= MAX_DIRECT_RINGS_PER_PEER_PER_MINUTE) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Repeated call rate limit");
+        }
 
         UUID id = UUID.randomUUID();
         Call call = new Call(id, caller, peer, media, "jynlo-" + id,
@@ -207,6 +216,14 @@ public class DirectCallService {
         CallSession session = access(call, caller);
         calls.put(id, call);
         lastStarted.put(normalized, now);
+        if (directRingBudgets.size() >= 512) {
+            directRingBudgets.entrySet().removeIf(entry ->
+                    !now.isBefore(entry.getValue().since().plus(INVITE_WINDOW)));
+        }
+        directRingBudgets.put(peerBudgetKey,
+                ringBudget == null || !now.isBefore(ringBudget.since().plus(INVITE_WINDOW))
+                        ? new InviteBudget(now, 1)
+                        : new InviteBudget(ringBudget.since(), ringBudget.count() + 1));
         gateway.publishDirectCallEvent(caller, peer, id.toString(), media,
                 "RINGING", caller, call.expiresAt);
         return session;
