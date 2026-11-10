@@ -29,6 +29,10 @@ public class SocialPost {
     private Session session;
 
     // Internal interaction post for a public activity; excluded from ordinary posts.
+    @Builder.Default
+    @Column(name = "hide_likers", nullable = false)
+    private boolean hideLikers = false;
+
     @Column(name = "activity_type", length = 32)
     private String activityType;
 
