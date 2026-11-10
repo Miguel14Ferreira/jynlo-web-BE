@@ -33,6 +33,14 @@ class AdminPlayerControllerTest {
     }
 
     @Test
+    void excessivePaginationIsRejectedBeforeDatabaseAccess() {
+        var ex = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> controller.search("", 1001));
+        assertEquals(400, ex.getStatusCode().value());
+        verifyNoInteractions(repository);
+    }
+
+    @Test
     void escapesWildcardsAndLimitsResults() {
         Profile profile = new Profile();
         profile.setId(7L);
