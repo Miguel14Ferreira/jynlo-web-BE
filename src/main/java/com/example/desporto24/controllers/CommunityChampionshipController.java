@@ -201,6 +201,31 @@ public class CommunityChampionshipController {
         return ownedEvents.drawCup(communityId, championshipId, eventId, auth.getName());
     }
 
+    @GetMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/goals")
+    public List<com.example.desporto24.service.CommunityChampionshipEventService.GoalEvent> fixtureGoals(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, @PathVariable Long fixtureId, Authentication auth) {
+        return ownedEvents.goalScorers(communityId, championshipId, eventId, fixtureId, auth.getName());
+    }
+
+    @PostMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/goals")
+    public List<com.example.desporto24.service.CommunityChampionshipEventService.GoalEvent> addFixtureGoal(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, @PathVariable Long fixtureId,
+            @RequestBody com.example.desporto24.service.CommunityChampionshipEventService.GoalInput input,
+            Authentication auth) {
+        return ownedEvents.addGoal(communityId, championshipId, eventId, fixtureId, input, auth.getName());
+    }
+
+    @DeleteMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/goals/{goalId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeFixtureGoal(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, @PathVariable Long fixtureId,
+            @PathVariable Long goalId, Authentication auth) {
+        ownedEvents.removeGoal(communityId, championshipId, eventId, fixtureId, goalId, auth.getName());
+    }
+
     @PutMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/score")
     public com.example.desporto24.service.CommunityChampionshipEventService.LeagueFixture recordFixtureScore(
             @PathVariable Long communityId, @PathVariable Long championshipId,
