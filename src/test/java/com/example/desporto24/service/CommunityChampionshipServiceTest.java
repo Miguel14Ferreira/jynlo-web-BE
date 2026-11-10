@@ -120,6 +120,31 @@ class CommunityChampionshipServiceTest {
     }
 
     @Test
+    void createsIndependentSeasonWithoutGlobalChampion() {
+        organizer();
+        when(communities.findById(7L)).thenReturn(Optional.of(community));
+        when(championships.save(any())).thenAnswer(invocation -> {
+            CommunityChampionship saved = invocation.getArgument(0);
+            saved.setId(15L);
+            return saved;
+        });
+        var result = service.create(7L, "organizer",
+                new CreateCommunityChampionshipRequest("Taças 2026", "Futebol", "2026/27", "INDEPENDENT"));
+        assertEquals("INDEPENDENT", result.standingsMode());
+        assertTrue(result.winnerStandings().isEmpty());
+    }
+
+    @Test
+    void rejectsUnknownSeasonRankingMode() {
+        organizer();
+        when(communities.findById(7L)).thenReturn(Optional.of(community));
+        assertThrows(ResponseStatusException.class,
+                () -> service.create(7L, "organizer",
+                        new CreateCommunityChampionshipRequest("Época", "Futebol", "2026/27", "UNSUPPORTED")));
+        verify(championships, never()).save(any());
+    }
+
+    @Test
     void supportsEveryCatalogSportAsSeasonContainer() {
         organizer();
         when(communities.findById(7L)).thenReturn(Optional.of(community));
