@@ -168,6 +168,20 @@ class SessionContactAccessServiceTest {
     }
 
     @Test
+    void revokesSessionContactImmediatelyAfterEitherParticipantBlocksTheOther() {
+        when(sessions.existsSharedUpcomingContactSession(eq(11L), eq(22L),
+                any(Date.class), any(Date.class))).thenReturn(true);
+        when(blocks.isBlockedBetween(ana, bea)).thenReturn(false, true);
+
+        assertTrue(access.mayContact("ana", "bea"));
+        assertThrows(AccessDeniedException.class, () -> access.requireContact("ana", "bea"));
+
+        verify(blocks, times(2)).isBlockedBetween(ana, bea);
+        verify(sessions, times(1)).existsSharedUpcomingContactSession(eq(11L), eq(22L),
+                any(Date.class), any(Date.class));
+    }
+
+    @Test
     void deniesWhenNoActiveSharedSession() {
         assertFalse(access.mayContact("ana", "bea"));
         assertThrows(AccessDeniedException.class, () -> access.requireContact("ana", "bea"));
