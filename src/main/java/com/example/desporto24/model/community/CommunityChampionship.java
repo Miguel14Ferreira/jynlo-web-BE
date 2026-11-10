@@ -33,6 +33,11 @@ public class CommunityChampionship {
     @Column(name = "closed_at")
     private Instant closedAt;
 
+    /** Existing seasons default to AGGREGATE; INDEPENDENT archives only each event's trophies. */
+    @Column(name = "standings_mode", nullable = false, length = 20)
+    @Builder.Default
+    private String standingsMode = "AGGREGATE";
+
     @Column(name = "final_trophies_json", columnDefinition = "text")
     private String finalTrophiesJson;
 
