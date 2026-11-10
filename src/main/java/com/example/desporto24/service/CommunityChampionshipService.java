@@ -186,6 +186,26 @@ public class CommunityChampionshipService {
      * leagues with independently confirmed sporting order. A draw unresolved
      * by sporting statistics never receives arbitrary position awards.
      */
+    /** Only organizers may change an open season's ranking policy.
+     * Freeze policy once results exist to avoid retroactive reinterpretation.
+     */
+    public CommunityChampionshipResponse setStandingsMode(Long communityId, Long championshipId,
+                                                           String mode, String username) {
+        requireOrganizer(communityId, username);
+        if (!"AGGREGATE".equals(mode) && !"INDEPENDENT".equals(mode))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Modo de classificação inválido");
+        CommunityChampionship championship = championships.findByIdAndCommunityId(championshipId, communityId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Campeonato não encontrado"));
+        ensureOpen(championship);
+        if (championship.getCompetitions().stream().anyMatch(t ->
+                t.getStatus() != com.example.desporto24.enumeration.TournamentStatus.DRAFT)
+                || !ownedEvents.findByChampionshipIdOrderByCreatedAtAscIdAsc(championshipId).isEmpty())
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Escolhe o modo antes de iniciar as provas do campeonato");
+        championship.setStandingsMode(mode);
+        return toResponse(championships.saveAndFlush(championship));
+    }
+
     @Transactional(readOnly = true)
     public CommunityChampionshipStandingsResponse standings(Long communityId,
                                                                Long championshipId, String username) {
@@ -199,6 +219,14 @@ public class CommunityChampionshipService {
             } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
                 throw new IllegalStateException("Classificação final guardada inválida", e);
             }
+        }
+        if ("INDEPENDENT".equals(championship.getStandingsMode())) {
+            long pending = championship.getCompetitions().stream().filter(t ->
+                    t.getStatus() != com.example.desporto24.enumeration.TournamentStatus.COMPLETED
+                    || t.isChampionTied()
+                    || (t.getChampionProfileId() == null && t.getChampionTeamId() == null)).count();
+            return new CommunityChampionshipStandingsResponse(championshipId,
+                    java.util.List.of(), 0, 0, Math.toIntExact(pending));
         }
         java.util.Map<Long, java.util.List<CommunityTournamentStandingRowResponse>> accepted =
                 new java.util.HashMap<>();
@@ -305,6 +333,24 @@ public class CommunityChampionshipService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Existem provas próprias em rascunho; só é possível encerrar após implementar e validar os resultados");
         CommunityChampionshipStandingsResponse result = standings(communityId, championshipId, username);
+        if ("INDEPENDENT".equals(championship.getStandingsMode())) {
+            if (championship.getCompetitions().isEmpty() || result.pendingCompetitions() != 0)
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Conclui todas as provas e confirma os vencedores antes de encerrar");
+            try {
+                championship.setFinalStandingsJson(objectMapper.writeValueAsString(result));
+                championship.setFinalCompetitionsJson(objectMapper.writeValueAsString(competitionSummaries(championship)));
+                championship.setFinalTrophiesJson(objectMapper.writeValueAsString(trophySummaries(championship)));
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                throw new IllegalStateException("Não foi possível guardar o histórico", e);
+            }
+            // Independent competitions deliberately have no season-wide champion.
+            championship.setChampionEntryType(null);
+            championship.setChampionParticipantId(null);
+            championship.setChampionDisplayName(null);
+            championship.setClosedAt(Instant.now());
+            return toResponse(championships.saveAndFlush(championship));
+        }
         long leaguesRequiringFullPositions = championship.getCompetitions().stream()
                 .filter(t -> t.getFormat() == com.example.desporto24.enumeration.TournamentFormat.LEAGUE
                         && t.getChampionshipPlacePoints() != null).count();
@@ -419,6 +465,7 @@ public class CommunityChampionshipService {
                         ? ChampionshipWinnerStandings.calculate(championship.getCompetitions())
                         : java.util.List.of(),
                 championship.getClosedAt(), championship.getChampionEntryType(),
-                championship.getChampionParticipantId(), championship.getChampionDisplayName());
+                championship.getChampionParticipantId(), championship.getChampionDisplayName(),
+                championship.getStandingsMode());
     }
 }
