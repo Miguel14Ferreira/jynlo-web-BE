@@ -177,6 +177,13 @@ public class CommunityChampionshipEventService {
                 .filter(row -> row.getEvent().getId().equals(eventId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Jogo não encontrado nesta prova"));
+        long existingHomeGoals = goals.findByFixtureIdOrderByIdAsc(fixtureId).stream()
+                .filter(goal -> goal.getTeam().getId().equals(fixture.getHomeTeam().getId())).count();
+        long existingAwayGoals = goals.findByFixtureIdOrderByIdAsc(fixtureId).stream()
+                .filter(goal -> goal.getTeam().getId().equals(fixture.getAwayTeam().getId())).count();
+        if (score.homeScore() < existingHomeGoals || score.awayScore() < existingAwayGoals)
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "O resultado não pode ser inferior aos golos já atribuídos aos jogadores");
         fixture.setHomeScore(score.homeScore());
         fixture.setAwayScore(score.awayScore());
         fixture.setResultRecordedAt(Instant.now());
