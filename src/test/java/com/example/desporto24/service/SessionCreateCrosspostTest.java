@@ -201,6 +201,51 @@ class SessionCreateCrosspostTest {
     }
 
     @Test
+    void recurringSeasonGamesReuseOneAutomaticallyCreatedSeasonForEveryOccurrence() {
+        Profile organizer = new Profile(); organizer.setId(7L);
+        Community group = Community.builder().id(11L).rankingsEnabled(false).build();
+        when(profiles.findUserByUsername("organizer")).thenReturn(Optional.of(organizer));
+        when(communities.findAllById(List.of(11L))).thenReturn(List.of(group));
+        when(members.findByCommunityIdAndProfileId(11L, 7L)).thenReturn(
+                Optional.of(CommunityMember.builder().role(CommunityRole.MEMBER).build()));
+        when(seasonsDb.findByCommunityIdAndActiveTrue(11L)).thenReturn(Optional.empty());
+        when(seasonsDb.save(any(CommunitySeason.class))).thenAnswer(inv -> {
+            CommunitySeason created = inv.getArgument(0);
+            created.setId(99L);
+            return created;
+        });
+        var ids = new java.util.concurrent.atomic.AtomicLong(40L);
+        when(sessions.save(any(Session.class))).thenAnswer(inv -> {
+            Session created = inv.getArgument(0);
+            created.setId(ids.incrementAndGet());
+            return created;
+        });
+        when(mapper.toDetail(any(Session.class), eq(organizer)))
+                .thenReturn(mock(SessionDetailResponse.class));
+
+        var recurring = new CreateSessionRequest(
+                "Futebol", Instant.now().plusSeconds(3600), "Cacém", "Rua do Campo",
+                10, BigDecimal.ZERO, false, null, null, null,
+                null, null, SessionRecurrence.WEEKLY, 2, 0,
+                RegistrationOpeningMode.MANUAL, null, null, "Europe/Lisbon",
+                null, List.of(11L), 11L, true);
+
+        service.create(recurring, "organizer");
+
+        verify(communities).save(group);
+        verify(seasonsDb, times(1)).save(any(CommunitySeason.class));
+        var created = org.mockito.ArgumentCaptor.forClass(Session.class);
+        verify(sessions, times(2)).save(created.capture());
+        var games = created.getAllValues();
+        assertEquals(2, games.size());
+        assertSame(games.get(0).getSeasonCompetition(), games.get(1).getSeasonCompetition());
+        assertEquals(99L, games.get(0).getSeasonCompetition().getId());
+        assertNotNull(games.get(0).getRecurrenceSeriesId());
+        assertEquals(games.get(0).getRecurrenceSeriesId(), games.get(1).getRecurrenceSeriesId());
+        verify(shares, times(2)).save(any(SessionCommunityShare.class));
+    }
+
+    @Test
     void anyMemberCanUseExistingSeasonWithoutChangingSettings() {
         Profile organizer = new Profile(); organizer.setId(7L);
         Community group = Community.builder().id(11L).rankingsEnabled(true).build();
