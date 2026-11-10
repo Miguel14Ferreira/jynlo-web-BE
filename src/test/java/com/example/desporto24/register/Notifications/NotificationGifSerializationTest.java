@@ -34,6 +34,32 @@ class NotificationGifSerializationTest {
     }
 
     @Test
+    void newSocialAlertCarriesTheExactPostIdInMobileJson() throws Exception {
+        Notifications alert = new Notifications();
+        alert.setType(NotificationType.SOCIAL_POST_COMMENTED);
+        alert.setRelatedUsername("commenter");
+        alert.setMessage("Comentou a tua publicação.");
+        alert.setPostId(55L);
+
+        JsonNode json = mapper.readTree(mapper.writeValueAsString(alert));
+        assertEquals(55L, json.get("postId").asLong());
+        assertEquals("commenter", json.get("relatedUsername").asText());
+        assertEquals("SOCIAL_POST_COMMENTED", json.get("type").asText());
+    }
+
+    @Test
+    void historicalSocialAlertWithoutPostIdRemainsDeserializable() throws Exception {
+        Notifications alert = new Notifications();
+        alert.setType(NotificationType.SOCIAL_POST_LIKED);
+        alert.setMessage("Novo gosto.");
+        alert.setRelatedUsername("player");
+
+        JsonNode json = mapper.readTree(mapper.writeValueAsString(alert));
+        assertTrue(json.get("postId").isNull());
+        assertEquals("player", json.get("relatedUsername").asText());
+    }
+
+    @Test
     void NormalMessagesAndEmojiStayUnchanged() throws Exception {
         Notifications alert = new Notifications();
         alert.setMessage("Olá! 😀");
