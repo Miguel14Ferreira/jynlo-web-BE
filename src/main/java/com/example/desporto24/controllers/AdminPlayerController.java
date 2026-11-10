@@ -59,9 +59,6 @@ public class AdminPlayerController {
         if (term.length() > 100) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Search is too long");
         }
-        if (term.isEmpty()) {
-            return new PlayerSearchResponse(List.of(), page, false);
-        }
         String escaped = term.replace("!", "!!").replace("%", "!%").replace("_", "!_");
         var results = profileRepository.searchAdminPlayers(
                 escaped, PageRequest.of(page, PAGE_SIZE));
