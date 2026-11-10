@@ -28,6 +28,10 @@ public class SocialPost {
     @JoinColumn(name = "session_id")
     private Session session;
 
+    // Internal interaction post for a public activity; excluded from ordinary posts.
+    @Column(name = "activity_type", length = 32)
+    private String activityType;
+
     @Column(nullable = false, length = 1000)
     private String content;
 
