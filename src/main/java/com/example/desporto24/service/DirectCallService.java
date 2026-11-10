@@ -310,6 +310,11 @@ public class DirectCallService {
         Call call = requireCall(id, actor);
         if (!"ACTIVE".equals(call.state()) || !isConnectedParticipant(call, actor))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        // Recheck authorization after a session removal or block before exposing the roster.
+        Guest acceptedGuest = guestFor(id, actor);
+        String contact = acceptedGuest != null ? acceptedGuest.inviter()
+                : (actor.equalsIgnoreCase(call.caller()) ? call.peer() : call.caller());
+        inbox.requireConversationAccess(actor, "direct", contact);
         List<Member> participants = new ArrayList<>();
         participants.add(member(call.caller()));
         participants.add(member(call.peer()));
