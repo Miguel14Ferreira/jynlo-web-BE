@@ -129,6 +129,23 @@ class SessionContactAccessServiceTest {
     }
 
     @Test
+    void repositoryRejectsEndedCancelledDisabledAndOutOfWindowSessions() throws Exception {
+        var method = SessionRepository.class.getMethod(
+                "existsSharedUpcomingContactSession", Long.class, Long.class, Date.class, Date.class);
+        var query = method.getAnnotation(org.springframework.data.jpa.repository.Query.class).value();
+        assertTrue(query.contains("s.gameDate > :now"),
+                "A session more than four hours past kickoff must not grant contact");
+        assertTrue(query.contains("s.gameDate <= :contactUntil"),
+                "A session more than seven days away must not grant contact");
+        assertTrue(query.contains("SessionStatus.OPEN"));
+        assertTrue(query.contains("SessionStatus.FULL"));
+        assertTrue(query.contains("s.status in"),
+                "Ended or cancelled sessions must not grant contact");
+        assertTrue(query.contains("s.enabled is null or s.enabled = true"),
+                "Disabled sessions must not grant contact");
+    }
+
+    @Test
     void deniesWhenNoActiveSharedSession() {
         assertFalse(access.mayContact("ana", "bea"));
         assertThrows(AccessDeniedException.class, () -> access.requireContact("ana", "bea"));
