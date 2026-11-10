@@ -210,6 +210,35 @@ public class DirectCallService {
         return response >= 200 && response < 300;
     }
 
+    /**
+     * End a LiveKit room when either original participant loses authorization.
+     * Deleting the room disconnects everyone, avoiding a surviving guest room.
+     */
+    protected boolean deleteLiveKitRoom(String room) throws Exception {
+        if (!available() || room == null || !room.startsWith("jynlo-")) return false;
+        String host = serverUrl.replaceFirst("^wss://", "https://").replaceAll("/+$", "");
+        Instant now = Instant.now();
+        String jwt = JWT.create()
+                .withIssuer(apiKey)
+                .withSubject("jynlo-room-revocation")
+                .withIssuedAt(Date.from(now))
+                .withExpiresAt(Date.from(now.plusSeconds(45)))
+                .withClaim("video", Map.of("roomAdmin", true, "room", room))
+                .sign(Algorithm.HMAC256(apiSecret));
+        var body = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode()
+                .put("room", room);
+        HttpRequest request = HttpRequest.newBuilder(
+                URI.create(host + "/twirp/livekit.RoomService/DeleteRoom"))
+                .timeout(Duration.ofSeconds(4))
+                .header("Authorization", "Bearer " + jwt)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
+                .build();
+        int status = PROVIDER_HTTP.send(request, HttpResponse.BodyHandlers.discarding())
+                .statusCode();
+        return status >= 200 && status < 300;
+    }
+
     @EventListener(ApplicationReadyEvent.class)
     public void checkProviderOnStartup() {
         // The readiness log contains only a fixed result code, never URLs,
