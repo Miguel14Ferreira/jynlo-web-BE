@@ -241,17 +241,34 @@ public class DirectCallService {
     }
 
     /** Revalidate the invitation chain before revealing or accepting a guest invitation. */
+    /**
+     * Revalidate the complete invitation chain back to the original pair.
+     * Checking only the immediate inviter would let a second-generation guest
+     * continue extending a room after an earlier inviter loses access.
+     */
     private void requireInviterOriginalAccess(Call call, String inviter) {
-        String inviterContact = inviter.equalsIgnoreCase(call.caller())
-                ? call.peer() : inviter.equalsIgnoreCase(call.peer())
-                ? call.caller() : null;
-        if (inviterContact == null) {
-            Guest inviterGuest = guestFor(call.id(), inviter);
-            if (inviterGuest == null || !inviterGuest.accepted())
+        java.util.Set<String> visited = new java.util.HashSet<>();
+        String current = inviter;
+        for (int depth = 0; depth < MAX_PARTICIPANTS; depth++) {
+            if (current == null || !visited.add(key(current))) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-            inviterContact = inviterGuest.inviter();
+            }
+            if (current.equalsIgnoreCase(call.caller())) {
+                inbox.requireConversationAccess(current, "direct", call.peer());
+                return;
+            }
+            if (current.equalsIgnoreCase(call.peer())) {
+                inbox.requireConversationAccess(current, "direct", call.caller());
+                return;
+            }
+            Guest guest = guestFor(call.id(), current);
+            if (guest == null || !guest.accepted()) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+            }
+            inbox.requireConversationAccess(current, "direct", guest.inviter());
+            current = guest.inviter();
         }
-        inbox.requireConversationAccess(inviter, "direct", inviterContact);
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN);
     }
 
     public synchronized void decline(UUID id, String actor) {
@@ -309,10 +326,7 @@ public class DirectCallService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid invitee");
         // A previously accepted caller may have lost session membership or become blocked.
         // Recheck their original call access before allowing further invitations.
-        Guest invitingGuest = guestFor(id, actor);
-        String originalContact = invitingGuest != null ? invitingGuest.inviter()
-                : (actor.equalsIgnoreCase(call.caller()) ? call.peer() : call.caller());
-        inbox.requireConversationAccess(actor, "direct", originalContact);
+        requireInviterOriginalAccess(call, actor);
         inbox.requireConversationAccess(actor, "direct", recipient);
         for (Call other : calls.values()) {
             if (!other.id().equals(id) && ("RINGING".equals(other.state()) || "ACTIVE".equals(other.state()))
@@ -337,10 +351,7 @@ public class DirectCallService {
         if (!"ACTIVE".equals(call.state()) || !isConnectedParticipant(call, actor))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         // Recheck authorization after a session removal or block before exposing the roster.
-        Guest acceptedGuest = guestFor(id, actor);
-        String contact = acceptedGuest != null ? acceptedGuest.inviter()
-                : (actor.equalsIgnoreCase(call.caller()) ? call.peer() : call.caller());
-        inbox.requireConversationAccess(actor, "direct", contact);
+        requireInviterOriginalAccess(call, actor);
         List<Member> participants = new ArrayList<>();
         participants.add(member(call.caller()));
         participants.add(member(call.peer()));
