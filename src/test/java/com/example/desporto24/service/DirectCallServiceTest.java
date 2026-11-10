@@ -123,7 +123,7 @@ class DirectCallServiceTest {
         var outgoing = calls.start("ana", "bea", "voice");
         calls.accept(outgoing.callId(), "bea");
         calls.invite(outgoing.callId(), "ana", "carlos");
-        doThrow(new org.springframework.security.access.AccessDeniedException("Session participation revoked"))
+        lenient().doThrow(new org.springframework.security.access.AccessDeniedException("Session participation revoked"))
                 .when(inbox).requireConversationAccess("carlos", "direct", "ana");
 
         assertThrows(org.springframework.security.access.AccessDeniedException.class,
@@ -226,7 +226,7 @@ class DirectCallServiceTest {
         lenient().when(profiles.findUserByUsernameIgnoreCase("carlos")).thenReturn(Optional.of(carlos));
         var call=calls.start("ana","bea","voice");
         calls.accept(call.callId(),"bea");
-        doThrow(new org.springframework.security.access.AccessDeniedException("blocked"))
+        lenient().doThrow(new org.springframework.security.access.AccessDeniedException("blocked"))
                 .when(inbox).requireConversationAccess("ana","direct","mallory");
         assertThrows(org.springframework.security.access.AccessDeniedException.class,
                 () -> calls.invite(call.callId(),"ana","mallory"));
