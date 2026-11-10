@@ -98,13 +98,26 @@ public class SocialPostInteractionService {
     }
 
     @Transactional(readOnly = true)
-    public List<FollowProfileResponse> likers(Long postId) {
-        post(postId);
+    public List<FollowProfileResponse> likers(Long postId, String viewerUsername) {
+        SocialPost target = post(postId);
+        if (target.isHideLikers() && !target.getAuthor().getUsername().equalsIgnoreCase(viewerUsername)) {
+            throw new AccessDeniedException("Lista de gostos oculta pelo autor");
+        }
         return likeRepository.findLikers(postId, org.springframework.data.domain.PageRequest.of(0, 100))
                 .stream().map(like -> {
                     Profile p = like.getProfile();
                     return new FollowProfileResponse(p.getUsername(), p.getFullName(), p.getNickname(), p.getProfilePicUrl());
                 }).toList();
+    }
+
+    public boolean setHideLikers(Long postId, String username, boolean hidden) {
+        SocialPost target = post(postId);
+        if (!target.getAuthor().getUsername().equalsIgnoreCase(username)) {
+            throw new AccessDeniedException("Só o autor pode alterar a privacidade dos gostos");
+        }
+        target.setHideLikers(hidden);
+        postRepository.save(target);
+        return hidden;
     }
 
     private void notifySocialAction(SocialPost post, Profile actor, NotificationType type) {
