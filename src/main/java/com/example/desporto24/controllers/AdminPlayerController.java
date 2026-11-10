@@ -17,7 +17,7 @@ import java.util.Locale;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/players")
-@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN') and @adminCurrentRoleGuard.admin(authentication)")
 public class AdminPlayerController {
     private static final int PAGE_SIZE = 10;
     private final ProfileRepository profileRepository;
@@ -25,7 +25,7 @@ public class AdminPlayerController {
     private final CommunityCreationQuotaService communityCreationQuota;
 
     @GetMapping("/{id}/community-limit")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') and @adminCurrentRoleGuard.superAdmin(authentication)")
     public CommunityCreationQuotaService.Quota communityLimit(@PathVariable Long id) {
         var profile = profileRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conta não encontrada"));
@@ -35,7 +35,7 @@ public class AdminPlayerController {
     public record ChangeCommunityLimitRequest(Integer limit, String reason) {}
 
     @PutMapping("/{id}/community-limit")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') and @adminCurrentRoleGuard.superAdmin(authentication)")
     public CommunityCreationQuotaService.Quota changeCommunityLimit(
             @PathVariable Long id,
             @RequestBody ChangeCommunityLimitRequest request,
