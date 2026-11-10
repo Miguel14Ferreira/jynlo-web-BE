@@ -43,6 +43,8 @@ public class CommunityChampionshipEventService {
     private final CommunityChampionshipCupByeRepository cupByes;
     private final CommunityChampionshipTeamRepository championshipTeams;
     private final CommunityMemberRepository members;
+    private final CommunityChampionshipTeamPlayerRepository roster;
+    private final CommunityChampionshipGoalRepository goals;
     private final ProfileRepository profiles;
 
     public record CreateEvent(String name, String format) {}
@@ -232,6 +234,80 @@ public class CommunityChampionshipEventService {
         event.setStatus("SCHEDULED");
         events.saveAndFlush(event);
         return List.copyOf(saved);
+    }
+
+    public record GoalInput(Long profileId, Long teamId, Integer minute) {}
+    public record GoalEvent(Long id, Long profileId, String scorerName, Long teamId,
+                            String teamName, Integer minute) {}
+
+    @Transactional(readOnly = true)
+    public List<GoalEvent> goalScorers(Long communityId, Long championshipId, Long eventId,
+                                       Long fixtureId, String username) {
+        requireMember(communityId, username, false);
+        getChampionship(communityId, championshipId);
+        getOwnedEvent(championshipId, eventId);
+        var fixture = fixtures.findById(fixtureId)
+                .filter(row -> row.getEvent().getId().equals(eventId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
+        return goals.findByFixtureIdOrderByIdAsc(fixture.getId()).stream().map(this::goalResponse).toList();
+    }
+
+    public List<GoalEvent> addGoal(Long communityId, Long championshipId, Long eventId,
+                                   Long fixtureId, GoalInput input, String username) {
+        requireMember(communityId, username, true);
+        var season = getChampionship(communityId, championshipId);
+        ensureOpen(season);
+        if (!Set.of("Futebol", "Futsal").contains(season.getSport()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Golos apenas nas modalidades suportadas");
+        var event = lockOwnedEvent(championshipId, eventId);
+        if (!"LEAGUE".equals(event.getFormat()) || !"SCHEDULED".equals(event.getStatus()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A prova não tem jogos de liga ativos");
+        var fixture = fixtures.findById(fixtureId)
+                .filter(row -> row.getEvent().getId().equals(eventId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
+        if (fixture.getHomeScore() == null || fixture.getAwayScore() == null)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Regista primeiro o resultado do jogo");
+        if (input == null || input.profileId() == null || input.teamId() == null
+                || input.minute() != null && (input.minute() < 0 || input.minute() > 200))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dados do golo inválidos");
+        boolean home = input.teamId().equals(fixture.getHomeTeam().getId());
+        boolean away = input.teamId().equals(fixture.getAwayTeam().getId());
+        if (!home && !away)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Equipa não pertence ao jogo");
+        var registration = roster.findByChampionshipIdAndProfileId(championshipId, input.profileId())
+                .filter(item -> item.getTeam().getId().equals(input.teamId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "O marcador não pertence à equipa nesta época"));
+        long count = goals.findByFixtureIdOrderByIdAsc(fixtureId).stream()
+                .filter(goal -> goal.getTeam().getId().equals(input.teamId())).count();
+        if (count >= (home ? fixture.getHomeScore() : fixture.getAwayScore()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "O número de marcadores não pode exceder o resultado da equipa");
+        goals.saveAndFlush(CommunityChampionshipGoal.builder().fixture(fixture)
+                .team(registration.getTeam()).scorer(registration.getProfile())
+                .matchMinute(input.minute()).recordedAt(Instant.now()).build());
+        return goals.findByFixtureIdOrderByIdAsc(fixtureId).stream().map(this::goalResponse).toList();
+    }
+
+    public void removeGoal(Long communityId, Long championshipId, Long eventId,
+                           Long fixtureId, Long goalId, String username) {
+        requireMember(communityId, username, true);
+        ensureOpen(getChampionship(communityId, championshipId));
+        lockOwnedEvent(championshipId, eventId);
+        var fixture = fixtures.findById(fixtureId)
+                .filter(row -> row.getEvent().getId().equals(eventId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
+        var goal = goals.findByIdAndFixtureId(goalId, fixture.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Golo não encontrado"));
+        goals.delete(goal);
+    }
+
+    private GoalEvent goalResponse(CommunityChampionshipGoal goal) {
+        var player = goal.getScorer();
+        return new GoalEvent(goal.getId(), player.getId(),
+                player.getFullName() == null || player.getFullName().isBlank()
+                        ? player.getUsername() : player.getFullName(),
+                goal.getTeam().getId(), goal.getTeam().getName(), goal.getMatchMinute());
     }
 
     public record CupBye(Long id, int slot, Long teamId, String teamName) {}
