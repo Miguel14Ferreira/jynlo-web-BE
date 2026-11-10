@@ -309,7 +309,8 @@ public class SocialFeedService {
                 likedPostIds.contains(post.getId()),
                 commentCounts.getOrDefault(post.getId(), 0L),
                 publicSessionImage(linkedSession),
-                post.getVideoUrl()
+                post.getVideoUrl(),
+                post.isHideLikers()
         );
     }
 
@@ -343,7 +344,8 @@ public class SocialFeedService {
                 false,
                 0,
                 publicSessionImage(session),
-                null
+                null,
+                false
         );
     }
 
@@ -374,7 +376,8 @@ public class SocialFeedService {
                 activityPostId != null && likedPostIds.contains(activityPostId),
                 activityPostId == null ? 0 : commentCounts.getOrDefault(activityPostId, 0L),
                 publicSessionImage(session),
-                null
+                null,
+                activityPost != null && activityPost.isHideLikers()
         );
     }
 
