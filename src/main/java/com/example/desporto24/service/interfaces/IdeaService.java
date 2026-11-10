@@ -10,4 +10,5 @@ public interface IdeaService {
     void submitNewIdea(IdeaSubmissionRequest request);
     List<AdminIdeaResponse> getAllIdeas();
     AdminIdeaResponse updateStatus(Long id, IdeaStatus status);
+    AdminIdeaResponse reply(Long id, String message, String actorUsername);
 }
