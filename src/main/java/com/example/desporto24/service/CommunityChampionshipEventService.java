@@ -143,7 +143,38 @@ public class CommunityChampionshipEventService {
 
     public record LeagueFixture(Long id, int round, int match,
                                 Long homeTeamId, String homeTeamName,
-                                Long awayTeamId, String awayTeamName) {}
+                                Long awayTeamId, String awayTeamName,
+                                Integer homeScore, Integer awayScore) {
+        public LeagueFixture(Long id, int round, int match,
+                             Long homeTeamId, String homeTeamName,
+                             Long awayTeamId, String awayTeamName) {
+            this(id, round, match, homeTeamId, homeTeamName, awayTeamId, awayTeamName, null, null);
+        }
+    }
+
+    public record MatchScore(int homeScore, int awayScore) {}
+
+    /** The scorer must be a community organizer; fixtures are scoped to the season and event. */
+    public LeagueFixture recordFixtureScore(Long communityId, Long championshipId, Long eventId,
+                                            Long fixtureId, MatchScore score, String username) {
+        requireMember(communityId, username, true);
+        var championship = getChampionship(communityId, championshipId);
+        ensureOpen(championship);
+        var event = lockOwnedEvent(championshipId, eventId);
+        if (!"LEAGUE".equals(event.getFormat()) || !"SCHEDULED".equals(event.getStatus()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A prova não tem calendário de liga ativo");
+        if (score == null || score.homeScore() < 0 || score.awayScore() < 0
+                || score.homeScore() > 999 || score.awayScore() > 999)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resultado inválido");
+        var fixture = fixtures.findById(fixtureId)
+                .filter(row -> row.getEvent().getId().equals(eventId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Jogo não encontrado nesta prova"));
+        fixture.setHomeScore(score.homeScore());
+        fixture.setAwayScore(score.awayScore());
+        fixture.setResultRecordedAt(Instant.now());
+        return fixtureResponse(fixtures.saveAndFlush(fixture));
+    }
 
     @Transactional(readOnly = true)
     public List<LeagueFixture> fixtures(Long communityId, Long championshipId,
@@ -268,7 +299,8 @@ public class CommunityChampionshipEventService {
     private LeagueFixture fixtureResponse(com.example.desporto24.model.community.CommunityChampionshipFixture fixture) {
         return new LeagueFixture(fixture.getId(), fixture.getRoundNumber(), fixture.getMatchNumber(),
                 fixture.getHomeTeam().getId(), fixture.getHomeTeam().getName(),
-                fixture.getAwayTeam().getId(), fixture.getAwayTeam().getName());
+                fixture.getAwayTeam().getId(), fixture.getAwayTeam().getName(),
+                fixture.getHomeScore(), fixture.getAwayScore());
     }
 
     private TeamRegistration teamResponse(CommunityChampionshipEventTeam registration) {
