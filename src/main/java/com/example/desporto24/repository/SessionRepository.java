@@ -21,8 +21,8 @@ import java.util.List;
 public interface SessionRepository extends JpaRepository<Session, Long> {
 
     /**
-     * Only active confirmed attendees or the organizer of the SAME upcoming
-     * session may contact one another. Removed/left attendees never qualify.
+     * Only active confirmed attendees of the SAME upcoming
+     * session may contact one another. Organizers must also have an ACTIVE\n     * participation row; removed/left attendees never qualify.
      * No friendship is created by this query.
      */
     @Query("""
@@ -33,14 +33,14 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
                   com.example.desporto24.enumeration.SessionStatus.OPEN,
                   com.example.desporto24.enumeration.SessionStatus.FULL)
               and (s.enabled is null or s.enabled = true)
-              and (s.profile.id = :firstId or exists (
+              and exists (
                   select p1.id from SessionParticipant p1
                   where p1.session.id = s.id and p1.profile.id = :firstId
-                    and p1.state = com.example.desporto24.enumeration.ParticipantState.ACTIVE))
-              and (s.profile.id = :secondId or exists (
+                    and p1.state = com.example.desporto24.enumeration.ParticipantState.ACTIVE)
+              and exists (
                   select p2.id from SessionParticipant p2
                   where p2.session.id = s.id and p2.profile.id = :secondId
-                    and p2.state = com.example.desporto24.enumeration.ParticipantState.ACTIVE))
+                    and p2.state = com.example.desporto24.enumeration.ParticipantState.ACTIVE)
             """)
     boolean existsSharedUpcomingContactSession(
             @Param("firstId") Long firstId,
