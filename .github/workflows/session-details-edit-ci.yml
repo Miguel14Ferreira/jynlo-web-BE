@@ -12,6 +12,7 @@ on:
       - 'src/test/java/com/example/desporto24/service/SessionLifecycleServiceTest.java'
       - 'src/test/java/com/example/desporto24/controllers/SessionManagementControllerTest.java'
       - 'src/test/java/com/example/desporto24/controllers/SessionContextControllerTest.java'
+      - 'src/test/java/com/example/desporto24/service/SessionCreateCrosspostTest.java'
       - '.github/workflows/session-details-edit-ci.yml'
   workflow_dispatch:
 permissions:
@@ -32,4 +33,4 @@ jobs:
           AES_ENCRYPTION_KEY: ciKey1
         run: |
           chmod +x mvnw
-          ./mvnw -B -ntp -Dtest=SessionLifecycleServiceTest,SessionManagementControllerTest,SessionContextControllerTest test
+          ./mvnw -B -ntp -Dtest=SessionLifecycleServiceTest,SessionManagementControllerTest,SessionContextControllerTest,SessionCreateCrosspostTest test
