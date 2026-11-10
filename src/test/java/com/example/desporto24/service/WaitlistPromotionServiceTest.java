@@ -112,6 +112,61 @@ class WaitlistPromotionServiceTest {
     }
 
     @Test
+    void releasedSeatPromotesNextWaitlistedPlayerAndKeepsCapacityFull() {
+        Profile leaving = profile("leavingSeat");
+        SessionParticipant leavingMembership = activeParticipant(leaving);
+        session.setMaxParticipants(2);
+        sessionRepository.saveAndFlush(session);
+
+        // The creator and this player occupy both places before cancellation.
+        assertEquals(2, participantRepository.countBySessionIdAndState(
+                session.getId(), ParticipantState.ACTIVE));
+        Profile first = profile("nextInQueue");
+        Profile second = profile("stillWaiting");
+        waitlisted(first, Instant.now().minusSeconds(120));
+        waitlisted(second, Instant.now().minusSeconds(60));
+
+        leavingMembership.setState(ParticipantState.LEFT);
+        leavingMembership.setExitedAt(Instant.now());
+        participantRepository.saveAndFlush(leavingMembership);
+
+        SessionParticipant promoted = service.promoteNext(session, Instant.now()).orElseThrow();
+
+        assertEquals(first.getId(), promoted.getProfile().getId());
+        assertEquals(2, participantRepository.countBySessionIdAndState(
+                session.getId(), ParticipantState.ACTIVE));
+        assertEquals(SessionStatus.FULL, sessionRepository.findById(session.getId())
+                .orElseThrow().getStatus());
+        assertTrue(waitlistRepository.findBySessionIdAndProfileId(
+                session.getId(), first.getId()).isEmpty());
+        assertTrue(waitlistRepository.findBySessionIdAndProfileId(
+                session.getId(), second.getId()).isPresent());
+
+        var notifications = notificationsRepository.findByUsername(first.getUsername());
+        assertEquals(1, notifications.size());
+        assertEquals(NotificationType.WAITLIST_PROMOTED, notifications.get(0).getType());
+        assertEquals(session.getId(), notifications.get(0).getSessionId());
+        assertTrue(notificationsRepository.findByUsername(second.getUsername()).isEmpty());
+    }
+
+    @Test
+    void fullSessionDoesNotPromoteOrNotifyWaitlistedPlayer() {
+        Profile waiting = profile("waitingWithoutSeat");
+        waitlisted(waiting, Instant.now().minusSeconds(30));
+        // The creator fills this one-player test fixture's remaining seat.
+        session.setMaxParticipants(1);
+        session.setStatus(SessionStatus.FULL);
+        sessionRepository.saveAndFlush(session);
+
+        assertTrue(service.promoteNext(session, Instant.now()).isEmpty());
+        assertTrue(participantRepository.findBySessionIdAndProfileIdAndState(
+                session.getId(), waiting.getId(), ParticipantState.ACTIVE).isEmpty());
+        assertTrue(waitlistRepository.findBySessionIdAndProfileId(
+                session.getId(), waiting.getId()).isPresent());
+        assertTrue(notificationsRepository.findByUsername(waiting.getUsername()).isEmpty());
+    }
+
+    @Test
     void lowerPriorityTierIsPromotedBeforeEarlierReducedPriorityEntry() {
         Profile reducedPriority = profile("reduced");
         Profile normalPriority = profile("normal");
