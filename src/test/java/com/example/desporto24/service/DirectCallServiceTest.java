@@ -306,6 +306,31 @@ class DirectCallServiceTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void repeatedDirectRingingToSamePlayerIsThrottledAcrossDeclines() {
+        // Simulate the existing 10-second global cooldown having elapsed while
+        // keeping the independent, one-minute recipient budget intact.
+        var lastStarted = (java.util.concurrent.ConcurrentHashMap<String, java.time.Instant>)
+                ReflectionTestUtils.getField(calls, "lastStarted");
+        assertNotNull(lastStarted);
+        for (int attempt = 0; attempt < 3; attempt++) {
+            var invite = calls.start("ana", "bea", "voice");
+            calls.decline(invite.callId(), "bea");
+            lastStarted.remove("ana");
+        }
+
+        ResponseStatusException throttled = assertThrows(ResponseStatusException.class,
+                () -> calls.start("ana", "bea", "voice"));
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, throttled.getStatusCode());
+        verify(gateway, times(3)).publishDirectCallEvent(eq("ana"), eq("bea"),
+                anyString(), eq("voice"), eq("RINGING"), eq("ana"), any());
+
+        // The caller can still contact a different eligible player.
+        var other = calls.start("ana", "carlos", "voice");
+        assertEquals("carlos", other.peer());
+    }
+
+    @Test
     void respectsChatAclAndPreventsOverlappingCalls() {
         var start = calls.start("ana", "bea", "video");
         var conflict = assertThrows(ResponseStatusException.class,
