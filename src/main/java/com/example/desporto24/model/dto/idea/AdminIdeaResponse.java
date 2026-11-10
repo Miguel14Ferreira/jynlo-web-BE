@@ -12,6 +12,9 @@ public record AdminIdeaResponse(
         String subject,
         String problem,
         IdeaStatus status,
-        Instant createdAt
+        Instant createdAt,
+        String adminReply,
+        Instant adminRepliedAt,
+        String adminRepliedBy
 ) {
 }
