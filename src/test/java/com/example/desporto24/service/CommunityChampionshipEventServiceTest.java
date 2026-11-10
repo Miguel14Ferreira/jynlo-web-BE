@@ -417,6 +417,35 @@ class CommunityChampionshipEventServiceTest {
     }
 
     @Test
+    void goalAttributionRequiresRegisteredPlayerAndDoesNotExceedScore() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("LEAGUE").status("SCHEDULED").build();
+        var home = CommunityChampionshipTeam.builder().id(30L).championship(championship).name("Águias").build();
+        var away = CommunityChampionshipTeam.builder().id(31L).championship(championship).name("Leões").build();
+        var fixture = CommunityChampionshipFixture.builder().id(80L).event(league)
+                .homeTeam(home).awayTeam(away).homeScore(1).awayScore(0).build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
+        when(fixtures.findById(80L)).thenReturn(Optional.of(fixture));
+        var player = new Profile();
+        player.setId(44L);
+        player.setFullName("Ana");
+        when(roster.findByChampionshipIdAndProfileId(15L, 44L)).thenReturn(
+                Optional.of(CommunityChampionshipTeamPlayer.builder().team(home).profile(player).build()));
+        var input = new CommunityChampionshipEventService.GoalInput(44L, 30L, 12);
+        when(goals.findByFixtureIdOrderByIdAsc(80L)).thenReturn(List.of());
+        service.addGoal(7L, 15L, 100L, 80L, input, "member");
+        verify(goals).saveAndFlush(org.mockito.ArgumentMatchers.any(CommunityChampionshipGoal.class));
+
+        var alreadyRecorded = CommunityChampionshipGoal.builder().id(1L).fixture(fixture)
+                .team(home).scorer(player).build();
+        when(goals.findByFixtureIdOrderByIdAsc(80L)).thenReturn(List.of(alreadyRecorded));
+        assertThrows(ResponseStatusException.class,
+                () -> service.addGoal(7L, 15L, 100L, 80L, input, "member"));
+    }
+
+    @Test
     void memberMayListOnlyTheSpecifiedChampionshipOwnEvents() {
         member(CommunityRole.MEMBER);
         when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
