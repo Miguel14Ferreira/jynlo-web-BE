@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-10-social-like-privacy
+      author: jynlo
+      changes:
+        - addColumn:
+            tableName: social_post
+            columns:
+              - column:
+                  name: hide_likers
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
