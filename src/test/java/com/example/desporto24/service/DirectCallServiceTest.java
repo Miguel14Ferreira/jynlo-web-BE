@@ -49,6 +49,8 @@ class DirectCallServiceTest {
         assertEquals("video", outgoing.media());
         assertEquals("wss://example.livekit.cloud", outgoing.serverUrl());
         var first = JWT.decode(outgoing.token());
+        assertFalse(first.getExpiresAt().toInstant().isAfter(outgoing.expiresAt()),
+                "Ringing token must not outlive the invitation");
         assertEquals("jynlo-api-key", first.getIssuer());
         assertEquals("jynlo-user-12", first.getSubject());
         assertEquals(true, first.getClaim("video").asMap().get("roomJoin"));
