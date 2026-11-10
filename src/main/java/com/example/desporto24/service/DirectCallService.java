@@ -287,6 +287,12 @@ public class DirectCallService {
                 || recipient.equalsIgnoreCase(actor) || isParticipant(call, recipient)
                 || guestFor(id, recipient) != null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid invitee");
+        // A previously accepted caller may have lost session membership or become blocked.
+        // Recheck their original call access before allowing further invitations.
+        Guest invitingGuest = guestFor(id, actor);
+        String originalContact = invitingGuest != null ? invitingGuest.inviter()
+                : (actor.equalsIgnoreCase(call.caller()) ? call.peer() : call.caller());
+        inbox.requireConversationAccess(actor, "direct", originalContact);
         inbox.requireConversationAccess(actor, "direct", recipient);
         for (Call other : calls.values()) {
             if (!other.id().equals(id) && ("RINGING".equals(other.state()) || "ACTIVE".equals(other.state()))
