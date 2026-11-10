@@ -1,6 +1,7 @@
 package com.example.desporto24.service;
 
 import com.example.desporto24.enumeration.AttendanceStatus;
+import com.example.desporto24.enumeration.NotificationType;
 import com.example.desporto24.enumeration.ParticipantState;
 import com.example.desporto24.enumeration.SessionStatus;
 import com.example.desporto24.model.Profile;
@@ -8,6 +9,7 @@ import com.example.desporto24.model.Session;
 import com.example.desporto24.model.session.SessionParticipant;
 import com.example.desporto24.model.session.SessionWaitlist;
 import com.example.desporto24.repository.ProfileRepository;
+import com.example.desporto24.repository.NotificationsRepository;
 import com.example.desporto24.repository.analytics.PilotEventRepository;
 import com.example.desporto24.repository.SessionRepository;
 import com.example.desporto24.repository.session.SessionParticipantRepository;
@@ -47,6 +49,7 @@ class WaitlistPromotionServiceTest {
 
     @Autowired private WaitlistPromotionService service;
     @Autowired private ProfileRepository profileRepository;
+    @Autowired private NotificationsRepository notificationsRepository;
     @Autowired private PilotEventRepository pilotEventRepository;
     @Autowired private SessionRepository sessionRepository;
     @Autowired private SessionParticipantRepository participantRepository;
@@ -60,6 +63,7 @@ class WaitlistPromotionServiceTest {
 
     @BeforeEach
     void setUp() {
+        notificationsRepository.deleteAll();
         pilotEventRepository.deleteAll();
         waitlistRepository.deleteAll();
         participantRepository.deleteAll();
@@ -87,6 +91,24 @@ class WaitlistPromotionServiceTest {
         assertTrue(waitlistRepository.findBySessionIdAndProfileId(session.getId(), first.getId()).isEmpty());
         assertTrue(waitlistRepository.findBySessionIdAndProfileId(session.getId(), second.getId()).isPresent());
         assertEquals(SessionStatus.FULL, sessionRepository.findById(session.getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void promotionCreatesOneUnreadNotificationForThePromotedPlayerOnly() {
+        Profile first = profile("promotedNotification");
+        Profile waiting = profile("waitingNotification");
+        waitlisted(first, Instant.now().minusSeconds(120));
+        waitlisted(waiting, Instant.now().minusSeconds(60));
+
+        SessionParticipant promoted = service.promoteNext(session, Instant.now()).orElseThrow();
+
+        assertEquals(first.getId(), promoted.getProfile().getId());
+        var notifications = notificationsRepository.findByUsername(first.getUsername());
+        assertEquals(1, notifications.size());
+        assertEquals(NotificationType.WAITLIST_PROMOTED, notifications.get(0).getType());
+        assertEquals(session.getId(), notifications.get(0).getSessionId());
+        assertFalse(notifications.get(0).isRead());
+        assertTrue(notificationsRepository.findByUsername(waiting.getUsername()).isEmpty());
     }
 
     @Test
