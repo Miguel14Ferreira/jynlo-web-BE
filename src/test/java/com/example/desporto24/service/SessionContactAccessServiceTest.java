@@ -156,6 +156,18 @@ class SessionContactAccessServiceTest {
     }
 
     @Test
+    void revokesContactImmediatelyWhenSharedMembershipIsNoLongerEligible() {
+        // Permission is never cached or turned into friendship: each operation
+        // must query the current confirmed participation state again.
+        when(sessions.existsSharedUpcomingContactSession(eq(11L), eq(22L),
+                any(Date.class), any(Date.class))).thenReturn(true, false);
+        assertTrue(access.mayContact("ana", "bea"));
+        assertThrows(AccessDeniedException.class, () -> access.requireContact("ana", "bea"));
+        verify(sessions, times(2)).existsSharedUpcomingContactSession(eq(11L), eq(22L),
+                any(Date.class), any(Date.class));
+    }
+
+    @Test
     void deniesWhenNoActiveSharedSession() {
         assertFalse(access.mayContact("ana", "bea"));
         assertThrows(AccessDeniedException.class, () -> access.requireContact("ana", "bea"));
