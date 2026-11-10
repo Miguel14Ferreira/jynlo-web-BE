@@ -120,6 +120,45 @@ class CommunitySessionScheduleTest {
     }
 
     @Test
+    void rejectsTwoDistinctAutumnOverlapSlotsThatCollideInFollowingWeek() {
+        // On Lisbon's autumn clock rollback 01:15 occurs twice:
+        // 00:15Z (WEST) and 01:15Z (WET). Both are distinct in week one,
+        // but plusWeeks(1) maps both to 01:15Z on 7 November.
+        Instant first = Instant.parse("2027-10-31T00:15:00Z");
+        Instant second = Instant.parse("2027-10-31T01:15:00Z");
+        var request = new CreateSessionRequest(
+                "Futebol", first, "Lisboa", "Rua do Campo",
+                10, BigDecimal.ZERO, false, null, null, null, 7L, null,
+                SessionRecurrence.WEEKLY, 2, 0,
+                RegistrationOpeningMode.IMMEDIATE, null,
+                List.of(second), LISBON.getId());
+
+        var error = assertThrows(IllegalArgumentException.class,
+                () -> CommunitySessionSchedule.expand(
+                        request, Instant.parse("2027-10-30T12:00:00Z")));
+
+        assertTrue(error.getMessage().contains("mesmo dia e hora"));
+    }
+
+    @Test
+    void acceptsTwoWeeklySlotsAtDifferentLocalTimesAcrossAutumnDst() {
+        Instant first = Instant.parse("2027-10-31T00:15:00Z");
+        Instant second = Instant.parse("2027-10-31T01:45:00Z");
+        var request = new CreateSessionRequest(
+                "Futebol", first, "Lisboa", "Rua do Campo",
+                10, BigDecimal.ZERO, false, null, null, null, 7L, null,
+                SessionRecurrence.WEEKLY, 2, 0,
+                RegistrationOpeningMode.IMMEDIATE, null,
+                List.of(second), LISBON.getId());
+
+        var plan = CommunitySessionSchedule.expand(
+                request, Instant.parse("2027-10-30T12:00:00Z"));
+
+        assertEquals(4, plan.size());
+        assertEquals(4, plan.stream().map(slot -> slot.kickoff()).distinct().count());
+    }
+
+    @Test
     void acceptsLegacyOnePerWeekRequestWithoutNewFields() {
         var old = new CreateSessionRequest("Futebol", FIRST, "Lisboa", "Campo 1",
                 10, BigDecimal.ZERO, false, null, null, null, 7L, null,
