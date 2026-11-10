@@ -2,6 +2,9 @@ package com.example.desporto24.service;
 
 import com.example.desporto24.exception.UserNotFoundException;
 import com.example.desporto24.model.Profile;
+import com.example.desporto24.enumeration.NotificationType;
+import com.example.desporto24.register.Notifications.Notifications;
+import com.example.desporto24.repository.NotificationsRepository;
 import com.example.desporto24.model.dto.social.FollowProfileResponse;
 import com.example.desporto24.model.dto.social.FollowStatusResponse;
 import com.example.desporto24.model.social.ProfileFollow;
@@ -24,6 +27,8 @@ public class ProfileFollowService {
     private final ProfileFollowRepository followRepository;
     private final ProfileRepository profileRepository;
     private final UserBlockService userBlockService;
+    private final NotificationsRepository notificationsRepository;
+    private final NotificationPreferencesService notificationPreferencesService;
 
     public FollowStatusResponse follow(String actorUsername, String targetUsername) {
         Profile actor = profile(actorUsername);
@@ -42,6 +47,19 @@ public class ProfileFollowService {
                     .following(target)
                     .createdAt(Instant.now())
                     .build());
+            if (notificationPreferencesService.allowsInApp(target.getUsername(), NotificationType.SOCIAL_NEW_FOLLOWER)) {
+                Notifications notification = new Notifications();
+                notification.setUsername(target.getUsername());
+                notification.setRelatedUsername(actor.getUsername());
+                notification.setSubject("Novo seguidor");
+                notification.setMessage(actor.getUsername() + " começou a seguir-te.");
+                notification.setGreeting("");
+                notification.setSignature("");
+                notification.setCreatedAt(Instant.now().toString());
+                notification.setType(NotificationType.SOCIAL_NEW_FOLLOWER);
+                notification.setRead(false);
+                notificationsRepository.save(notification);
+            }
         }
 
         return status(actor, target);
