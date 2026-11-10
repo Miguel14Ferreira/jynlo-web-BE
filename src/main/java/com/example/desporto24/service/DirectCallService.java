@@ -419,9 +419,17 @@ public class DirectCallService {
                 call.media(), "MEMBERS_CHANGED", actor, call.expiresAt());
         var list = guests.get(call.id());
         if (list != null) for (Guest guest : list.values()) {
-            if (guest.accepted())
-                gateway.publishDirectCallEvent(call.caller(), guest.username(),
-                        call.id().toString(), call.media(), "MEMBERS_CHANGED", actor, call.expiresAt());
+            if (!guest.accepted()) continue;
+            try {
+                // A connected guest can lose their session-based contact permission
+                // without leaving the room. Do not continue publishing roster updates.
+                requireInviterOriginalAccess(call, guest.username());
+            } catch (org.springframework.security.access.AccessDeniedException
+                     | ResponseStatusException revoked) {
+                continue;
+            }
+            gateway.publishDirectCallEvent(call.caller(), guest.username(),
+                    call.id().toString(), call.media(), "MEMBERS_CHANGED", actor, call.expiresAt());
         }
     }
 
