@@ -191,6 +191,32 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void revokedGroupInviteDoesNotHideSeparateAuthorizedIncomingCall() {
+        Profile carlos = mock(Profile.class);
+        Profile dora = mock(Profile.class);
+        lenient().when(carlos.getId()).thenReturn(14L);
+        lenient().when(dora.getId()).thenReturn(15L);
+        lenient().when(profiles.findUserByUsernameIgnoreCase("carlos"))
+                .thenReturn(Optional.of(carlos));
+        lenient().when(profiles.findUserByUsernameIgnoreCase("dora"))
+                .thenReturn(Optional.of(dora));
+
+        var group = calls.start("ana", "bea", "voice");
+        calls.accept(group.callId(), "bea");
+        calls.invite(group.callId(), "ana", "carlos");
+        var valid = calls.start("dora", "carlos", "voice");
+
+        doThrow(new org.springframework.security.access.AccessDeniedException("Session permission revoked"))
+                .when(inbox).requireConversationAccess("ana", "direct", "bea");
+
+        var recovered = calls.pendingFor("carlos");
+        assertNotNull(recovered, "A revoked group invitation must not suppress another incoming call");
+        assertEquals(valid.callId(), recovered.callId());
+        assertEquals("dora", recovered.caller());
+        verify(inbox, never()).requireConversationAccess("carlos", "direct", "ana");
+    }
+
+    @Test
     void revokedInviterOriginalContactPreventsGuestAcceptance() {
         var outgoing = calls.start("ana", "bea", "voice");
         calls.accept(outgoing.callId(), "bea");
