@@ -71,6 +71,31 @@ public class CommunityChampionshipController {
         return championshipTeams.create(communityId, championshipId, request.name(), auth.getName());
     }
 
+    public record AddSeasonTeamPlayerRequest(@jakarta.validation.constraints.NotNull Long profileId) {}
+
+    @GetMapping("/{championshipId}/teams/{teamId}/players")
+    public List<com.example.desporto24.service.CommunityChampionshipTeamsService.TeamPlayer> teamPlayers(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long teamId, Authentication auth) {
+        return championshipTeams.players(communityId, championshipId, teamId, auth.getName());
+    }
+
+    @PostMapping("/{championshipId}/teams/{teamId}/players")
+    public List<com.example.desporto24.service.CommunityChampionshipTeamsService.TeamPlayer> addTeamPlayer(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long teamId, @RequestBody @Valid AddSeasonTeamPlayerRequest request,
+            Authentication auth) {
+        return championshipTeams.addPlayer(communityId, championshipId, teamId, request.profileId(), auth.getName());
+    }
+
+    @DeleteMapping("/{championshipId}/teams/{teamId}/players/{profileId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeTeamPlayer(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long teamId, @PathVariable Long profileId, Authentication auth) {
+        championshipTeams.removePlayer(communityId, championshipId, teamId, profileId, auth.getName());
+    }
+
     @PutMapping("/{championshipId}/competition-teams/{tournamentTeamId}")
     public com.example.desporto24.model.dto.community.CommunityChampionshipTeamsResponse linkTeam(
             @PathVariable Long communityId, @PathVariable Long championshipId,
