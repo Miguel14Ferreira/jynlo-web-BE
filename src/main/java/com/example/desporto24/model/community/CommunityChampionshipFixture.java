@@ -30,4 +30,13 @@ public class CommunityChampionshipFixture {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "away_team_id", nullable = false)
     private CommunityChampionshipTeam awayTeam;
+
+    @Column(name = "home_score")
+    private Integer homeScore;
+
+    @Column(name = "away_score")
+    private Integer awayScore;
+
+    @Column(name = "result_recorded_at")
+    private java.time.Instant resultRecordedAt;
 }
