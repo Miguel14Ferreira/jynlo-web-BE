@@ -101,6 +101,9 @@ public class DirectCallService {
             if (!"ACTIVE".equals(call.state)) continue;
             Guest guest = guestFor(call.id, recipient);
             if (guest != null && !guest.accepted() && now.isBefore(guest.expiresAt())) {
+                // A stale group invitation must not be advertised after its inviter
+                // loses permission to participate in the original call.
+                requireInviterOriginalAccess(call, guest.inviter());
                 inbox.requireConversationAccess(recipient, "direct", guest.inviter());
                 return new PendingInvitation(call.id, guest.inviter(), guest.username(),
                         call.media, guest.expiresAt());
@@ -214,16 +217,7 @@ public class DirectCallService {
             }
             // A guest invitation must not survive revocation of the inviter\'s original call access.
             // Checking only the guest/inviter pair would let a removed participant extend a room.
-            String inviterContact = guest.inviter().equalsIgnoreCase(call.caller())
-                    ? call.peer() : guest.inviter().equalsIgnoreCase(call.peer())
-                    ? call.caller() : null;
-            if (inviterContact == null) {
-                Guest inviterGuest = guestFor(id, guest.inviter());
-                if (inviterGuest == null || !inviterGuest.accepted())
-                    throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-                inviterContact = inviterGuest.inviter();
-            }
-            inbox.requireConversationAccess(guest.inviter(), "direct", inviterContact);
+            requireInviterOriginalAccess(call, guest.inviter());
             inbox.requireConversationAccess(actor, "direct", guest.inviter());
             guests.get(id).put(key(actor), new Guest(guest.username(), guest.inviter(), guest.expiresAt(), true));
             CallSession accepted = access(call, actor);
@@ -244,6 +238,20 @@ public class DirectCallService {
         gateway.publishDirectCallEvent(call.caller, call.peer, id.toString(), call.media,
                 "ACTIVE", actor, accepted.expiresAt);
         return session;
+    }
+
+    /** Revalidate the invitation chain before revealing or accepting a guest invitation. */
+    private void requireInviterOriginalAccess(Call call, String inviter) {
+        String inviterContact = inviter.equalsIgnoreCase(call.caller())
+                ? call.peer() : inviter.equalsIgnoreCase(call.peer())
+                ? call.caller() : null;
+        if (inviterContact == null) {
+            Guest inviterGuest = guestFor(call.id(), inviter);
+            if (inviterGuest == null || !inviterGuest.accepted())
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+            inviterContact = inviterGuest.inviter();
+        }
+        inbox.requireConversationAccess(inviter, "direct", inviterContact);
     }
 
     public synchronized void decline(UUID id, String actor) {
