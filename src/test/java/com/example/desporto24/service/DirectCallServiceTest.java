@@ -383,6 +383,32 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void revokedGuestReceivesNoFurtherGroupRosterNotifications() {
+        Profile carlos = mock(Profile.class);
+        lenient().when(carlos.getId()).thenReturn(14L);
+        lenient().when(profiles.findUserByUsernameIgnoreCase("carlos"))
+                .thenReturn(Optional.of(carlos));
+
+        var call = calls.start("ana", "bea", "voice");
+        calls.accept(call.callId(), "bea");
+        calls.invite(call.callId(), "ana", "carlos");
+        calls.accept(call.callId(), "carlos");
+        clearInvocations(gateway);
+
+        lenient().doThrow(new org.springframework.security.access.AccessDeniedException("Revoked"))
+                .when(inbox).requireConversationAccess("carlos", "direct", "ana");
+        calls.invite(call.callId(), "bea", "dora");
+
+        verify(gateway, never()).publishDirectCallEvent(eq("ana"), eq("carlos"),
+                eq(call.callId().toString()), eq("voice"), eq("MEMBERS_CHANGED"), anyString(), any());
+        verify(gateway).publishDirectCallEvent(eq("ana"), eq("bea"),
+                eq(call.callId().toString()), eq("voice"), eq("MEMBERS_CHANGED"), eq("bea"), any());
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.members(call.callId(), "carlos"));
+        assertNotNull(calls.pendingFor("dora"));
+    }
+
+    @Test
     void revokedSessionContactCannotReadActiveCallRoster() {
         var call = calls.start("ana", "bea", "voice");
         calls.accept(call.callId(), "bea");
