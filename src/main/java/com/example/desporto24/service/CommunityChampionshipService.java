@@ -461,7 +461,7 @@ public class CommunityChampionshipService {
                 championship.getId(), championship.getCommunity().getId(), championship.getName(),
                 championship.getSport(), championship.getSeasonLabel(), championship.getCreatedAt(),
                 historicalCompetitions(championship),
-                championship.getClosedAt() == null
+                championship.getClosedAt() == null && !"INDEPENDENT".equals(championship.getStandingsMode())
                         ? ChampionshipWinnerStandings.calculate(championship.getCompetitions())
                         : java.util.List.of(),
                 championship.getClosedAt(), championship.getChampionEntryType(),
