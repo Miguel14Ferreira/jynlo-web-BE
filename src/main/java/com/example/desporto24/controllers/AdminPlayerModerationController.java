@@ -20,7 +20,7 @@ public class AdminPlayerModerationController {
     }
 
     @PostMapping("/{id}/moderation")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN') and @adminCurrentRoleGuard.admin(authentication)")
     public AdminPlayerModerationService.ModerationResult moderate(
             @PathVariable Long id,
             @RequestBody AdminPlayerModerationService.ModerationRequest request,
