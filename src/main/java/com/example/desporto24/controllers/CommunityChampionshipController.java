@@ -81,6 +81,15 @@ public class CommunityChampionshipController {
                 tournamentTeamId, request.championshipTeamId(), auth.getName());
     }
 
+    public record StandingsModeRequest(@jakarta.validation.constraints.NotBlank String mode) {}
+
+    @PutMapping("/{championshipId}/standings-mode")
+    public CommunityChampionshipResponse setStandingsMode(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @RequestBody @Valid StandingsModeRequest request, Authentication auth) {
+        return championships.setStandingsMode(communityId, championshipId, request.mode(), auth.getName());
+    }
+
     @PostMapping("/{championshipId}/close")
     public CommunityChampionshipResponse close(
             @PathVariable Long communityId, @PathVariable Long championshipId, Authentication auth) {
