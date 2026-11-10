@@ -538,7 +538,7 @@ public class VenueService {
 
     private boolean hasSport(String sports, String sportQuery) {
         if (sports == null) return false;
-        return java.util.Arrays.stream(sports.split(";"))
+        return java.util.Arrays.stream(sports.split("[;,]"))
                 .map(this::normalize)
                 .anyMatch(sportQuery::equals);
     }
