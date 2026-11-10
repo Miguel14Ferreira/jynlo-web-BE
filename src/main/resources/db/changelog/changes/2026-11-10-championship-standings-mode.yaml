@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-10-championship-standings-mode
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: community_championship
+            columns:
+              - column:
+                  name: standings_mode
+                  type: varchar(20)
+                  defaultValue: AGGREGATE
+                  constraints:
+                    nullable: false
+        - addCheckConstraint:
+            schemaName: desporto24
+            tableName: community_championship
+            constraintName: chk_championship_standings_mode
+            checkConstraint: "standings_mode IN ('AGGREGATE', 'INDEPENDENT')"
