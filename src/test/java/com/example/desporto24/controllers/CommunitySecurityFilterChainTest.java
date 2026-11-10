@@ -125,6 +125,20 @@ class CommunitySecurityFilterChainTest {
     }
 
     @Test
+    void currentAdminJwtCanPassTheAdminAccessCheck() throws Exception {
+        stubToken("fixture-admin-token", "fixture-admin", 11L, true);
+        var authorities = List.of(new SimpleGrantedAuthority("ROLE_ADMIN"));
+        when(tokens.getAuthorities("fixture-admin-token")).thenReturn(List.copyOf(authorities));
+        when(tokens.getAuthentication(eq("fixture-admin"), anyList(), any(HttpServletRequest.class)))
+                .thenReturn(new UsernamePasswordAuthenticationToken(
+                        "fixture-admin", null, authorities));
+
+        mvc.perform(get("/api/admin/access")
+                .header("Authorization", "Bearer fixture-admin-token"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
     void ordinaryJwtCannotOpenAdminOrSendAdministrativeMessages() throws Exception {
         mvc.perform(get("/api/admin/access")
                 .header("Authorization", "Bearer fixture-member-token"))
