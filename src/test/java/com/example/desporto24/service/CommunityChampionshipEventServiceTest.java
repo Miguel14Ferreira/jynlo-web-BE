@@ -29,6 +29,8 @@ class CommunityChampionshipEventServiceTest {
     @Mock CommunityChampionshipEventRepository events;
     @Mock CommunityChampionshipEventTeamRepository eventTeams;
     @Mock CommunityChampionshipFixtureRepository fixtures;
+    @Mock CommunityChampionshipTeamPlayerRepository roster;
+    @Mock CommunityChampionshipGoalRepository goals;
     @Mock CommunityChampionshipCupByeRepository cupByes;
     @Mock CommunityChampionshipTeamRepository championshipTeams;
     @Mock CommunityMemberRepository members;
