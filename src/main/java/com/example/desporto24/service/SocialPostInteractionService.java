@@ -127,6 +127,7 @@ public class SocialPostInteractionService {
         Notifications notification = new Notifications();
         notification.setUsername(recipient.getUsername());
         notification.setRelatedUsername(actor.getUsername());
+        notification.setPostId(post.getId());
         notification.setSubject(type == NotificationType.SOCIAL_POST_LIKED ? "Novo gosto" : "Novo comentário");
         notification.setMessage(actor.getUsername() + (type == NotificationType.SOCIAL_POST_LIKED
                 ? " gostou da tua publicação." : " comentou a tua publicação."));
