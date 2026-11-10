@@ -92,7 +92,7 @@ public class IdeaServiceImpl implements IdeaService {
                 || text.chars().anyMatch(ch -> ch < 32 && ch != '\n' && ch != '\r')) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resposta inválida");
         }
-        var idea = ideasRepository.findById(id)
+        var idea = ideasRepository.findForReply(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sugestão não encontrada"));
         if (idea.getAdminRepliedAt() != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta sugestão já foi respondida");
@@ -103,7 +103,7 @@ public class IdeaServiceImpl implements IdeaService {
         }
         String html = "<p>Olá " + html(idea.getName()) + ",</p>"
                 + "<p>Obrigado por teres contactado a Jynlo.</p>"
-                + "<p>" + html(text).replace("\\n", "<br>") + "</p>"
+                + "<p>" + html(text).replace("\n", "<br>") + "</p>"
                 + "<p>Com os melhores cumprimentos,<br>Equipa Jynlo</p>";
         // Send synchronously. Failed delivery must not mark the idea as answered.
         emailService.send(recipient, "Jynlo — resposta à tua sugestão", html);
