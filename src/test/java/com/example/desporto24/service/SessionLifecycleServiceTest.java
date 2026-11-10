@@ -99,6 +99,34 @@ class SessionLifecycleServiceTest {
     }
 
     @Test
+    void newJoinCannotBypassExistingWaitlistWhenOneSeatIsAvailable() {
+        // A previously reserved external place was released, leaving one vacant seat.
+        // The next join must first reconcile the queue under the session row lock.
+        session.setMaxParticipants(2);
+        session.setStatus(SessionStatus.OPEN);
+        sessionRepository.saveAndFlush(session);
+        Profile waiting = profile("earlierWaiting");
+        Profile newcomer = profile("newcomer");
+        waitlisted(waiting);
+
+        var result = service.join(session.getId(), new JoinSessionRequest(null), newcomer.getUsername());
+
+        assertEquals(JoinState.WAITLISTED, result.state());
+        assertTrue(participantRepository.existsBySessionIdAndProfileIdAndState(
+                session.getId(), waiting.getId(), ParticipantState.ACTIVE));
+        assertFalse(participantRepository.existsBySessionIdAndProfileIdAndState(
+                session.getId(), newcomer.getId(), ParticipantState.ACTIVE));
+        assertTrue(waitlistRepository.findBySessionIdAndProfileId(
+                session.getId(), newcomer.getId()).isPresent());
+        assertTrue(waitlistRepository.findBySessionIdAndProfileId(
+                session.getId(), waiting.getId()).isEmpty());
+        assertEquals(2, participantRepository.countBySessionIdAndState(
+                session.getId(), ParticipantState.ACTIVE));
+        assertEquals(SessionStatus.FULL, sessionRepository.findById(session.getId())
+                .orElseThrow().getStatus());
+    }
+
+    @Test
     void organizerCanIncreaseCapacityAndPromoteWaitlistedPlayer() {
         Profile other = profile("player");
         participant(other);
