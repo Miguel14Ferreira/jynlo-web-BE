@@ -463,6 +463,36 @@ public class DirectCallService {
         if (!available()) return;
         for (Call call : calls.values()) {
             if (!"ACTIVE".equals(call.state()) || !Instant.now().isBefore(call.expiresAt())) continue;
+            boolean originalAccessRevoked;
+            try {
+                inbox.requireConversationAccess(call.caller(), "direct", call.peer());
+                inbox.requireConversationAccess(call.peer(), "direct", call.caller());
+                originalAccessRevoked = false;
+            } catch (org.springframework.security.access.AccessDeniedException
+                     | ResponseStatusException revoked) {
+                originalAccessRevoked = true;
+            } catch (RuntimeException transientFailure) {
+                // Do not delete a room on uncertain ACL/database availability.
+                continue;
+            }
+            if (originalAccessRevoked) {
+                try {
+                    if (!deleteLiveKitRoom(call.room())) continue;
+                    calls.remove(call.id());
+                    var removedGuests = guests.remove(call.id());
+                    gateway.publishDirectCallEvent(call.caller(), call.peer(),
+                            call.id().toString(), call.media(), "ENDED",
+                            call.caller(), Instant.now());
+                    if (removedGuests != null) for (Guest guest : removedGuests.values()) {
+                        gateway.publishDirectCallEventTo(guest.username(), call.caller(),
+                                guest.username(), call.id().toString(), call.media(),
+                                "ENDED", call.caller(), Instant.now());
+                    }
+                } catch (Exception providerFailure) {
+                    log.warn("LiveKit room revocation attempt failed");
+                }
+                continue;
+            }
             var list = guests.get(call.id());
             if (list == null) continue;
             for (Guest guest : new ArrayList<>(list.values())) {
