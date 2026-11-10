@@ -5,6 +5,10 @@ import com.example.desporto24.model.Ideas;
 import com.example.desporto24.model.dto.idea.AdminIdeaResponse;
 import com.example.desporto24.model.dto.idea.IdeaSubmissionRequest;
 import com.example.desporto24.repository.IdeasRepository;
+import com.example.desporto24.repository.ProfileRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.transaction.annotation.Transactional;
 import com.example.desporto24.service.EmailService;
 import com.example.desporto24.service.interfaces.IdeaService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +28,7 @@ public class IdeaServiceImpl implements IdeaService {
 
     private final IdeasRepository ideasRepository;
     private final EmailService emailService;
+    private final ProfileRepository profiles;
 
     @Override
     public void submitNewIdea(IdeaSubmissionRequest request) {
@@ -71,6 +76,43 @@ public class IdeaServiceImpl implements IdeaService {
         return toAdminResponse(ideasRepository.save(idea));
     }
 
+    @Override
+    @Transactional
+    public AdminIdeaResponse reply(Long id, String message, String actorUsername) {
+        var actor = profiles.findUserByUsernameIgnoreCase(actorUsername)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Sem autorização"));
+        if (!("ROLE_ADMIN".equals(actor.getRole()) || "ROLE_SUPER_ADMIN".equals(actor.getRole()))
+                || !Boolean.TRUE.equals(actor.getEnabled())
+                || !Boolean.TRUE.equals(actor.getNotLocked())
+                || actor.getModerationSuspendedAt() != null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Sem autorização");
+        }
+        String text = message == null ? "" : message.trim();
+        if (text.length() < 3 || text.length() > 2000
+                || text.chars().anyMatch(ch -> ch < 32 && ch != '\\n' && ch != '\\r')) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resposta inválida");
+        }
+        var idea = ideasRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sugestão não encontrada"));
+        if (idea.getAdminRepliedAt() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta sugestão já foi respondida");
+        }
+        String recipient = idea.getEmail() == null ? "" : idea.getEmail().trim();
+        if (!recipient.matches("^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email do destinatário inválido");
+        }
+        String html = "<p>Olá " + html(idea.getName()) + ",</p>"
+                + "<p>Obrigado por teres contactado a Jynlo.</p>"
+                + "<p>" + html(text).replace("\\n", "<br>") + "</p>"
+                + "<p>Com os melhores cumprimentos,<br>Equipa Jynlo</p>";
+        // Send synchronously. Failed delivery must not mark the idea as answered.
+        emailService.send(recipient, "Jynlo — resposta à tua sugestão", html);
+        idea.setAdminReply(text);
+        idea.setAdminRepliedBy(actor.getUsername());
+        idea.setAdminRepliedAt(Instant.now());
+        return toAdminResponse(ideasRepository.save(idea));
+    }
+
     private AdminIdeaResponse toAdminResponse(Ideas idea) {
         return new AdminIdeaResponse(
                 idea.getId(),
@@ -81,7 +123,10 @@ public class IdeaServiceImpl implements IdeaService {
                 idea.getSubject(),
                 idea.getProblem(),
                 idea.getStatus() == null ? IdeaStatus.NEW : idea.getStatus(),
-                idea.getCreatedAt()
+                idea.getCreatedAt(),
+                idea.getAdminReply(),
+                idea.getAdminRepliedAt(),
+                idea.getAdminRepliedBy()
         );
     }
 
