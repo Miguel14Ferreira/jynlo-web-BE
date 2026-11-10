@@ -176,6 +176,15 @@ public class CommunityChampionshipController {
         return ownedEvents.drawCup(communityId, championshipId, eventId, auth.getName());
     }
 
+    @PutMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/score")
+    public com.example.desporto24.service.CommunityChampionshipEventService.LeagueFixture recordFixtureScore(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, @PathVariable Long fixtureId,
+            @RequestBody @Valid com.example.desporto24.service.CommunityChampionshipEventService.MatchScore score,
+            Authentication auth) {
+        return ownedEvents.recordFixtureScore(communityId, championshipId, eventId, fixtureId, score, auth.getName());
+    }
+
     @GetMapping("/{championshipId}/owned-events/{eventId}/fixtures")
     public List<com.example.desporto24.service.CommunityChampionshipEventService.LeagueFixture> ownedLeagueFixtures(
             @PathVariable Long communityId, @PathVariable Long championshipId,
