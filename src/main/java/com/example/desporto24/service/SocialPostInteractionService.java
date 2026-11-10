@@ -5,6 +5,10 @@ import com.example.desporto24.enumeration.AttendanceStatus;
 import com.example.desporto24.model.session.SessionParticipant;
 import com.example.desporto24.repository.session.SessionParticipantRepository;
 import com.example.desporto24.model.Profile;
+import com.example.desporto24.enumeration.NotificationType;
+import com.example.desporto24.register.Notifications.Notifications;
+import com.example.desporto24.repository.NotificationsRepository;
+import com.example.desporto24.model.dto.social.FollowProfileResponse;
 import com.example.desporto24.model.dto.social.CreateSocialCommentRequest;
 import com.example.desporto24.model.dto.moderation.CreateUserReportRequest;
 import com.example.desporto24.model.dto.social.PostLikeResponse;
@@ -37,6 +41,8 @@ public class SocialPostInteractionService {
     private final ProfileRepository profileRepository;
     private final UserReportService userReportService;
     private final SessionParticipantRepository participantRepository;
+    private final NotificationsRepository notificationsRepository;
+    private final NotificationPreferencesService notificationPreferencesService;
 
     public PostLikeResponse like(Long postId, String username) {
         SocialPost post = post(postId);
@@ -48,6 +54,7 @@ public class SocialPostInteractionService {
                     .profile(actor)
                     .createdAt(Instant.now())
                     .build());
+            notifySocialAction(post, actor, NotificationType.SOCIAL_POST_LIKED);
         }
 
         return likeStatus(postId, actor.getId());
@@ -86,7 +93,37 @@ public class SocialPostInteractionService {
                         .build()
         );
 
+        notifySocialAction(post, actor, NotificationType.SOCIAL_POST_COMMENTED);
         return toResponse(comment);
+    }
+
+    @Transactional(readOnly = true)
+    public List<FollowProfileResponse> likers(Long postId) {
+        post(postId);
+        return likeRepository.findLikers(postId, org.springframework.data.domain.PageRequest.of(0, 100))
+                .stream().map(like -> {
+                    Profile p = like.getProfile();
+                    return new FollowProfileResponse(p.getUsername(), p.getFullName(), p.getNickname(), p.getProfilePicUrl());
+                }).toList();
+    }
+
+    private void notifySocialAction(SocialPost post, Profile actor, NotificationType type) {
+        Profile recipient = post.getAuthor();
+        if (recipient.getId().equals(actor.getId())) return;
+        if (!notificationPreferencesService.allowsInApp(recipient.getUsername(), type)) return;
+        Notifications notification = new Notifications();
+        notification.setUsername(recipient.getUsername());
+        notification.setRelatedUsername(actor.getUsername());
+        notification.setSubject(type == NotificationType.SOCIAL_POST_LIKED ? "Novo gosto" : "Novo comentário");
+        notification.setMessage(actor.getUsername() + (type == NotificationType.SOCIAL_POST_LIKED
+                ? " gostou da tua publicação." : " comentou a tua publicação."));
+        notification.setGreeting("");
+        notification.setSignature("");
+        notification.setCreatedAt(Instant.now().toString());
+        notification.setType(type);
+        notification.setRead(false);
+        if (post.getSession() != null) notification.setSessionId(post.getSession().getId());
+        notificationsRepository.save(notification);
     }
 
     public void reportPost(
