@@ -204,6 +204,26 @@ public class SocialFeedService {
     }
 
     @Transactional(readOnly = true)
+    public FeedItemResponse postById(Long postId, String username) {
+        Profile viewer = profile(username);
+        if (postId == null || postId <= 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação não encontrada");
+        }
+        SocialPost target = postRepository.findById(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação não encontrada"));
+        // Activity interaction records can contain hidden attendance; they are
+        // never individually exposed through a social notification deep link.
+        if (target.getActivityType() != null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação indisponível");
+        }
+        long likes = likeRepository.countByPostId(postId);
+        long comments = commentRepository.countByPostId(postId);
+        boolean liked = likeRepository.existsByPostIdAndProfileId(postId, viewer.getId());
+        return postItem(target, Map.of(postId, likes), Map.of(postId, comments),
+                liked ? Set.of(postId) : Set.of());
+    }
+
+    @Transactional(readOnly = true)
     public List<FeedItemResponse> feed(String username) {
         Profile actor = profile(username);
 
