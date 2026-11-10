@@ -73,6 +73,41 @@ class JwtAuthorizationFilterTest {
     }
 
     @Test
+    void roleRevocationOverridesAnOldSignedAdminJwt() throws Exception {
+        JWTokenProvider provider = mock(JWTokenProvider.class);
+        ProfileRepository repository = mock(ProfileRepository.class);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        FilterChain chain = mock(FilterChain.class);
+        Profile profile = activeProfile(3L);
+        profile.setRole("ROLE_USER");
+
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(provider.getSubject("token")).thenReturn("miguel");
+        when(provider.getTokenVersion("token")).thenReturn(3L);
+        when(provider.isTokenValid("miguel", "token")).thenReturn(true);
+        when(repository.findUserByUsername("miguel")).thenReturn(Optional.of(profile));
+        when(provider.getAuthorities("token")).thenReturn(
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN")));
+        when(provider.getAuthentication(eq("miguel"), anyList(), eq(request)))
+                .thenAnswer(invocation -> new UsernamePasswordAuthenticationToken(
+                        "miguel", null, invocation.getArgument(1)));
+
+        var filter = new JwtAuthorizationFilter(provider, repository);
+        filter.doFilterInternal(request, response, chain);
+
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        assertNotNull(authentication);
+        org.junit.jupiter.api.Assertions.assertEquals(
+                List.of("ROLE_USER"),
+                authentication.getAuthorities().stream()
+                        .map(org.springframework.security.core.GrantedAuthority::getAuthority).toList());
+        verify(provider, never()).getAuthorities("token");
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
     void revokedDeviceFamilyCannotUseItsUnexpiredAccessJwt() throws Exception {
         assertBoundFamilyAccepted(false);
     }
