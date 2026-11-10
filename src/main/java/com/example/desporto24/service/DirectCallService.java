@@ -415,20 +415,28 @@ public class DirectCallService {
     }
 
     private void notifyParticipantsChanged(Call call, String actor) {
-        gateway.publishDirectCallEvent(call.caller(), call.peer(), call.id().toString(),
-                call.media(), "MEMBERS_CHANGED", actor, call.expiresAt());
+        // Never fan a roster update out to the original pair in one operation:
+        // their current contact permissions can differ after moderation/removal.
+        for (String recipient : List.of(call.caller(), call.peer())) {
+            try {
+                requireInviterOriginalAccess(call, recipient);
+            } catch (org.springframework.security.access.AccessDeniedException
+                     | ResponseStatusException revoked) {
+                continue;
+            }
+            gateway.publishDirectCallEventTo(recipient, call.caller(), call.peer(),
+                    call.id().toString(), call.media(), "MEMBERS_CHANGED", actor, call.expiresAt());
+        }
         var list = guests.get(call.id());
         if (list != null) for (Guest guest : list.values()) {
             if (!guest.accepted()) continue;
             try {
-                // A connected guest can lose their session-based contact permission
-                // without leaving the room. Do not continue publishing roster updates.
                 requireInviterOriginalAccess(call, guest.username());
             } catch (org.springframework.security.access.AccessDeniedException
                      | ResponseStatusException revoked) {
                 continue;
             }
-            gateway.publishDirectCallEvent(call.caller(), guest.username(),
+            gateway.publishDirectCallEventTo(guest.username(), call.caller(), guest.username(),
                     call.id().toString(), call.media(), "MEMBERS_CHANGED", actor, call.expiresAt());
         }
     }
