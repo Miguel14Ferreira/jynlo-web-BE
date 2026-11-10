@@ -5,6 +5,7 @@ import com.example.desporto24.model.Profile;
 import com.example.desporto24.register.Notifications.Notifications;
 import com.example.desporto24.repository.NotificationsRepository;
 import com.example.desporto24.repository.ProfileRepository;
+import com.example.desporto24.security.SensitiveActionRateLimiter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -23,6 +24,7 @@ import static org.mockito.Mockito.*;
 class AdminPlayerMessageControllerTest {
     @Mock ProfileRepository profiles;
     @Mock NotificationsRepository notifications;
+    @Mock SensitiveActionRateLimiter rateLimiter;
     @Mock Authentication authentication;
     @InjectMocks AdminPlayerMessageController controller;
 
@@ -61,6 +63,7 @@ class AdminPlayerMessageControllerTest {
         assertEquals("A tua sessão foi atualizada.", captured.getValue().getMessage());
         assertEquals(NotificationType.ADMIN_MESSAGE, captured.getValue().getType());
         assertFalse(captured.getValue().isRead());
+        verify(rateLimiter).requireCooldown(eq("admin-message"), eq("1"), eq(java.time.Duration.ofSeconds(15)));
     }
 
     @Test
