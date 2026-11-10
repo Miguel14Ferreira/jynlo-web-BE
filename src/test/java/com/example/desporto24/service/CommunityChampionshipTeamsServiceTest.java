@@ -26,6 +26,7 @@ class CommunityChampionshipTeamsServiceTest {
     @Mock CommunityTournamentTeamRepository tournamentTeams;
     @Mock ProfileRepository profiles;
     @Mock CommunityMemberRepository members;
+    @Mock CommunityChampionshipTeamPlayerRepository playerRegistrations;
     @InjectMocks CommunityChampionshipTeamsService service;
     private CommunityChampionship season;
     private CommunityTournament tournament;
@@ -47,6 +48,51 @@ class CommunityChampionshipTeamsServiceTest {
         when(members.findByCommunityIdAndProfileId(7L,33L))
                 .thenReturn(Optional.of(CommunityMember.builder().role(CommunityRole.OWNER).build()));
         when(championships.findByIdAndCommunityId(15L,7L)).thenReturn(Optional.of(season));
+    }
+
+    @Test
+    void addsRealCommunityMemberToSeasonTeam() {
+        organizer();
+        when(seasonTeams.findById(99L)).thenReturn(Optional.of(canonical));
+        when(members.existsByCommunityIdAndProfileId(7L, 44L)).thenReturn(true);
+        when(playerRegistrations.findByChampionshipIdAndProfileId(15L, 44L)).thenReturn(Optional.empty());
+        var player = new Profile();
+        player.setId(44L);
+        player.setUsername("jogador");
+        player.setFullName("Jogador Teste");
+        when(profiles.findById(44L)).thenReturn(Optional.of(player));
+        when(playerRegistrations.saveAndFlush(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(playerRegistrations.findByTeamIdOrderByJoinedAtAscIdAsc(99L))
+                .thenReturn(List.of(CommunityChampionshipTeamPlayer.builder()
+                        .id(1L).championship(season).team(canonical).profile(player)
+                        .joinedAt(Instant.now()).build()));
+        var roster = service.addPlayer(7L, 15L, 99L, 44L, "owner");
+        assertEquals(1, roster.size());
+        assertEquals(44L, roster.get(0).profileId());
+        assertEquals("Jogador Teste", roster.get(0).displayName());
+    }
+
+    @Test
+    void rejectsProfileOutsideCommunity() {
+        organizer();
+        when(seasonTeams.findById(99L)).thenReturn(Optional.of(canonical));
+        when(members.existsByCommunityIdAndProfileId(7L, 44L)).thenReturn(false);
+        assertThrows(ResponseStatusException.class,
+                () -> service.addPlayer(7L, 15L, 99L, 44L, "owner"));
+        verifyNoInteractions(playerRegistrations);
+    }
+
+    @Test
+    void rejectsProfileAlreadyOnAnotherSeasonTeam() {
+        organizer();
+        when(seasonTeams.findById(99L)).thenReturn(Optional.of(canonical));
+        when(members.existsByCommunityIdAndProfileId(7L, 44L)).thenReturn(true);
+        when(playerRegistrations.findByChampionshipIdAndProfileId(15L, 44L))
+                .thenReturn(Optional.of(CommunityChampionshipTeamPlayer.builder().id(1L).build()));
+        assertThrows(ResponseStatusException.class,
+                () -> service.addPlayer(7L, 15L, 99L, 44L, "owner"));
+        verify(playerRegistrations, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
