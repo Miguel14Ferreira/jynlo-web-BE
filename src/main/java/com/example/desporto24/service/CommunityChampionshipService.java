@@ -45,8 +45,12 @@ public class CommunityChampionshipService {
         if (!com.example.desporto24.constant.SportsCatalog.ALLOWED.contains(sport)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Modalidade fora do catálogo Jynlo");
         }
+        String standingsMode = request.standingsMode() == null ? "AGGREGATE" : request.standingsMode();
+        if (!"AGGREGATE".equals(standingsMode) && !"INDEPENDENT".equals(standingsMode))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Modo de classificação inválido");
         CommunityChampionship championship = CommunityChampionship.builder()
                 .community(community).name(name).sport(sport)
+                .standingsMode(standingsMode)
                 .seasonLabel(season).createdAt(Instant.now()).build();
         return toResponse(championships.save(championship));
     }
