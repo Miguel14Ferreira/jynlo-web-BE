@@ -66,6 +66,32 @@ class CommunitySessionScheduleTest {
     }
 
     @Test
+    void scheduledCallUpBeforeTheRepeatedHourRemainsValidAfterAutumnClockRollback() {
+        // In Lisbon the clock goes from 01:59 WEST back to 01:00 WET.
+        // The opening at 00:45Z is 30 minutes before the second 01:15,
+        // even though its local clock shows 01:45 (after 01:15).
+        Instant first = Instant.parse("2027-10-31T01:15:00Z");
+        Instant opening = Instant.parse("2027-10-31T00:45:00Z");
+        var request = new CreateSessionRequest(
+                "Futebol", first, "Lisboa", "Rua do Campo",
+                10, BigDecimal.ZERO, false, null, null, null, 7L, null,
+                SessionRecurrence.WEEKLY, 2, 0,
+                RegistrationOpeningMode.SCHEDULED, opening,
+                List.of(), LISBON.getId());
+
+        var plan = CommunitySessionSchedule.expand(
+                request, Instant.parse("2027-10-30T12:00:00Z"));
+
+        assertEquals(2, plan.size());
+        assertEquals(opening, plan.getFirst().registrationOpensAt());
+        assertEquals(first, plan.getFirst().kickoff());
+        assertEquals(Instant.parse("2027-11-07T00:45:00Z"),
+                plan.get(1).registrationOpensAt());
+        assertEquals(Instant.parse("2027-11-07T01:15:00Z"),
+                plan.get(1).kickoff());
+    }
+
+    @Test
     void acceptsLegacyOnePerWeekRequestWithoutNewFields() {
         var old = new CreateSessionRequest("Futebol", FIRST, "Lisboa", "Campo 1",
                 10, BigDecimal.ZERO, false, null, null, null, 7L, null,
