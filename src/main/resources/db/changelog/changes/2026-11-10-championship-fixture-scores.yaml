@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-10-championship-fixture-scores
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: community_championship_fixture
+            columns:
+              - column: {name: home_score, type: int}
+              - column: {name: away_score, type: int}
+              - column: {name: result_recorded_at, type: timestamp with time zone}
