@@ -56,6 +56,16 @@ class SessionContactAccessServiceTest {
     }
 
     @Test
+    void deniesAliasedUsernamesResolvingToTheSameProfileId() {
+        // Distinct usernames must not bypass the self-contact guard if they
+        // resolve to the same account (for example during a username migration).
+        when(bea.getId()).thenReturn(11L);
+        assertFalse(access.mayContact("ana", "bea"));
+        assertThrows(AccessDeniedException.class, () -> access.requireContact("ana", "bea"));
+        verifyNoInteractions(sessions, blocks);
+    }
+
+    @Test
     void deniesBlockedContactEvenWithSharedSession() {
         when(blocks.isBlockedBetween(ana, bea)).thenReturn(true);
         assertFalse(access.mayContact("ana", "bea"));
