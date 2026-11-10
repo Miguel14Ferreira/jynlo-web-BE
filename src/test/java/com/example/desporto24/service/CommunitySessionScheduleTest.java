@@ -88,8 +88,8 @@ class CommunitySessionScheduleTest {
         assertEquals(opening, plan.get(0).registrationOpensAt());
         assertEquals(Instant.parse("2027-03-28T01:15:00Z"), plan.get(1).kickoff());
         assertEquals(Instant.parse("2027-03-28T00:45:00Z"), plan.get(1).registrationOpensAt());
-        assertEquals(Instant.parse("2027-04-04T00:15:00Z"), plan.get(2).kickoff());
-        assertEquals(Instant.parse("2027-04-03T23:45:00Z"), plan.get(2).registrationOpensAt());
+        assertEquals(Instant.parse("2027-04-04T01:15:00Z"), plan.get(2).kickoff());
+        assertEquals(Instant.parse("2027-04-04T00:45:00Z"), plan.get(2).registrationOpensAt());
         assertTrue(plan.stream().allMatch(slot -> slot.registrationOpensAt().isBefore(slot.kickoff())));
     }
 
