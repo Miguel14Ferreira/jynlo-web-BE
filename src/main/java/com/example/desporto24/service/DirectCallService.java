@@ -71,6 +71,8 @@ public class DirectCallService {
     private String apiSecret;
 
     private final ConcurrentHashMap<UUID, Call> calls = new ConcurrentHashMap<>();
+    /** Room deletion retries after users hang up, until LiveKit confirms closure. */
+    private final ConcurrentHashMap<UUID, String> roomsPendingDeletion = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Instant> lastStarted = new ConcurrentHashMap<>();
     /** Per-sender/recipient throttling; rejecting or declining a ring does not reset it. */
     private final ConcurrentHashMap<String, InviteBudget> inviteBudgets = new ConcurrentHashMap<>();
@@ -391,6 +393,7 @@ public class DirectCallService {
             return;
         }
         calls.remove(id);
+        roomsPendingDeletion.put(id, call.room());
         var invited = guests.remove(id);
         gateway.publishDirectCallEvent(call.caller, call.peer, id.toString(), call.media,
                 "ENDED", actor, Instant.now());
@@ -461,6 +464,7 @@ public class DirectCallService {
     @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 30000)
     public synchronized void revokeDisconnectedGuests() {
         if (!available()) return;
+        retryEndedRoomDeletions();
         for (Call call : calls.values()) {
             if (!"ACTIVE".equals(call.state()) || !Instant.now().isBefore(call.expiresAt())) continue;
             boolean originalAccessRevoked;
@@ -521,6 +525,22 @@ public class DirectCallService {
                     // No secrets, identities or provider response bodies in application logs.
                     log.warn("LiveKit participant revocation attempt failed");
                 }
+            }
+        }
+    }
+
+    /**
+     * An ended application call must not leave a playable LiveKit room behind.
+     * Keep failed deletions node-locally so the next scheduled pass retries.
+     */
+    private void retryEndedRoomDeletions() {
+        for (var pending : roomsPendingDeletion.entrySet()) {
+            try {
+                if (deleteLiveKitRoom(pending.getValue())) {
+                    roomsPendingDeletion.remove(pending.getKey(), pending.getValue());
+                }
+            } catch (Exception providerFailure) {
+                log.warn("LiveKit ended room deletion attempt failed");
             }
         }
     }
