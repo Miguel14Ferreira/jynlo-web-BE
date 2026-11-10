@@ -175,6 +175,38 @@ public class DirectCallService {
         return PROVIDER_HTTP.send(request, HttpResponse.BodyHandlers.discarding()).statusCode();
     }
 
+    /**
+     * Server-only LiveKit removal. A room-scoped admin token is minted here,
+     * never sent to the client. The caller must first establish revocation
+     * using the application's own contact authorization.
+     */
+    protected boolean removeFromLiveKit(String room, String identity) throws Exception {
+        if (!available() || room == null || !room.startsWith("jynlo-")
+                || identity == null || !identity.startsWith("jynlo-user-")) return false;
+        String host = serverUrl.replaceFirst("^wss://", "https://").replaceAll("/+$", "");
+        Instant now = Instant.now();
+        String jwt = JWT.create()
+                .withIssuer(apiKey)
+                .withSubject("jynlo-room-revocation")
+                .withIssuedAt(Date.from(now))
+                .withExpiresAt(Date.from(now.plusSeconds(45)))
+                .withClaim("video", Map.of("roomAdmin", true, "room", room))
+                .sign(Algorithm.HMAC256(apiSecret));
+        var body = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode()
+                .put("room", room)
+                .put("identity", identity);
+        HttpRequest request = HttpRequest.newBuilder(
+                URI.create(host + "/twirp/livekit.RoomService/RemoveParticipant"))
+                .timeout(Duration.ofSeconds(4))
+                .header("Authorization", "Bearer " + jwt)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
+                .build();
+        int response = PROVIDER_HTTP.send(request, HttpResponse.BodyHandlers.discarding())
+                .statusCode();
+        return response >= 200 && response < 300;
+    }
+
     @EventListener(ApplicationReadyEvent.class)
     public void checkProviderOnStartup() {
         // The readiness log contains only a fixed result code, never URLs,
