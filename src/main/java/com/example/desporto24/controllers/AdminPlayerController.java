@@ -19,7 +19,7 @@ import java.util.Locale;
 @RequestMapping("/api/admin/players")
 @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
 public class AdminPlayerController {
-    private static final int PAGE_SIZE = 20;
+    private static final int PAGE_SIZE = 10;
     private final ProfileRepository profileRepository;
     private final CommunityRoundEntryRepository roundEntryRepository;
     private final CommunityCreationQuotaService communityCreationQuota;
