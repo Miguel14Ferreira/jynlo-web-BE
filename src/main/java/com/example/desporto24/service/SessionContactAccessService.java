@@ -16,8 +16,8 @@ import java.util.Objects;
  * Additional, short-lived contact permission created by a shared recent or upcoming
  * sports session. Not a friendship and never an unrestricted inbox ACL.
  *
- * Both accounts must be active participants (or the session creator), and
- * block rules still apply. All callers must check this on each operation,
+ * Both accounts, including the session creator, must have ACTIVE participation
+ * in the same session; block rules still apply. All callers must check this on each operation,
  * including call accept/invite and private conversation reads.
  */
 @Service
