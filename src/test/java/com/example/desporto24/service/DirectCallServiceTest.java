@@ -383,6 +383,16 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void activeCallJoinTokenExpiresWithinTenMinutesEvenForLongCalls() {
+        var outgoing = calls.start("ana", "bea", "video");
+        var accepted = calls.accept(outgoing.callId(), "bea");
+        var expires = JWT.decode(accepted.token()).getExpiresAt().toInstant();
+        assertFalse(expires.isAfter(java.time.Instant.now().plus(10, java.time.temporal.ChronoUnit.MINUTES)));
+        assertTrue(accepted.expiresAt().isAfter(expires.plus(100, java.time.temporal.ChronoUnit.MINUTES)),
+                "A short room-join token must not shorten the active call itself");
+    }
+
+    @Test
     void revokedAcceptedGuestIsDisconnectedFromProviderAndRemovedLocally() throws Exception {
         Profile carlos = mock(Profile.class);
         lenient().when(carlos.getId()).thenReturn(14L);
