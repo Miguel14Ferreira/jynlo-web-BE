@@ -337,6 +337,29 @@ class VenueServiceTest {
     }
 
     @Test
+    void matchesCommaSeparatedSportsWithoutPartialNameMatches() {
+        Venue mixed = Venue.builder()
+                .id(301L).name("Pavilhão Polivalente").city("Lisboa")
+                .address("Rua A").sports("Futsal, Padel; Ténis").build();
+        Venue unrelated = Venue.builder()
+                .id(302L).name("Campo de Futebol Americano").city("Lisboa")
+                .address("Rua B").sports("Padel, Futebol Americano").build();
+
+        when(venueRepository.findAllByOrderByNameAsc())
+                .thenReturn(List.of(mixed, unrelated));
+
+        var padel = service.search(null, "padel");
+        var futsal = service.search(null, "futsal");
+        var futebol = service.search(null, "futebol");
+
+        assertEquals(List.of("Pavilhão Polivalente", "Campo de Futebol Americano"),
+                padel.stream().map(v -> v.name()).toList());
+        assertEquals(List.of("Pavilhão Polivalente"),
+                futsal.stream().map(v -> v.name()).toList());
+        assertTrue(futebol.isEmpty());
+    }
+
+    @Test
     void excludesVenuesWithoutSportsWhenFilteringBySport() {
         Venue matching = Venue.builder()
                 .name("Campo Padel")
