@@ -63,6 +63,46 @@ class CommunityChampionshipServiceTest {
     }
 
     @Test
+    void canSwitchToIndependentWinnersBeforeAnyCompetitionStarts() {
+        organizer();
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        when(ownedEvents.findByChampionshipIdOrderByCreatedAtAscIdAsc(15L))
+                .thenReturn(java.util.List.of());
+        when(championships.saveAndFlush(championship)).thenReturn(championship);
+        var result = service.setStandingsMode(7L, 15L, "INDEPENDENT", "organizer");
+        assertEquals("INDEPENDENT", result.standingsMode());
+        assertTrue(result.winnerStandings().isEmpty());
+    }
+
+    @Test
+    void refusesToChangeRankingModeAfterACompetitionBegins() {
+        organizer();
+        championship.getCompetitions().add(CommunityTournament.builder()
+                .id(91L).name("Taça").status(TournamentStatus.IN_PROGRESS).build());
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        assertThrows(ResponseStatusException.class,
+                () -> service.setStandingsMode(7L, 15L, "INDEPENDENT", "organizer"));
+        assertEquals("AGGREGATE", championship.getStandingsMode());
+        verify(championships, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void independentSeasonHasNoAggregateLeaderboard() {
+        Profile actor = new Profile();
+        actor.setId(33L);
+        actor.setUsername("organizer");
+        when(profiles.findUserByUsername("organizer")).thenReturn(Optional.of(actor));
+        when(members.existsByCommunityIdAndProfileId(7L, 33L)).thenReturn(true);
+        championship.setStandingsMode("INDEPENDENT");
+        championship.getCompetitions().add(CommunityTournament.builder()
+                .id(99L).status(TournamentStatus.COMPLETED).championProfileId(33L).build());
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var result = service.standings(7L, 15L, "organizer");
+        assertTrue(result.standings().isEmpty());
+        assertEquals(0, result.pendingCompetitions());
+    }
+
+    @Test
     void createsSeasonContainerWithoutGeneratingTournament() {
         organizer();
         when(communities.findById(7L)).thenReturn(Optional.of(community));
