@@ -80,12 +80,14 @@ public final class CommunitySessionSchedule {
         RegistrationOpeningMode openingMode = request.registrationOpeningMode() == null
                 ? RegistrationOpeningMode.IMMEDIATE : request.registrationOpeningMode();
         Duration wallClockLead = null;
+        Duration instantLead = null;
         if (openingMode == RegistrationOpeningMode.SCHEDULED) {
             if (request.registrationOpensAt() == null
                     || !request.registrationOpensAt().isAfter(now)
                     || !request.registrationOpensAt().isBefore(request.gameDate())) {
                 throw new IllegalArgumentException("A convocatória deve abrir antes do jogo e numa data futura");
             }
+            instantLead = Duration.between(request.registrationOpensAt(), request.gameDate());
             wallClockLead = Duration.between(
                     request.registrationOpensAt().atZone(zone).toLocalDateTime(),
                     first.toLocalDateTime());
@@ -115,6 +117,12 @@ public final class CommunitySessionSchedule {
                     opensAt = repeat == 0 && slot.toInstant().equals(request.gameDate())
                             ? request.registrationOpensAt()
                             : future.toLocalDateTime().minus(wallClockLead).atZone(zone).toInstant();
+                    // In the spring gap a requested wall-clock opening (e.g. 01:45)
+                    // does not exist. atZone() shifts it forward, potentially past
+                    // kickoff; retain the actual initial lead time in that case.
+                    if (!opensAt.isBefore(kickoff)) {
+                        opensAt = kickoff.minus(instantLead);
+                    }
                     if (!opensAt.isAfter(now) || !opensAt.isBefore(kickoff)) {
                         throw new IllegalArgumentException(
                                 "Cada convocatória deve abrir no futuro e antes da sessão");
