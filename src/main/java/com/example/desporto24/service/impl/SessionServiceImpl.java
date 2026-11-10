@@ -761,6 +761,24 @@ public class SessionServiceImpl implements SessionService {
             }
         }
 
+        // A newly opened seat cannot be claimed ahead of an existing waitlist.
+        // This happens under the same session row lock as joins and capacity edits.
+        // Ineligible waiting players are skipped by promoteNext without losing their place.
+        boolean promotedFromWaitlist = false;
+        while (SessionCapacity.remainingPlaces(session,
+                participantRepository.countBySessionIdAndState(
+                        sessionId, ParticipantState.ACTIVE)) > 0
+                && !waitlistRepository.findBySessionIdOrderByPriorityTierAscCreatedAtAsc(
+                        sessionId).isEmpty()) {
+            if (waitlistPromotionService.promoteNext(session, joinAt).isEmpty()) {
+                break;
+            }
+            promotedFromWaitlist = true;
+        }
+        if (promotedFromWaitlist) {
+            invalidateConfirmedTeams(sessionId);
+        }
+
         long activeParticipants = participantRepository.countBySessionIdAndState(
                 sessionId, ParticipantState.ACTIVE);
 
