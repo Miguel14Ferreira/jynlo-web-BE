@@ -98,6 +98,21 @@ class SessionContactAccessServiceTest {
     }
 
     @Test
+    void repositoryRequiresActiveMembershipForBothPeersIncludingOrganizer() throws Exception {
+        var method = SessionRepository.class.getMethod(
+                "existsSharedUpcomingContactSession", Long.class, Long.class, Date.class);
+        var query = method.getAnnotation(org.springframework.data.jpa.repository.Query.class).value();
+        assertTrue(query.contains("p1.profile.id = :firstId"));
+        assertTrue(query.contains("p2.profile.id = :secondId"));
+        assertTrue(query.contains("p1.state = com.example.desporto24.enumeration.ParticipantState.ACTIVE"));
+        assertTrue(query.contains("p2.state = com.example.desporto24.enumeration.ParticipantState.ACTIVE"));
+        assertFalse(query.contains("s.profile.id = :firstId"),
+                "Creating a session alone must not bypass confirmed membership");
+        assertFalse(query.contains("s.profile.id = :secondId"),
+                "Organizer access must be revoked when membership is no longer active");
+    }
+
+    @Test
     void deniesWhenNoActiveSharedSession() {
         assertFalse(access.mayContact("ana", "bea"));
         assertThrows(AccessDeniedException.class, () -> access.requireContact("ana", "bea"));
