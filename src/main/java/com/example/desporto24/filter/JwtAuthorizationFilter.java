@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -79,8 +80,13 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
                         && sessionActive
                         && jwTokenProvider.isTokenValid(username, token)
                         && SecurityContextHolder.getContext().getAuthentication() == null) {
+                    // Use the current server-side role. JWT role claims can be stale after
+                    // promotion/demotion and must never grant privileges after revocation.
+                    String role = profile.getRole();
                     List<GrantedAuthority> authorities =
-                            jwTokenProvider.getAuthorities(token);
+                            role != null && List.of("ROLE_USER", "ROLE_HR", "ROLE_MANAGER",
+                                    "ROLE_ADMIN", "ROLE_SUPER_ADMIN").contains(role)
+                                    ? List.of(new SimpleGrantedAuthority(role)) : List.of();
                     Authentication authentication =
                             jwTokenProvider.getAuthentication(
                                     username, authorities, request);
