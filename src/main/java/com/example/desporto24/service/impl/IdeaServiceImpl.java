@@ -98,7 +98,7 @@ public class IdeaServiceImpl implements IdeaService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta sugestão já foi respondida");
         }
         String recipient = idea.getEmail() == null ? "" : idea.getEmail().trim();
-        if (!recipient.matches("^[^@\s]+@[^@\s]+\.[^@\s]+$")) {
+        if (!recipient.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email do destinatário inválido");
         }
         String html = "<p>Olá " + html(idea.getName()) + ",</p>"
