@@ -25,6 +25,7 @@ public class CommunityChampionshipTeamsService {
     private final CommunityTournamentTeamRepository tournamentTeams;
     private final ProfileRepository profiles;
     private final CommunityMemberRepository members;
+    private final CommunityChampionshipTeamPlayerRepository playerRegistrations;
 
     @Transactional(readOnly = true)
     public CommunityChampionshipTeamsResponse list(Long communityId, Long championshipId, String username) {
@@ -73,6 +74,66 @@ public class CommunityChampionshipTeamsService {
         tournamentTeam.setChampionshipTeam(seasonTeam);
         tournamentTeams.saveAndFlush(tournamentTeam);
         return response(championship);
+    }
+
+    public record TeamPlayer(Long profileId, String username, String displayName, String profilePicUrl) {}
+
+    @Transactional(readOnly = true)
+    public List<TeamPlayer> players(Long communityId, Long championshipId, Long teamId, String username) {
+        requireMember(communityId, username);
+        getSeasonTeam(communityId, championshipId, teamId);
+        return playerRegistrations.findByTeamIdOrderByJoinedAtAscIdAsc(teamId)
+                .stream().map(reg -> {
+                    var profile = reg.getProfile();
+                    return new TeamPlayer(profile.getId(), profile.getUsername(),
+                            profile.getFullName() == null || profile.getFullName().isBlank()
+                                    ? profile.getUsername() : profile.getFullName(),
+                            profile.getProfilePicUrl());
+                }).toList();
+    }
+
+    public List<TeamPlayer> addPlayer(Long communityId, Long championshipId, Long teamId,
+                                      Long profileId, String username) {
+        requireOrganizer(communityId, username);
+        var season = getChampionship(communityId, championshipId);
+        ensureOpen(season);
+        var team = getSeasonTeam(communityId, championshipId, teamId);
+        if (profileId == null || !members.existsByCommunityIdAndProfileId(communityId, profileId))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "O jogador tem de pertencer à comunidade");
+        if (playerRegistrations.findByChampionshipIdAndProfileId(championshipId, profileId).isPresent())
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "O jogador já pertence a uma equipa nesta época");
+        var profile = profiles.findById(profileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Perfil não encontrado"));
+        try {
+            playerRegistrations.saveAndFlush(CommunityChampionshipTeamPlayer.builder()
+                    .championship(season).team(team).profile(profile).joinedAt(Instant.now()).build());
+        } catch (org.springframework.dao.DataIntegrityViolationException conflict) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "O jogador já pertence a uma equipa nesta época", conflict);
+        }
+        return players(communityId, championshipId, teamId, username);
+    }
+
+    public void removePlayer(Long communityId, Long championshipId, Long teamId,
+                             Long profileId, String username) {
+        requireOrganizer(communityId, username);
+        ensureOpen(getChampionship(communityId, championshipId));
+        getSeasonTeam(communityId, championshipId, teamId);
+        var registration = playerRegistrations.findByChampionshipIdAndProfileId(championshipId, profileId)
+                .filter(reg -> reg.getTeam().getId().equals(teamId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Jogador não inscrito nesta equipa"));
+        playerRegistrations.delete(registration);
+    }
+
+    private CommunityChampionshipTeam getSeasonTeam(Long communityId, Long championshipId, Long teamId) {
+        getChampionship(communityId, championshipId);
+        return seasonTeams.findById(teamId)
+                .filter(team -> team.getChampionship().getId().equals(championshipId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Equipa não encontrada neste campeonato"));
     }
 
     private void ensureOpen(CommunityChampionship championship) {
