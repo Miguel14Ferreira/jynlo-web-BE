@@ -15,5 +15,6 @@ public enum NotificationType {
     COMMUNITY_JOIN_REJECTED,
     SESSION_INVITE,
     CHAT_MESSAGE,
+    ADMIN_MESSAGE,
     VENUE_EDIT_DECISION
 }
