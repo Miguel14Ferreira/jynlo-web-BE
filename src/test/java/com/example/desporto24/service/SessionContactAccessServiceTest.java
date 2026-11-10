@@ -93,7 +93,8 @@ class SessionContactAccessServiceTest {
         java.time.Instant after = java.time.Instant.now();
         org.mockito.ArgumentCaptor<Date> cutoff = org.mockito.ArgumentCaptor.forClass(Date.class);
         verify(sessions).existsSharedUpcomingContactSession(eq(11L), eq(22L), cutoff.capture());
-        assertFalse(cutoff.getValue().toInstant().isBefore(before.minus(java.time.Duration.ofHours(4))));
+        // java.util.Date truncates Instant nanoseconds to milliseconds. Allow that precision loss.
+        assertFalse(cutoff.getValue().toInstant().isBefore(before.minus(java.time.Duration.ofHours(4)).minusMillis(1)));
         assertFalse(cutoff.getValue().toInstant().isAfter(after.minus(java.time.Duration.ofHours(4))));
     }
 
