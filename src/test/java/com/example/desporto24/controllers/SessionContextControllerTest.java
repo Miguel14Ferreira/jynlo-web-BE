@@ -57,6 +57,30 @@ class SessionContextControllerTest {
         assertNull(data.seasonName());
     }
 
+    @Test void automaticallyCreatedSeasonIsVisibleBeforeAnyGameResults() {
+        when(auth.isAuthenticated()).thenReturn(true);
+        when(auth.getName()).thenReturn("member");
+        Community group=new Community();group.setId(6L);
+        group.setName("Colégio Pio");group.setRankingsEnabled(true);
+        // Creation uses the game date's Europe/Lisbon year when the community
+        // has no active season; it must remain visible before any results exist.
+        CommunitySeason automatic=CommunitySeason.builder()
+                .id(42L).community(group).name("Época 2027").active(true)
+                .startsAt(java.time.Instant.now()).createdAt(java.time.Instant.now()).build();
+        Session session=new Session();session.setId(21L);
+        session.setCommunity(group);
+        session.setSeasonCompetition(automatic);
+        when(sessions.findById(21L)).thenReturn(Optional.of(session));
+        when(shares.findBySession_IdOrderByIdAsc(21L)).thenReturn(List.of());
+
+        var context=controller.context(21L,auth);
+        assertEquals(List.of("Colégio Pio"),
+                context.communities().stream().map(SessionContextController.CommunityLabel::name).toList());
+        assertTrue(context.seasonGame());
+        assertEquals("Época 2027",context.seasonName());
+        verify(service).getById(21L,"member");
+    }
+
     @Test void enabledCommunityStandingsDoNotMislabelAnOrdinarySessionAsSeasonGame() {
         when(auth.isAuthenticated()).thenReturn(true);
         when(auth.getName()).thenReturn("organizer");
