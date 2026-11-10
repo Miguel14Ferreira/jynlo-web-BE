@@ -24,6 +24,17 @@ public class AdminIdeaController {
         return ResponseEntity.ok(ideaService.getAllIdeas());
     }
 
+    public record ReplyRequest(@jakarta.validation.constraints.NotBlank
+                               @jakarta.validation.constraints.Size(min = 3, max = 2000) String message) {}
+
+    @PostMapping("/{id}/reply")
+    public ResponseEntity<AdminIdeaResponse> reply(
+            @PathVariable Long id,
+            @RequestBody @Valid ReplyRequest request,
+            org.springframework.security.core.Authentication authentication) {
+        return ResponseEntity.ok(ideaService.reply(id, request.message(), authentication.getName()));
+    }
+
     @PutMapping("/{id}/status")
     public ResponseEntity<AdminIdeaResponse> updateStatus(
             @PathVariable Long id,
