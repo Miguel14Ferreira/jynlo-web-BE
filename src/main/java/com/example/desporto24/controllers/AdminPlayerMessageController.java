@@ -26,7 +26,7 @@ import java.time.Instant;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/players")
-@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN') and @adminCurrentRoleGuard.admin(authentication)")
 public class AdminPlayerMessageController {
     private final ProfileRepository profiles;
     private final NotificationsRepository notifications;
