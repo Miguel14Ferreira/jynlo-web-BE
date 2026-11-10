@@ -132,6 +132,38 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void revokedOriginalPairBlocksSecondGenerationInvitesAndRosterAccess() {
+        Profile carlos = mock(Profile.class);
+        Profile dora = mock(Profile.class);
+        lenient().when(carlos.getId()).thenReturn(14L);
+        lenient().when(dora.getId()).thenReturn(15L);
+        lenient().when(profiles.findUserByUsernameIgnoreCase("carlos"))
+                .thenReturn(Optional.of(carlos));
+        lenient().when(profiles.findUserByUsernameIgnoreCase("dora"))
+                .thenReturn(Optional.of(dora));
+
+        var call = calls.start("ana", "bea", "voice");
+        calls.accept(call.callId(), "bea");
+        calls.invite(call.callId(), "ana", "carlos");
+        calls.accept(call.callId(), "carlos");
+        calls.invite(call.callId(), "carlos", "dora");
+
+        lenient().doThrow(new org.springframework.security.access.AccessDeniedException("Original contact revoked"))
+                .when(inbox).requireConversationAccess("ana", "direct", "bea");
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.pendingFor("dora"));
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.accept(call.callId(), "dora"));
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.members(call.callId(), "carlos"));
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.invite(call.callId(), "carlos", "other"));
+        verify(gateway, never()).publishDirectCallEvent(eq("carlos"), eq("other"),
+                eq(call.callId().toString()), eq("voice"), eq("RINGING"), anyString(), any());
+    }
+
+    @Test
     void revokedInviterOriginalContactPreventsGuestInvitationRecovery() {
         var outgoing = calls.start("ana", "bea", "voice");
         calls.accept(outgoing.callId(), "bea");
