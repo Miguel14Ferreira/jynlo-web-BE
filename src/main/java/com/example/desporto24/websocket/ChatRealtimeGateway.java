@@ -376,6 +376,38 @@ public class ChatRealtimeGateway extends TextWebSocketHandler {
     }
 
     /**
+     * A roster update must only reach recipients with current authorization.
+     * The call service resolves the ACL before invoking this targeted transport.
+     */
+    public void publishDirectCallEventTo(String recipient, String caller, String peer,
+            String callId, String media, String state, String actor,
+            java.time.Instant expiresAt) {
+        if (recipient == null || caller == null || peer == null
+                || callId == null || expiresAt == null) return;
+        try {
+            var details = objectMapper.createObjectNode()
+                    .put("callId", callId)
+                    .put("caller", caller)
+                    .put("peer", peer)
+                    .put("media", media)
+                    .put("status", state)
+                    .put("actor", actor)
+                    .put("expiresAt", expiresAt.toString());
+            String wire = objectMapper.createObjectNode()
+                    .put("type", "DIRECT_CALL_EVENT")
+                    .set("call", details).toString();
+            Set<WebSocketSession> sockets = sessionsByUsername.get(recipient);
+            if (sockets == null) return;
+            for (WebSocketSession socket : sockets) {
+                if (!socket.isOpen()) continue;
+                try { send(socket, wire); } catch (IOException ignored) { }
+            }
+        } catch (RuntimeException ignored) {
+            // An unavailable recipient cannot fail the authenticated HTTP request.
+        }
+    }
+
+    /**
      * Guard both outgoing private events and incoming chat control frames.
      * Authentication at handshake time alone does not revoke already-open sockets
      * after account moderation, password reset, role changes or logout.
