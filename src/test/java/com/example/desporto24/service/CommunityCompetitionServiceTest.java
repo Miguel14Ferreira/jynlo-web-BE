@@ -23,6 +23,7 @@ import com.example.desporto24.model.community.CommunityStandingsArchive;
 import com.example.desporto24.model.dto.community.CreateCommunitySeasonRequest;
 import com.example.desporto24.model.dto.community.UpdateCommunitySeasonRequest;
 import com.example.desporto24.repository.ProfileRepository;
+import com.example.desporto24.repository.SessionRepository;
 import com.example.desporto24.repository.community.CommunityMemberRepository;
 import com.example.desporto24.repository.community.CommunityHistoricalPlayerLinkRepository;
 import com.example.desporto24.repository.community.CommunityPlayerRepository;
@@ -71,6 +72,7 @@ class CommunityCompetitionServiceTest {
     @Mock private CommunitySportPointsRuleRepository sportPointsRuleRepository;
     @Mock private CommunityRoundEntryRepository entryRepository;
     @Mock private CommunitySeasonRepository seasonRepository;
+    @Mock private SessionRepository sessionRepository;
     @Mock private CommunityStandingsArchiveRepository standingsArchiveRepository;
     @Mock private CommunityStandingsArchiveRowRepository standingsArchiveRowRepository;
     @Mock private ProfileRepository profileRepository;
@@ -805,8 +807,10 @@ class CommunityCompetitionServiceTest {
 
         service.deleteSeason(7L, 44L, "TMF14");
 
-        verify(seasonRepository).delete(season);
-        verify(seasonRepository).flush();
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(sessionRepository, seasonRepository);
+        order.verify(sessionRepository).detachDeletedSeason(44L);
+        order.verify(seasonRepository).delete(season);
+        order.verify(seasonRepository).flush();
     }
 
     @Test
@@ -832,7 +836,7 @@ class CommunityCompetitionServiceTest {
 
         org.mockito.InOrder order = org.mockito.Mockito.inOrder(
                 entryRepository, roundRepository, standingsArchiveRowRepository,
-                standingsArchiveRepository, seasonRepository);
+                standingsArchiveRepository, sessionRepository, seasonRepository);
         order.verify(entryRepository).deleteByRoundId(91L);
         order.verify(entryRepository).deleteByRoundId(92L);
         order.verify(entryRepository).flush();
@@ -842,6 +846,7 @@ class CommunityCompetitionServiceTest {
         order.verify(standingsArchiveRowRepository).flush();
         order.verify(standingsArchiveRepository).deleteAll(List.of(archive));
         order.verify(standingsArchiveRepository).flush();
+        order.verify(sessionRepository).detachDeletedSeason(44L);
         order.verify(seasonRepository).delete(season);
         order.verify(seasonRepository).flush();
 
@@ -912,6 +917,7 @@ class CommunityCompetitionServiceTest {
 
         service.deleteSeason(7L, 44L, "TMF14");
 
+        verify(sessionRepository).detachDeletedSeason(44L);
         verify(seasonRepository).delete(season);
     }
 
