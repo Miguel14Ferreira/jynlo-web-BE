@@ -289,4 +289,19 @@ class DirectCallServiceTest {
         // Revoking one participant must not prevent the other from inspecting their own call.
         assertEquals(2, calls.members(call.callId(), "bea").participants().size());
     }
+    @Test
+    void revokedSessionContactCannotInviteMorePeopleIntoAnActiveCall() {
+        var call = calls.start("ana", "bea", "voice");
+        calls.accept(call.callId(), "bea");
+        doThrow(new org.springframework.security.access.AccessDeniedException("Session permission revoked"))
+                .when(inbox).requireConversationAccess("ana", "direct", "bea");
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.invite(call.callId(), "ana", "carlos"));
+        verify(inbox, never()).requireConversationAccess("ana", "direct", "carlos");
+        verify(gateway, never()).publishDirectCallEvent(eq("ana"), eq("carlos"),
+                anyString(), anyString(), anyString(), anyString(), any());
+        assertTrue(calls.members(call.callId(), "bea").pending().isEmpty());
+    }
+
 }
