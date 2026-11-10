@@ -21,6 +21,15 @@ import java.util.List;
 public interface SessionRepository extends JpaRepository<Session, Long> {
 
     /**
+     * Explicit season deletion must retain games and attendance history.
+     * Drop only their nullable season FK before deleting the season row.
+     */
+    @org.springframework.data.jpa.repository.Modifying
+    @Transactional
+    @Query("update Session s set s.seasonCompetition = null where s.seasonCompetition.id = :seasonId")
+    int detachDeletedSeason(@Param("seasonId") Long seasonId);
+
+    /**
      * Only active confirmed attendees of the SAME upcoming
      * session may contact one another. Organizers must also have an ACTIVE\n     * participation row; removed/left attendees never qualify.
      * No friendship is created by this query.
