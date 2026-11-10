@@ -63,6 +63,41 @@ class SessionContactAccessServiceTest {
     }
 
     @Test
+    void deniesContactWhenEitherAccountIsMissing() {
+        assertFalse(access.mayContact("missing", "bea"));
+        assertFalse(access.mayContact("ana", "missing"));
+        verifyNoInteractions(sessions, blocks);
+    }
+
+    @Test
+    void deniesBlankOrSameAccountWithoutLookingUpSessions() {
+        assertFalse(access.mayContact(null, "bea"));
+        assertFalse(access.mayContact(" ", "bea"));
+        assertFalse(access.mayContact("ana", "ANA"));
+        verifyNoInteractions(sessions, blocks);
+    }
+
+    @Test
+    void deniesReverseDirectionWhenEitherUserHasBlockedTheOther() {
+        when(blocks.isBlockedBetween(bea, ana)).thenReturn(true);
+        assertFalse(access.mayContact("bea", "ana"));
+        verifyNoInteractions(sessions);
+    }
+
+    @Test
+    void limitsSharedSessionContactToFourHoursAfterKickoff() {
+        java.time.Instant before = java.time.Instant.now();
+        when(sessions.existsSharedUpcomingContactSession(eq(11L), eq(22L), any(Date.class)))
+                .thenReturn(true);
+        assertTrue(access.mayContact("ana", "bea"));
+        java.time.Instant after = java.time.Instant.now();
+        org.mockito.ArgumentCaptor<Date> cutoff = org.mockito.ArgumentCaptor.forClass(Date.class);
+        verify(sessions).existsSharedUpcomingContactSession(eq(11L), eq(22L), cutoff.capture());
+        assertFalse(cutoff.getValue().toInstant().isBefore(before.minus(java.time.Duration.ofHours(4))));
+        assertFalse(cutoff.getValue().toInstant().isAfter(after.minus(java.time.Duration.ofHours(4))));
+    }
+
+    @Test
     void deniesWhenNoActiveSharedSession() {
         assertFalse(access.mayContact("ana", "bea"));
         assertThrows(AccessDeniedException.class, () -> access.requireContact("ana", "bea"));
