@@ -388,7 +388,8 @@ public class DirectCallService {
                 .withSubject(identity)
                 .withIssuedAt(Date.from(now))
                 .withNotBefore(Date.from(now.minusSeconds(5)))
-                .withExpiresAt(Date.from(now.plus(MAX_CALL_MINUTES, ChronoUnit.MINUTES)))
+                .withExpiresAt(Date.from(call.expiresAt().isBefore(now.plus(MAX_CALL_MINUTES, ChronoUnit.MINUTES))
+                        ? call.expiresAt() : now.plus(MAX_CALL_MINUTES, ChronoUnit.MINUTES)))
                 .withClaim("video", Map.of(
                         "roomJoin", true,
                         "room", call.room,
