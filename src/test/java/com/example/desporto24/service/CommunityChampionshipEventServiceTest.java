@@ -370,6 +370,51 @@ class CommunityChampionshipEventServiceTest {
     }
 
     @Test
+    void organizerRecordsScoreForOwnScheduledLeagueFixture() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("LEAGUE").status("SCHEDULED").build();
+        var home = CommunityChampionshipTeam.builder().id(30L).name("Águias").build();
+        var away = CommunityChampionshipTeam.builder().id(31L).name("Leões").build();
+        var fixture = CommunityChampionshipFixture.builder().id(80L).event(league)
+                .roundNumber(1).matchNumber(1).homeTeam(home).awayTeam(away).build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
+        when(fixtures.findById(80L)).thenReturn(Optional.of(fixture));
+        when(fixtures.saveAndFlush(fixture)).thenReturn(fixture);
+        var score = service.recordFixtureScore(7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.MatchScore(3, 1), "member");
+        assertEquals(3, score.homeScore());
+        assertEquals(1, score.awayScore());
+        assertNotNull(fixture.getResultRecordedAt());
+    }
+
+    @Test
+    void refusesInvalidOrCrossEventScoresWithoutPersisting() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("LEAGUE").status("SCHEDULED").build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
+        assertThrows(ResponseStatusException.class, () -> service.recordFixtureScore(
+                7L, 15L, 100L, 80L, new CommunityChampionshipEventService.MatchScore(-1, 3), "member"));
+        var other = CommunityChampionshipEvent.builder().id(101L).build();
+        var fixture = CommunityChampionshipFixture.builder().id(80L).event(other).build();
+        when(fixtures.findById(80L)).thenReturn(Optional.of(fixture));
+        assertThrows(ResponseStatusException.class, () -> service.recordFixtureScore(
+                7L, 15L, 100L, 80L, new CommunityChampionshipEventService.MatchScore(1, 0), "member"));
+        verify(fixtures, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void regularMemberCannotRecordOwnedFixtureScores() {
+        member(CommunityRole.MEMBER);
+        assertThrows(AccessDeniedException.class, () -> service.recordFixtureScore(
+                7L, 15L, 100L, 80L, new CommunityChampionshipEventService.MatchScore(1, 0), "member"));
+        verifyNoInteractions(fixtures);
+    }
+
+    @Test
     void memberMayListOnlyTheSpecifiedChampionshipOwnEvents() {
         member(CommunityRole.MEMBER);
         when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
