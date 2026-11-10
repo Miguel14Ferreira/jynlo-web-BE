@@ -383,6 +383,35 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void authorizedMembersCannotSeeRevokedGuestsOrPendingInvitations() {
+        Profile carlos = mock(Profile.class);
+        lenient().when(carlos.getId()).thenReturn(14L);
+        lenient().when(profiles.findUserByUsernameIgnoreCase("carlos"))
+                .thenReturn(Optional.of(carlos));
+
+        var call = calls.start("ana", "bea", "voice");
+        calls.accept(call.callId(), "bea");
+        calls.invite(call.callId(), "ana", "carlos");
+        calls.accept(call.callId(), "carlos");
+        calls.invite(call.callId(), "bea", "dora");
+        assertEquals(3, calls.members(call.callId(), "ana").participants().size());
+        assertTrue(calls.members(call.callId(), "ana").pending().contains("dora"));
+
+        lenient().doThrow(new org.springframework.security.access.AccessDeniedException("Guest removed"))
+                .when(inbox).requireConversationAccess("carlos", "direct", "ana");
+        lenient().doThrow(new org.springframework.security.access.AccessDeniedException("Pending invite blocked"))
+                .when(inbox).requireConversationAccess("dora", "direct", "bea");
+
+        var visible = calls.members(call.callId(), "ana");
+        assertEquals(2, visible.participants().size());
+        assertTrue(visible.participants().stream().noneMatch(p -> p.username().equals("carlos")));
+        assertTrue(visible.pending().isEmpty());
+        assertEquals(2, calls.members(call.callId(), "bea").participants().size());
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.members(call.callId(), "carlos"));
+    }
+
+    @Test
     void revokedGuestReceivesNoFurtherGroupRosterNotifications() {
         Profile carlos = mock(Profile.class);
         lenient().when(carlos.getId()).thenReturn(14L);
