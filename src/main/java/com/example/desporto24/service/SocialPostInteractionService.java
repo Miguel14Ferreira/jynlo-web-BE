@@ -1,6 +1,9 @@
 package com.example.desporto24.service;
 
 import com.example.desporto24.exception.UserNotFoundException;
+import com.example.desporto24.enumeration.AttendanceStatus;
+import com.example.desporto24.model.session.SessionParticipant;
+import com.example.desporto24.repository.session.SessionParticipantRepository;
 import com.example.desporto24.model.Profile;
 import com.example.desporto24.model.dto.social.CreateSocialCommentRequest;
 import com.example.desporto24.model.dto.moderation.CreateUserReportRequest;
@@ -33,6 +36,7 @@ public class SocialPostInteractionService {
     private final SocialPostCommentRepository commentRepository;
     private final ProfileRepository profileRepository;
     private final UserReportService userReportService;
+    private final SessionParticipantRepository participantRepository;
 
     public PostLikeResponse like(Long postId, String username) {
         SocialPost post = post(postId);
@@ -105,6 +109,7 @@ public class SocialPostInteractionService {
             CreateUserReportRequest request) {
         SocialPostComment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new IllegalArgumentException("Comentário não encontrado"));
+        post(comment.getPost().getId());
 
         if (!comment.getPost().getId().equals(postId)) {
             throw new IllegalArgumentException("O comentário não pertence a esta publicação");
@@ -183,8 +188,22 @@ public class SocialPostInteractionService {
     }
 
     private SocialPost post(Long id) {
-        return postRepository.findById(id)
+        SocialPost post = postRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Publicação não encontrada"));
+        if ("SESSION_ATTENDED".equals(post.getActivityType())) {
+            if (!SocialFeedService.isPubliclyShareableSession(post.getSession())) {
+                throw new AccessDeniedException("Atividade indisponível");
+            }
+            SessionParticipant participant = participantRepository
+                    .findBySessionIdAndProfileId(post.getSession().getId(), post.getAuthor().getId())
+                    .orElseThrow(() -> new AccessDeniedException("Atividade indisponível"));
+            if (participant.isFeedHidden()
+                    || participant.getAttendanceStatus() != AttendanceStatus.ATTENDED
+                    || participant.getAttendanceRecordedAt() == null) {
+                throw new AccessDeniedException("Atividade indisponível");
+            }
+        }
+        return post;
     }
 
     private Profile profile(String username) {
