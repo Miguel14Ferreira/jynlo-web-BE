@@ -55,7 +55,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * The application uses a custom anonymous authentication entry point returning
  * 403 (rather than 401). Keep expectations aligned with that explicit policy.
  */
-@WebMvcTest(controllers = {CommunityController.class, CommunityDiscoveryController.class, SessionGuestRequestController.class})
+@WebMvcTest(controllers = {CommunityController.class, CommunityDiscoveryController.class, SessionGuestRequestController.class,
+        AdminAccessController.class, AdminPlayerMessageController.class})
 @AutoConfigureMockMvc(addFilters = false)
 @Import({
         SecurityConfiguration.class,
@@ -77,6 +78,8 @@ class CommunitySecurityFilterChainTest {
 
     @MockitoBean private JWTokenProvider tokens;
     @MockitoBean private ProfileRepository profiles;
+    @MockitoBean private com.example.desporto24.repository.NotificationsRepository notifications;
+    @MockitoBean private com.example.desporto24.security.SensitiveActionRateLimiter adminMessageRateLimiter;
     @MockitoBean private RefreshTokenSessionRepository refreshSessionRepository;
     @MockitoBean private CommunityManagementService communities;
     @MockitoBean private CommunityRepository discoveryRepository;
@@ -119,6 +122,22 @@ class CommunitySecurityFilterChainTest {
         when(tokens.getAuthorities(token)).thenReturn(List.copyOf(authorities));
         when(tokens.getAuthentication(eq(username), anyList(), any(HttpServletRequest.class)))
                 .thenReturn(new UsernamePasswordAuthenticationToken(username, null, authorities));
+    }
+
+    @Test
+    void ordinaryJwtCannotOpenAdminOrSendAdministrativeMessages() throws Exception {
+        mvc.perform(get("/api/admin/access")
+                .header("Authorization", "Bearer fixture-member-token"))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(post("/api/admin/players/3/message")
+                .header("Authorization", "Bearer fixture-member-token")
+                .contentType("application/json")
+                .content("{\\"message\\":\\"Aviso\\}")
+        ).andExpect(status().isForbidden());
+
+        mvc.perform(get("/api/admin/access")).andExpect(status().isForbidden());
+        verify(notifications, never()).save(any());
     }
 
     @Test
