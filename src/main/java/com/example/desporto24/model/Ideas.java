@@ -47,6 +47,15 @@ public class Ideas {
     @Column(name = "created_at")
     private Instant createdAt = Instant.now();
 
+    @Column(name = "admin_reply", columnDefinition = "text")
+    private String adminReply;
+
+    @Column(name = "admin_replied_at")
+    private Instant adminRepliedAt;
+
+    @Column(name = "admin_replied_by", length = 100)
+    private String adminRepliedBy;
+
     public Ideas(String name, String email, String city, String gender, String subject, String problem) {
         this.name = name;
         this.email = email;
