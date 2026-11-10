@@ -4,12 +4,14 @@ on:
     branches: [develop]
     paths:
       - 'src/main/java/com/example/desporto24/controllers/SessionController.java'
+      - 'src/main/java/com/example/desporto24/controllers/SessionContextController.java'
       - 'src/main/java/com/example/desporto24/service/impl/SessionServiceImpl.java'
       - 'src/main/java/com/example/desporto24/service/interfaces/SessionService.java'
       - 'src/main/java/com/example/desporto24/service/SessionNotificationService.java'
       - 'src/main/java/com/example/desporto24/enumeration/NotificationType.java'
       - 'src/test/java/com/example/desporto24/service/SessionLifecycleServiceTest.java'
       - 'src/test/java/com/example/desporto24/controllers/SessionManagementControllerTest.java'
+      - 'src/test/java/com/example/desporto24/controllers/SessionContextControllerTest.java'
       - '.github/workflows/session-details-edit-ci.yml'
   workflow_dispatch:
 permissions:
@@ -30,4 +32,4 @@ jobs:
           AES_ENCRYPTION_KEY: ciKey1
         run: |
           chmod +x mvnw
-          ./mvnw -B -ntp -Dtest=SessionLifecycleServiceTest,SessionManagementControllerTest test
+          ./mvnw -B -ntp -Dtest=SessionLifecycleServiceTest,SessionManagementControllerTest,SessionContextControllerTest test
