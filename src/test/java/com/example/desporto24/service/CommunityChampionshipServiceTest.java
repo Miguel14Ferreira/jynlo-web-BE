@@ -80,6 +80,32 @@ class CommunityChampionshipServiceTest {
     }
 
     @Test
+    void supportsEveryCatalogSportAsSeasonContainer() {
+        organizer();
+        when(communities.findById(7L)).thenReturn(Optional.of(community));
+        when(championships.save(any())).thenAnswer(invocation -> {
+            CommunityChampionship value = invocation.getArgument(0);
+            value.setId(20L);
+            return value;
+        });
+        for (String sport : com.example.desporto24.constant.SportsCatalog.ALLOWED) {
+            var result = service.create(7L, "organizer",
+                    new CreateCommunityChampionshipRequest("Época", sport, "2026/27"));
+            assertEquals(sport, result.sport());
+        }
+        assertTrue(com.example.desporto24.constant.SportsCatalog.ALLOWED.size() >= 121);
+    }
+
+    @Test
+    void rejectsUnknownChampionshipSport() {
+        organizer();
+        when(communities.findById(7L)).thenReturn(Optional.of(community));
+        assertThrows(ResponseStatusException.class, () -> service.create(7L, "organizer",
+                new CreateCommunityChampionshipRequest("Época", "ModalidadeInventada", "2026/27")));
+        verify(championships, never()).save(any());
+    }
+
+    @Test
     void refusesCompetitionFromAnotherCommunity() {
         organizer();
         when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
