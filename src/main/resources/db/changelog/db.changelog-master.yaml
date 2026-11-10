@@ -364,3 +364,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-10-social-post-notification-links.yaml
   - include:
       file: db/changelog/changes/2026-11-10-championship-standings-mode.yaml
+  - include:
+      file: db/changelog/changes/2026-11-10-championship-fixture-scores.yaml
