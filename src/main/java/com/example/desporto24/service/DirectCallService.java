@@ -421,6 +421,48 @@ public class DirectCallService {
                         : new InviteBudget(previous.since(), previous.count() + 1));
     }
 
+    /**
+     * Reconcile connected guests with current session and block permissions.
+     * A failed provider eviction is retried on the next pass; it must not be
+     * recorded locally as a successful disconnection.
+     */
+    @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 30000)
+    public synchronized void revokeDisconnectedGuests() {
+        if (!available()) return;
+        for (Call call : calls.values()) {
+            if (!"ACTIVE".equals(call.state()) || !Instant.now().isBefore(call.expiresAt())) continue;
+            var list = guests.get(call.id());
+            if (list == null) continue;
+            for (Guest guest : new ArrayList<>(list.values())) {
+                if (!guest.accepted()) continue;
+                boolean revoked = false;
+                try {
+                    requireInviterOriginalAccess(call, guest.username());
+                    inbox.requireConversationAccess(guest.username(), "direct", guest.inviter());
+                } catch (org.springframework.security.access.AccessDeniedException
+                         | ResponseStatusException denied) {
+                    revoked = true;
+                } catch (RuntimeException transientFailure) {
+                    // Do not evict on an uncertain ACL/database failure.
+                    continue;
+                }
+                if (!revoked) continue;
+                try {
+                    var profile = profiles.findUserByUsernameIgnoreCase(guest.username()).orElse(null);
+                    if (profile == null || profile.getId() == null) continue;
+                    if (!removeFromLiveKit(call.room(), "jynlo-user-" + profile.getId())) continue;
+                    list.remove(key(guest.username()));
+                    gateway.publishDirectCallEventTo(guest.username(), call.caller(), guest.username(),
+                            call.id().toString(), call.media(), "ENDED", guest.username(), Instant.now());
+                    notifyParticipantsChanged(call, guest.username());
+                } catch (Exception providerFailure) {
+                    // No secrets, identities or provider response bodies in application logs.
+                    log.warn("LiveKit participant revocation attempt failed");
+                }
+            }
+        }
+    }
+
     /** Only current participants can inspect participants and invitations. */
     public synchronized CallMembers members(UUID id, String actor) {
         Call call = requireCall(id, actor);
