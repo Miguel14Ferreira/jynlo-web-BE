@@ -42,6 +42,9 @@ public class CommunityChampionshipService {
         String name = request.name().trim();
         if (sport.isEmpty() || name.isEmpty() || season.isEmpty())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome, época e modalidade obrigatórios");
+        if (!com.example.desporto24.constant.SportsCatalog.ALLOWED.contains(sport)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Modalidade fora do catálogo Jynlo");
+        }
         CommunityChampionship championship = CommunityChampionship.builder()
                 .community(community).name(name).sport(sport)
                 .seasonLabel(season).createdAt(Instant.now()).build();
