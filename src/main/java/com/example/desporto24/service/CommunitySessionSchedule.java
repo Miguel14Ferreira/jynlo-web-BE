@@ -93,7 +93,7 @@ public final class CommunitySessionSchedule {
             // between a valid opening and kickoff. Local-time subtraction then
             // yields zero or a negative lead despite the opening being earlier.
             // In that case preserve the actual positive lead for the series.
-            if (!wallClockLead.isPositive()) {
+            if (wallClockLead.isZero() || wallClockLead.isNegative()) {
                 wallClockLead = Duration.between(request.registrationOpensAt(), request.gameDate());
             }
         }
