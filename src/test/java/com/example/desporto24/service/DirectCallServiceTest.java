@@ -399,13 +399,32 @@ class DirectCallServiceTest {
                 .when(inbox).requireConversationAccess("carlos", "direct", "ana");
         calls.invite(call.callId(), "bea", "dora");
 
-        verify(gateway, never()).publishDirectCallEvent(eq("ana"), eq("carlos"),
+        verify(gateway, never()).publishDirectCallEventTo(eq("carlos"), eq("ana"), eq("carlos"),
                 eq(call.callId().toString()), eq("voice"), eq("MEMBERS_CHANGED"), anyString(), any());
-        verify(gateway).publishDirectCallEvent(eq("ana"), eq("bea"),
+        verify(gateway).publishDirectCallEventTo(eq("bea"), eq("ana"), eq("bea"),
                 eq(call.callId().toString()), eq("voice"), eq("MEMBERS_CHANGED"), eq("bea"), any());
         assertThrows(org.springframework.security.access.AccessDeniedException.class,
                 () -> calls.members(call.callId(), "carlos"));
         assertNotNull(calls.pendingFor("dora"));
+    }
+
+    @Test
+    void revokedOriginalCallerReceivesNoRosterEventsButPeerStillDoes() {
+        var call = calls.start("ana", "bea", "voice");
+        calls.accept(call.callId(), "bea");
+        clearInvocations(gateway);
+
+        lenient().doThrow(new org.springframework.security.access.AccessDeniedException("Revoked"))
+                .when(inbox).requireConversationAccess("ana", "direct", "bea");
+        calls.invite(call.callId(), "bea", "carlos");
+
+        verify(gateway, never()).publishDirectCallEventTo(eq("ana"), anyString(), anyString(),
+                eq(call.callId().toString()), eq("voice"), eq("MEMBERS_CHANGED"), anyString(), any());
+        verify(gateway).publishDirectCallEventTo(eq("bea"), eq("ana"), eq("bea"),
+                eq(call.callId().toString()), eq("voice"), eq("MEMBERS_CHANGED"), eq("bea"), any());
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.members(call.callId(), "ana"));
+        assertNotNull(calls.pendingFor("carlos"));
     }
 
     @Test
