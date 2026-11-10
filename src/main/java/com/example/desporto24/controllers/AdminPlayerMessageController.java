@@ -4,6 +4,7 @@ import com.example.desporto24.enumeration.NotificationType;
 import com.example.desporto24.register.Notifications.Notifications;
 import com.example.desporto24.repository.NotificationsRepository;
 import com.example.desporto24.repository.ProfileRepository;
+import com.example.desporto24.security.SensitiveActionRateLimiter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
 import java.time.Instant;
 
 /**
@@ -28,6 +30,7 @@ import java.time.Instant;
 public class AdminPlayerMessageController {
     private final ProfileRepository profiles;
     private final NotificationsRepository notifications;
+    private final SensitiveActionRateLimiter rateLimiter;
 
     public record MessageRequest(@NotBlank @Size(max = 1000) String message) {}
     public record MessageReceipt(Long notificationId) {}
@@ -66,6 +69,9 @@ public class AdminPlayerMessageController {
                 || message.chars().anyMatch(ch -> Character.isISOControl(ch))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mensagem inválida");
         }
+
+        // Shared cooldown protects players from repeated administrative notices.
+        rateLimiter.requireCooldown("admin-message", String.valueOf(actor.getId()), Duration.ofSeconds(15));
 
         var notification = new Notifications();
         notification.setSubject("Mensagem da Administração Jynlo");
