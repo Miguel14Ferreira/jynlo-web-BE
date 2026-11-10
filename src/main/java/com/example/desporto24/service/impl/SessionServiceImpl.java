@@ -123,6 +123,14 @@ public class SessionServiceImpl implements SessionService {
         }
     }
 
+    /** Exact sport token match, accepting both imported venue separators. */
+    static boolean venueSupportsSport(String venueSports, String sport) {
+        return venueSports == null || venueSports.isBlank()
+                || java.util.Arrays.stream(venueSports.split("[;,]"))
+                        .map(String::trim)
+                        .anyMatch(sport::equalsIgnoreCase);
+    }
+
     @Override
     @Transactional
     public SessionDetailResponse create(CreateSessionRequest request, String username) {
@@ -222,10 +230,7 @@ public class SessionServiceImpl implements SessionService {
             linkedVenue = venueRepository.findById(request.venueId())
                     .orElseThrow(() -> new IllegalArgumentException("Recinto não encontrado"));
             String venueSports = linkedVenue.getSports();
-            if (venueSports != null && !venueSports.isBlank()
-                    && java.util.Arrays.stream(venueSports.split("[;,]"))
-                            .map(String::trim)
-                            .noneMatch(sport::equalsIgnoreCase)) {
+            if (!venueSupportsSport(venueSports, sport)) {
                 throw new IllegalArgumentException("Modalidade não disponível neste recinto");
             }
         }
