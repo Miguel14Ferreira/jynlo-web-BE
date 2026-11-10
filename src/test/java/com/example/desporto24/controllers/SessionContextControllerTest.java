@@ -57,6 +57,27 @@ class SessionContextControllerTest {
         assertNull(data.seasonName());
     }
 
+    @Test void enabledCommunityStandingsDoNotMislabelAnOrdinarySessionAsSeasonGame() {
+        when(auth.isAuthenticated()).thenReturn(true);
+        when(auth.getName()).thenReturn("organizer");
+        Session session=new Session();session.setId(20L);
+        Community group=new Community();group.setId(9L);
+        group.setName("Colégio Pio");group.setRankingsEnabled(true);
+        session.setCommunity(group);
+        // The community has active rankings, but this particular session
+        // was not marked as a season game when created.
+        assertNull(session.getSeasonCompetition());
+        when(sessions.findById(20L)).thenReturn(Optional.of(session));
+        when(shares.findBySession_IdOrderByIdAsc(20L)).thenReturn(List.of());
+
+        var context=controller.context(20L,auth);
+        assertEquals(List.of("Colégio Pio"),
+                context.communities().stream().map(SessionContextController.CommunityLabel::name).toList());
+        assertFalse(context.seasonGame());
+        assertNull(context.seasonName());
+        verify(service).getById(20L,"organizer");
+    }
+
     @Test void refusesUnauthorizedContextBeforeReadingSessionOrGroups() {
         when(auth.isAuthenticated()).thenReturn(true);
         when(auth.getName()).thenReturn("outsider");
