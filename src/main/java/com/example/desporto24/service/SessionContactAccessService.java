@@ -37,8 +37,10 @@ public class SessionContactAccessService {
             return false;
         }
         if (blocks.isBlockedBetween(first, second)) return false;
+        Instant now = Instant.now();
         return sessions.existsSharedUpcomingContactSession(
-                first.getId(), second.getId(), Date.from(Instant.now().minus(java.time.Duration.ofHours(4))));
+                first.getId(), second.getId(), Date.from(now.minus(java.time.Duration.ofHours(4))),
+                Date.from(now.plus(java.time.Duration.ofDays(7))));
     }
 
     @Transactional(readOnly = true)
