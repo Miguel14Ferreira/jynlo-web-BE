@@ -40,9 +40,9 @@ class SessionContactAccessServiceTest {
 
     @Test
     void allowsBothDirectionsWhenUsersShareAnUpcomingConfirmedSession() {
-        when(sessions.existsSharedUpcomingContactSession(eq(11L), eq(22L), any(Date.class)))
+        when(sessions.existsSharedUpcomingContactSession(eq(11L), eq(22L), any(Date.class), any(Date.class)))
                 .thenReturn(true);
-        when(sessions.existsSharedUpcomingContactSession(eq(22L), eq(11L), any(Date.class)))
+        when(sessions.existsSharedUpcomingContactSession(eq(22L), eq(11L), any(Date.class), any(Date.class)))
                 .thenReturn(true);
         assertTrue(access.mayContact("ana", "bea"));
         assertTrue(access.mayContact("bea", "ana"));
@@ -87,22 +87,37 @@ class SessionContactAccessServiceTest {
     @Test
     void limitsSharedSessionContactToFourHoursAfterKickoff() {
         java.time.Instant before = java.time.Instant.now();
-        when(sessions.existsSharedUpcomingContactSession(eq(11L), eq(22L), any(Date.class)))
+        when(sessions.existsSharedUpcomingContactSession(eq(11L), eq(22L), any(Date.class), any(Date.class)))
                 .thenReturn(true);
         assertTrue(access.mayContact("ana", "bea"));
         java.time.Instant after = java.time.Instant.now();
         org.mockito.ArgumentCaptor<Date> cutoff = org.mockito.ArgumentCaptor.forClass(Date.class);
-        verify(sessions).existsSharedUpcomingContactSession(eq(11L), eq(22L), cutoff.capture());
+        verify(sessions).existsSharedUpcomingContactSession(eq(11L), eq(22L), cutoff.capture(), any(Date.class));
         // java.util.Date truncates Instant nanoseconds to milliseconds. Allow that precision loss.
         assertFalse(cutoff.getValue().toInstant().isBefore(before.minus(java.time.Duration.ofHours(4)).minusMillis(1)));
         assertFalse(cutoff.getValue().toInstant().isAfter(after.minus(java.time.Duration.ofHours(4))));
     }
 
     @Test
+    void limitsContactToSevenDaysBeforeKickoff() {
+        java.time.Instant before = java.time.Instant.now();
+        when(sessions.existsSharedUpcomingContactSession(eq(11L), eq(22L),
+                any(Date.class), any(Date.class))).thenReturn(true);
+        assertTrue(access.mayContact("ana", "bea"));
+        java.time.Instant after = java.time.Instant.now();
+        org.mockito.ArgumentCaptor<Date> upper = org.mockito.ArgumentCaptor.forClass(Date.class);
+        verify(sessions).existsSharedUpcomingContactSession(eq(11L), eq(22L),
+                any(Date.class), upper.capture());
+        assertFalse(upper.getValue().toInstant().isBefore(before.plus(java.time.Duration.ofDays(7)).minusMillis(1)));
+        assertFalse(upper.getValue().toInstant().isAfter(after.plus(java.time.Duration.ofDays(7))));
+    }
+
+    @Test
     void repositoryRequiresActiveMembershipForBothPeersIncludingOrganizer() throws Exception {
         var method = SessionRepository.class.getMethod(
-                "existsSharedUpcomingContactSession", Long.class, Long.class, Date.class);
+                "existsSharedUpcomingContactSession", Long.class, Long.class, Date.class, Date.class);
         var query = method.getAnnotation(org.springframework.data.jpa.repository.Query.class).value();
+        assertTrue(query.contains("s.gameDate <= :contactUntil"));
         assertTrue(query.contains("p1.profile.id = :firstId"));
         assertTrue(query.contains("p2.profile.id = :secondId"));
         assertTrue(query.contains("p1.state = com.example.desporto24.enumeration.ParticipantState.ACTIVE"));
