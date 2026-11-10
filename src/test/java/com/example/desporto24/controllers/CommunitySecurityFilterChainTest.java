@@ -56,7 +56,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 403 (rather than 401). Keep expectations aligned with that explicit policy.
  */
 @WebMvcTest(controllers = {CommunityController.class, CommunityDiscoveryController.class, SessionGuestRequestController.class,
-        AdminAccessController.class, AdminPlayerMessageController.class})
+        AdminAccessController.class, AdminPlayerMessageController.class, AdminIdeaController.class})
 @AutoConfigureMockMvc(addFilters = false)
 @Import({
         SecurityConfiguration.class,
@@ -79,6 +79,7 @@ class CommunitySecurityFilterChainTest {
     @MockitoBean private JWTokenProvider tokens;
     @MockitoBean private ProfileRepository profiles;
     @MockitoBean private com.example.desporto24.repository.NotificationsRepository notifications;
+    @MockitoBean private com.example.desporto24.service.interfaces.IdeaService adminIdeas;
     @MockitoBean private com.example.desporto24.security.SensitiveActionRateLimiter adminMessageRateLimiter;
     @MockitoBean private RefreshTokenSessionRepository refreshSessionRepository;
     @MockitoBean private CommunityManagementService communities;
@@ -151,7 +152,13 @@ class CommunitySecurityFilterChainTest {
         ).andExpect(status().isForbidden());
 
         mvc.perform(get("/api/admin/access")).andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/ideas/8/reply")
+                .header("Authorization", "Bearer fixture-member-token")
+                .contentType("application/json")
+                .content("{\\"message\\":\\"Obrigado!\\"}"))
+                .andExpect(status().isForbidden());
         verify(notifications, never()).save(any());
+        verifyNoInteractions(adminIdeas);
     }
 
     @Test
