@@ -99,9 +99,26 @@ class DirectCallServiceTest {
         calls.start("ana", "bea", "voice");
         doThrow(new org.springframework.security.access.AccessDeniedException("Blocked"))
                 .when(inbox).requireConversationAccess("bea", "direct", "ana");
-        assertThrows(org.springframework.security.access.AccessDeniedException.class,
-                () -> calls.pendingFor("bea"));
+        assertNull(calls.pendingFor("bea"), "Revoked invitations must not be recovered");
         assertNull(calls.pendingFor("mallory"));
+    }
+
+    @Test
+    void revokedRingDoesNotHideAnotherAuthorizedRingForSameRecipient() {
+        Profile carlos = mock(Profile.class);
+        lenient().when(carlos.getId()).thenReturn(14L);
+        lenient().when(profiles.findUserByUsernameIgnoreCase("carlos"))
+                .thenReturn(Optional.of(carlos));
+
+        calls.start("ana", "bea", "voice");
+        var valid = calls.start("carlos", "bea", "voice");
+        doThrow(new org.springframework.security.access.AccessDeniedException("Blocked"))
+                .when(inbox).requireConversationAccess("bea", "direct", "ana");
+
+        var recovered = calls.pendingFor("bea");
+        assertNotNull(recovered);
+        assertEquals(valid.callId(), recovered.callId());
+        assertEquals("carlos", recovered.caller());
     }
 
     @Test
@@ -114,8 +131,7 @@ class DirectCallServiceTest {
                 () -> calls.accept(outgoing.callId(), "bea"));
         verify(gateway, never()).publishDirectCallEvent(eq("ana"), eq("bea"),
                 eq(outgoing.callId().toString()), eq("voice"), eq("ACTIVE"), anyString(), any());
-        assertThrows(org.springframework.security.access.AccessDeniedException.class,
-                () -> calls.pendingFor("bea"));
+        assertNull(calls.pendingFor("bea"), "Revoked invitations must not be recovered");
     }
 
     @Test
@@ -151,8 +167,7 @@ class DirectCallServiceTest {
         lenient().doThrow(new org.springframework.security.access.AccessDeniedException("Original contact revoked"))
                 .when(inbox).requireConversationAccess("ana", "direct", "bea");
 
-        assertThrows(org.springframework.security.access.AccessDeniedException.class,
-                () -> calls.pendingFor("dora"));
+        assertNull(calls.pendingFor("dora"), "Revoked original pair invalidates guest invitation");
         assertThrows(org.springframework.security.access.AccessDeniedException.class,
                 () -> calls.accept(call.callId(), "dora"));
         assertThrows(org.springframework.security.access.AccessDeniedException.class,
@@ -171,8 +186,7 @@ class DirectCallServiceTest {
         doThrow(new org.springframework.security.access.AccessDeniedException("Session participation revoked"))
                 .when(inbox).requireConversationAccess("ana", "direct", "bea");
 
-        assertThrows(org.springframework.security.access.AccessDeniedException.class,
-                () -> calls.pendingFor("carlos"));
+        assertNull(calls.pendingFor("carlos"), "Revoked inviter access invalidates guest invitation");
         verify(inbox, never()).requireConversationAccess("carlos", "direct", "ana");
     }
 
