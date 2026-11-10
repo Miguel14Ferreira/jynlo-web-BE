@@ -66,6 +66,10 @@ public class Notifications {
     @Column(name = "related_username")
     private String relatedUsername;
 
+    // Optional, populated for new social like/comment notifications only.
+    @Column(name = "post_id")
+    private Long postId;
+
     @Column(name = "read", nullable = false)
     private boolean read;
 
