@@ -393,6 +393,30 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void originalHangupQueuesLiveKitRoomDeletionAndRetriesUntilConfirmed() throws Exception {
+        DirectCallService protectedCalls = spy(calls);
+        doReturn(false).when(protectedCalls).deleteLiveKitRoom(anyString());
+
+        var call = protectedCalls.start("ana", "bea", "voice");
+        protectedCalls.accept(call.callId(), "bea");
+        protectedCalls.end(call.callId(), "ana");
+
+        // The application call ends immediately; provider deletion is retried
+        // without keeping a stale conversation/call entry accessible.
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
+                () -> protectedCalls.members(call.callId(), "bea")).getStatusCode());
+        protectedCalls.revokeDisconnectedGuests();
+        verify(protectedCalls).deleteLiveKitRoom("jynlo-" + call.callId());
+
+        doReturn(true).when(protectedCalls).deleteLiveKitRoom(anyString());
+        protectedCalls.revokeDisconnectedGuests();
+        verify(protectedCalls, times(2)).deleteLiveKitRoom("jynlo-" + call.callId());
+
+        protectedCalls.revokeDisconnectedGuests();
+        verify(protectedCalls, times(2)).deleteLiveKitRoom("jynlo-" + call.callId());
+    }
+
+    @Test
     void revokedOriginalParticipantClosesLiveKitRoomForEveryone() throws Exception {
         Profile carlos = mock(Profile.class);
         lenient().when(carlos.getId()).thenReturn(14L);
