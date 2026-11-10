@@ -271,6 +271,38 @@ class SessionCreateCrosspostTest {
     }
 
     @Test
+    void newGameUsesNewActiveSeasonWithoutReassigningHistoricalGames() {
+        Profile organizer = new Profile(); organizer.setId(7L);
+        Community group = Community.builder().id(11L).rankingsEnabled(true).build();
+        when(profiles.findUserByUsername("organizer")).thenReturn(Optional.of(organizer));
+        when(communities.findAllById(List.of(11L))).thenReturn(List.of(group));
+        when(members.findByCommunityIdAndProfileId(11L, 7L)).thenReturn(
+                Optional.of(CommunityMember.builder().role(CommunityRole.MEMBER).build()));
+        CommunitySeason oldSeason=CommunitySeason.builder().id(98L)
+                .community(group).name("Época 2026").active(false).build();
+        CommunitySeason activeSeason=CommunitySeason.builder().id(99L)
+                .community(group).name("Época 2027").active(true).build();
+        Session historical=new Session();
+        historical.setSeasonCompetition(oldSeason);
+        when(seasonsDb.findByCommunityIdAndActiveTrue(11L)).thenReturn(Optional.of(activeSeason));
+        when(sessions.save(any(Session.class))).thenAnswer(inv -> {
+            Session created=inv.getArgument(0);
+            created.setId(43L);
+            return created;
+        });
+        when(mapper.toDetail(any(Session.class),eq(organizer)))
+                .thenReturn(mock(SessionDetailResponse.class));
+
+        service.create(seasonRequest(List.of(11L),11L,false),"organizer");
+
+        verify(sessions).save(argThat(game -> game.getSeasonCompetition() == activeSeason));
+        assertSame(oldSeason,historical.getSeasonCompetition());
+        assertFalse(oldSeason.isActive());
+        assertTrue(activeSeason.isActive());
+        verify(seasonsDb,never()).save(any());
+    }
+
+    @Test
     void aGameSharedWithTwoCommunitiesCannotAffectEitherSeason() {
         Profile organizer = new Profile(); organizer.setId(7L);
         Community first = Community.builder().id(11L).rankingsEnabled(true).build();
