@@ -160,6 +160,11 @@ public class CommunityChampionshipEventService {
         requireMember(communityId, username, true);
         var championship = getChampionship(communityId, championshipId);
         ensureOpen(championship);
+        // This first score contract represents goals. Other sports need their own
+        // discipline-aware result types; do not apply football scores to karate.
+        if (!Set.of("Futebol", "Futsal").contains(championship.getSport()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Resultados desta modalidade requerem um motor próprio");
         var event = lockOwnedEvent(championshipId, eventId);
         if (!"LEAGUE".equals(event.getFormat()) || !"SCHEDULED".equals(event.getStatus()))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A prova não tem calendário de liga ativo");
