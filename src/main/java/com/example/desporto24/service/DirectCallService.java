@@ -402,6 +402,15 @@ public class DirectCallService {
         List<String> pending = new ArrayList<>();
         var list = guests.get(id);
         if (list != null) for (Guest guest : list.values()) {
+            try {
+                // Invited players can lose session membership or be blocked after
+                // joining. Their identity must not remain visible in the roster.
+                requireInviterOriginalAccess(call, guest.inviter());
+                inbox.requireConversationAccess(guest.username(), "direct", guest.inviter());
+            } catch (org.springframework.security.access.AccessDeniedException
+                     | ResponseStatusException revoked) {
+                continue;
+            }
             if (guest.accepted()) participants.add(member(guest.username()));
             else if (Instant.now().isBefore(guest.expiresAt())) pending.add(guest.username());
         }
