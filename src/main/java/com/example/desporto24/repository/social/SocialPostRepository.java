@@ -15,7 +15,7 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, Long> {
             select p
             from SocialPost p
             join fetch p.author
-            where p.author.id in :authorIds
+            where p.activityType is null and p.author.id in :authorIds
             order by p.createdAt desc
             """)
     List<SocialPost> findFeedPosts(
@@ -26,9 +26,15 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, Long> {
             select p
             from SocialPost p
             join fetch p.author
+            where p.activityType is null
             order by p.createdAt desc
             """)
     List<SocialPost> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     List<SocialPost> findByAuthorId(Long authorId);
+
+    java.util.Optional<SocialPost> findByActivityTypeAndAuthorIdAndSessionId(
+            String activityType, Long authorId, Long sessionId);
+
+    List<SocialPost> findByActivityTypeAndSessionIdIn(String activityType, Collection<Long> sessionIds);
 }
