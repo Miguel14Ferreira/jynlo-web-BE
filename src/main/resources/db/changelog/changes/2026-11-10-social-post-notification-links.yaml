@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-10-social-post-notification-links
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: notifications
+            columns:
+              - column:
+                  name: post_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
