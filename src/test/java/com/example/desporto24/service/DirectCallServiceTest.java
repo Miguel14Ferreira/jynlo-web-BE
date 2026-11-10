@@ -275,4 +275,18 @@ class DirectCallServiceTest {
         assertEquals("notConfigured", unavailable.providerStatus());
         verify(unavailable, never()).probeProvider();
     }
+
+    @Test
+    void revokedSessionContactCannotReadActiveCallRoster() {
+        var call = calls.start("ana", "bea", "voice");
+        calls.accept(call.callId(), "bea");
+        assertEquals(2, calls.members(call.callId(), "ana").participants().size());
+
+        doThrow(new org.springframework.security.access.AccessDeniedException("Session permission revoked"))
+                .when(inbox).requireConversationAccess("ana", "direct", "bea");
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.members(call.callId(), "ana"));
+        // Revoking one participant must not prevent the other from inspecting their own call.
+        assertEquals(2, calls.members(call.callId(), "bea").participants().size());
+    }
 }
