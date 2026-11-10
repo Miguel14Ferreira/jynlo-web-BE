@@ -133,7 +133,7 @@ class CommunitySecurityFilterChainTest {
         mvc.perform(post("/api/admin/players/3/message")
                 .header("Authorization", "Bearer fixture-member-token")
                 .contentType("application/json")
-                .content("{\\"message\\":\\"Aviso\\}")
+                .content("{\"message\":\"Aviso\"}")
         ).andExpect(status().isForbidden());
 
         mvc.perform(get("/api/admin/access")).andExpect(status().isForbidden());
