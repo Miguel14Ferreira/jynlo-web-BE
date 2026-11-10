@@ -19,6 +19,7 @@ public record FeedItemResponse(
         boolean likedByMe,
         long commentCount,
         String sessionImageUrl,
-        String videoUrl
+        String videoUrl,
+        boolean hideLikers
 ) {
 }
