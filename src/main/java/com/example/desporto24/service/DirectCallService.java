@@ -212,6 +212,18 @@ public class DirectCallService {
             if (guest == null || guest.accepted() || !Instant.now().isBefore(guest.expiresAt())) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Invitation not ringing");
             }
+            // A guest invitation must not survive revocation of the inviter\'s original call access.
+            // Checking only the guest/inviter pair would let a removed participant extend a room.
+            String inviterContact = guest.inviter().equalsIgnoreCase(call.caller())
+                    ? call.peer() : guest.inviter().equalsIgnoreCase(call.peer())
+                    ? call.caller() : null;
+            if (inviterContact == null) {
+                Guest inviterGuest = guestFor(id, guest.inviter());
+                if (inviterGuest == null || !inviterGuest.accepted())
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+                inviterContact = inviterGuest.inviter();
+            }
+            inbox.requireConversationAccess(guest.inviter(), "direct", inviterContact);
             inbox.requireConversationAccess(actor, "direct", guest.inviter());
             guests.get(id).put(key(actor), new Guest(guest.username(), guest.inviter(), guest.expiresAt(), true));
             CallSession accepted = access(call, actor);
