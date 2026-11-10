@@ -18,9 +18,18 @@ class AdminPlayerControllerTest {
     private final AdminPlayerController controller = new AdminPlayerController(repository, entries, mock(CommunityCreationQuotaService.class));
 
     @Test
-    void blankSearchDoesNotListEveryone() {
-        assertTrue(controller.search("  ", 0).players().isEmpty());
-        verifyNoInteractions(repository);
+    void blankSearchListsOnlyOnePage() {
+        Profile player = new Profile();
+        player.setId(8L);
+        player.setUsername("jogador");
+        when(repository.searchAdminPlayers("", PageRequest.of(0, 10)))
+                .thenReturn(new org.springframework.data.domain.SliceImpl<>(
+                        List.of(player), PageRequest.of(0, 10), false));
+        var result = controller.search("  ", 0);
+        assertEquals(1, result.players().size());
+        assertEquals("jogador", result.players().get(0).username());
+        assertFalse(result.hasMore());
+        verify(repository).searchAdminPlayers("", PageRequest.of(0, 10));
     }
 
     @Test
