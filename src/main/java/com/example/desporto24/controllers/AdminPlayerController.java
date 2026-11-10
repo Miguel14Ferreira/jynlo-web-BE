@@ -52,7 +52,7 @@ public class AdminPlayerController {
     public PlayerSearchResponse search(
             @RequestParam(defaultValue = "") String name,
             @RequestParam(defaultValue = "0") int page) {
-        if (page < 0) {
+        if (page < 0 || page > 1000) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid page");
         }
         String term = name.trim().toLowerCase(Locale.ROOT);
