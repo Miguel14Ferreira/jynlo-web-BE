@@ -103,6 +103,33 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void revokedSessionPermissionPreventsAcceptingAnAlreadyRingingCall() {
+        var outgoing = calls.start("ana", "bea", "voice");
+        doThrow(new org.springframework.security.access.AccessDeniedException("Session participation revoked"))
+                .when(inbox).requireConversationAccess("bea", "direct", "ana");
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.accept(outgoing.callId(), "bea"));
+        verify(gateway, never()).publishDirectCallEvent(eq("ana"), eq("bea"),
+                eq(outgoing.callId().toString()), eq("voice"), eq("ACTIVE"), anyString(), any());
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.pendingFor("bea"));
+    }
+
+    @Test
+    void revokedSessionPermissionPreventsAcceptingGuestInvitation() {
+        var outgoing = calls.start("ana", "bea", "voice");
+        calls.accept(outgoing.callId(), "bea");
+        calls.invite(outgoing.callId(), "ana", "carlos");
+        doThrow(new org.springframework.security.access.AccessDeniedException("Session participation revoked"))
+                .when(inbox).requireConversationAccess("carlos", "direct", "ana");
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.accept(outgoing.callId(), "carlos"));
+        assertEquals(2, calls.members(outgoing.callId(), "ana").participants().size());
+    }
+
+    @Test
     void deniesUnknownParticipantAndCallerAcceptance() {
         var outgoing = calls.start("ana", "bea", "voice");
         ResponseStatusException outsider = assertThrows(ResponseStatusException.class,
