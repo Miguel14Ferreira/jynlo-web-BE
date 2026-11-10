@@ -43,6 +43,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DirectCallService {
     private static final int RING_SECONDS = 60;
     private static final int MAX_CALL_MINUTES = 120;
+    // LiveKit Cloud revocation retention is shorter than the call lifetime.
+    // Keep join credentials short-lived even for a two-hour connected call.
+    private static final int MAX_JOIN_TOKEN_MINUTES = 10;
     private static final int START_COOLDOWN_SECONDS = 10;
     private static final int MAX_PARTICIPANTS = 6;
     private static final int MAX_INVITES_PER_PEER_PER_MINUTE = 3;
@@ -573,8 +576,8 @@ public class DirectCallService {
                 .withSubject(identity)
                 .withIssuedAt(Date.from(now))
                 .withNotBefore(Date.from(now.minusSeconds(5)))
-                .withExpiresAt(Date.from(call.expiresAt().isBefore(now.plus(MAX_CALL_MINUTES, ChronoUnit.MINUTES))
-                        ? call.expiresAt() : now.plus(MAX_CALL_MINUTES, ChronoUnit.MINUTES)))
+                .withExpiresAt(Date.from(call.expiresAt().isBefore(now.plus(MAX_JOIN_TOKEN_MINUTES, ChronoUnit.MINUTES))
+                        ? call.expiresAt() : now.plus(MAX_JOIN_TOKEN_MINUTES, ChronoUnit.MINUTES)))
                 .withClaim("video", Map.of(
                         "roomJoin", true,
                         "room", call.room,
