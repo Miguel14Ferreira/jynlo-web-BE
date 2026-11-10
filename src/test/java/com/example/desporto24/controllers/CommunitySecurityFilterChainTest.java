@@ -155,7 +155,7 @@ class CommunitySecurityFilterChainTest {
         mvc.perform(post("/api/admin/ideas/8/reply")
                 .header("Authorization", "Bearer fixture-member-token")
                 .contentType("application/json")
-                .content("{\\"message\\":\\"Obrigado!\\"}"))
+                .content("{\"message\":\"Obrigado!\"}"))
                 .andExpect(status().isForbidden());
         verify(notifications, never()).save(any());
         verifyNoInteractions(adminIdeas);
