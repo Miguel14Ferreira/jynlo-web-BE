@@ -31,6 +31,11 @@ public class SocialFeedController {
         return feedService.feed(authentication.getName());
     }
 
+    @GetMapping("/posts/{postId}")
+    public FeedItemResponse postById(@PathVariable Long postId, Authentication authentication) {
+        return feedService.postById(postId, authentication.getName());
+    }
+
     @PostMapping(
             value = "/posts",
             consumes = MediaType.APPLICATION_JSON_VALUE
