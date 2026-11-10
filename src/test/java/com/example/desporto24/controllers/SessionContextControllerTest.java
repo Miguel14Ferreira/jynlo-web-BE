@@ -102,6 +102,36 @@ class SessionContextControllerTest {
         verify(service).getById(20L,"organizer");
     }
 
+    @Test void historicalGameRetainsItsOriginalSeasonAfterCommunityAdvances() {
+        when(auth.isAuthenticated()).thenReturn(true);
+        when(auth.getName()).thenReturn("member");
+        Community community=new Community();community.setId(6L);
+        community.setName("Colégio Pio");community.setRankingsEnabled(true);
+        CommunitySeason finished=CommunitySeason.builder()
+                .id(40L).community(community).name("Época 2026")
+                .active(false).build();
+        CommunitySeason current=CommunitySeason.builder()
+                .id(41L).community(community).name("Época 2027")
+                .active(true).build();
+        Session oldGame=new Session();oldGame.setId(30L);
+        oldGame.setCommunity(community);oldGame.setSeasonCompetition(finished);
+        Session newGame=new Session();newGame.setId(31L);
+        newGame.setCommunity(community);newGame.setSeasonCompetition(current);
+        when(sessions.findById(30L)).thenReturn(Optional.of(oldGame));
+        when(sessions.findById(31L)).thenReturn(Optional.of(newGame));
+        when(shares.findBySession_IdOrderByIdAsc(30L)).thenReturn(List.of());
+        when(shares.findBySession_IdOrderByIdAsc(31L)).thenReturn(List.of());
+
+        var historical=controller.context(30L,auth);
+        var active=controller.context(31L,auth);
+        assertTrue(historical.seasonGame());
+        assertEquals("Época 2026",historical.seasonName());
+        assertTrue(active.seasonGame());
+        assertEquals("Época 2027",active.seasonName());
+        verify(service).getById(30L,"member");
+        verify(service).getById(31L,"member");
+    }
+
     @Test void refusesUnauthorizedContextBeforeReadingSessionOrGroups() {
         when(auth.isAuthenticated()).thenReturn(true);
         when(auth.getName()).thenReturn("outsider");
