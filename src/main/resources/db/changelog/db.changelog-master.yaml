@@ -376,3 +376,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-11-championship-discipline.yaml
   - include:
       file: db/changelog/changes/2026-11-11-championship-substitutions.yaml
+  - include:
+      file: db/changelog/changes/2026-11-11-championship-starting-lineups.yaml
