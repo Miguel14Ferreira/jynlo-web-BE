@@ -86,6 +86,27 @@ class CreateSessionRequestValidationTest {
         assertTrue("Portão lateral reservado".equals(airsoft.meetingPointInstructions()));
     }
 
+    @Test
+    void optionalDescriptionAcceptsMultilineTextAndRejectsOversizedContent() {
+        CreateSessionRequest base = requestWithCity("Lisboa");
+        assertTrue(validator.validate(withDescription(base, null)).isEmpty());
+        assertTrue(validator.validate(withDescription(base,
+                "Jogo informal.\\nTrazer duas camisolas.")).isEmpty());
+        assertFalse(validator.validate(withDescription(base, "x".repeat(1001))).isEmpty());
+    }
+
+    private CreateSessionRequest withDescription(CreateSessionRequest r, String description) {
+        return new CreateSessionRequest(r.sport(), r.gameDate(), r.city(), r.address(),
+                r.maxParticipants(), r.priceAmount(), r.privateGame(), r.password(),
+                r.latitude(), r.longitude(), r.communityId(), r.venueId(), r.recurrence(),
+                r.recurrenceOccurrences(), r.externalConfirmedParticipants(),
+                r.registrationOpeningMode(), r.registrationOpensAt(),
+                r.additionalWeeklyGameDates(), r.recurrenceTimeZone(), r.playFormat(),
+                r.communityShareIds(), r.seasonCompetitionCommunityId(),
+                r.confirmActivateRankings(), r.meetingPointInstructions(),
+                r.minParticipants(), r.airsoftGameType(), description);
+    }
+
     private CreateSessionRequest withMeetingPoint(CreateSessionRequest r, String note) {
         return new CreateSessionRequest(r.sport(), r.gameDate(), r.city(), r.address(),
                 r.maxParticipants(), r.priceAmount(), r.privateGame(), r.password(),
