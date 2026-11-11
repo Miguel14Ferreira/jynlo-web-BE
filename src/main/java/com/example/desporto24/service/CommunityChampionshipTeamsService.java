@@ -29,6 +29,7 @@ public class CommunityChampionshipTeamsService {
     private final CommunityChampionshipGoalRepository goals;
     private final CommunityChampionshipDisciplinaryCardRepository disciplinaryCards;
     private final CommunityChampionshipSubstitutionRepository substitutions;
+    private final CommunityChampionshipLineupPlayerRepository lineups;
 
     @Transactional(readOnly = true)
     public CommunityChampionshipTeamsResponse list(Long communityId, Long championshipId, String username) {
@@ -134,9 +135,10 @@ public class CommunityChampionshipTeamsService {
                 || goals.existsByFixtureEventChampionshipIdAndAssisterId(championshipId, profileId)
                 || disciplinaryCards.existsByFixtureEventChampionshipIdAndPlayerId(championshipId, profileId)
                 || substitutions.existsByFixtureEventChampionshipIdAndPlayerOutId(championshipId, profileId)
-                || substitutions.existsByFixtureEventChampionshipIdAndPlayerInId(championshipId, profileId)) {
+                || substitutions.existsByFixtureEventChampionshipIdAndPlayerInId(championshipId, profileId)
+                || lineups.existsByFixtureEventChampionshipIdAndPlayerId(championshipId, profileId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Este jogador tem acontecimentos registados. Corrige o histórico antes de o remover do plantel.");
+                    "Este jogador tem acontecimentos ou escalações registados. Corrige o histórico antes de o remover do plantel.");
         }
         playerRegistrations.delete(registration);
     }
