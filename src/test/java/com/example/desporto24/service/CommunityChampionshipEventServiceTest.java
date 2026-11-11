@@ -441,6 +441,21 @@ class CommunityChampionshipEventServiceTest {
     }
 
     @Test
+    void finishedLeagueBlocksFurtherResultEdits() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var event = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("LEAGUE").status("COMPLETED").build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(event));
+        assertThrows(ResponseStatusException.class, () -> service.recordFixtureScore(
+                7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.MatchScore(2, 0), "member"));
+        assertThrows(ResponseStatusException.class, () -> service.removeGoal(
+                7L, 15L, 100L, 80L, 99L, "member"));
+        verifyNoInteractions(fixtures, goals);
+    }
+
+    @Test
     void organizerRecordsScoreForOwnScheduledLeagueFixture() {
         member(CommunityRole.OWNER);
         when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
