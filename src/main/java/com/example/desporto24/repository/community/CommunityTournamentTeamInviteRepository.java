@@ -7,4 +7,5 @@ import java.util.Optional;
 public interface CommunityTournamentTeamInviteRepository
         extends JpaRepository<CommunityTournamentTeamInvite, Long> {
     Optional<CommunityTournamentTeamInvite> findByTeamIdAndProfileId(Long teamId, Long profileId);
+    void deleteByTeamId(Long teamId);
 }
