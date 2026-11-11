@@ -30,6 +30,7 @@ class CommunityChampionshipTeamsServiceTest {
     @Mock CommunityChampionshipGoalRepository goals;
     @Mock CommunityChampionshipDisciplinaryCardRepository disciplinaryCards;
     @Mock CommunityChampionshipSubstitutionRepository substitutions;
+    @Mock CommunityChampionshipLineupPlayerRepository lineups;
     @InjectMocks CommunityChampionshipTeamsService service;
     private CommunityChampionship season;
     private CommunityTournament tournament;
@@ -122,6 +123,20 @@ class CommunityChampionshipTeamsServiceTest {
                 .thenReturn(Optional.of(registration));
         when(substitutions.existsByFixtureEventChampionshipIdAndPlayerInId(15L, 44L))
                 .thenReturn(true);
+        assertThrows(ResponseStatusException.class,
+                () -> service.removePlayer(7L, 15L, 99L, 44L, "owner"));
+        verify(playerRegistrations, never()).delete(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void refusesRosterRemovalWhenPlayerIsSelectedForMatch() {
+        organizer();
+        when(seasonTeams.findById(99L)).thenReturn(Optional.of(canonical));
+        var registration = CommunityChampionshipTeamPlayer.builder()
+                .id(2L).team(canonical).championship(season).build();
+        when(playerRegistrations.findByChampionshipIdAndProfileId(15L, 44L))
+                .thenReturn(Optional.of(registration));
+        when(lineups.existsByFixtureEventChampionshipIdAndPlayerId(15L, 44L)).thenReturn(true);
         assertThrows(ResponseStatusException.class,
                 () -> service.removePlayer(7L, 15L, 99L, 44L, "owner"));
         verify(playerRegistrations, never()).delete(org.mockito.ArgumentMatchers.any());
