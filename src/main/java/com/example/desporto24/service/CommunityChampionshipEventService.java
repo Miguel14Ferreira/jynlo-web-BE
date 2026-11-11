@@ -6,6 +6,7 @@ import com.example.desporto24.model.community.CommunityChampionshipGoal;
 import com.example.desporto24.model.community.CommunityChampionshipDisciplinaryCard;
 import com.example.desporto24.model.community.CommunityChampionshipSubstitution;
 import com.example.desporto24.model.community.CommunityChampionshipLineupPlayer;
+import com.example.desporto24.model.community.CommunityChampionshipFixture;
 import com.example.desporto24.model.community.CommunityChampionship;
 import com.example.desporto24.model.community.CommunityChampionshipEventTeam;
 import com.example.desporto24.model.community.CommunityChampionshipCupBye;
@@ -253,8 +254,8 @@ public class CommunityChampionshipEventService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Resultados desta modalidade requerem um motor próprio");
         var event = lockOwnedEvent(championshipId, eventId);
-        if (!"LEAGUE".equals(event.getFormat()) || !"SCHEDULED".equals(event.getStatus()))
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "A prova não tem calendário de liga ativo");
+        if (!Set.of("LEAGUE", "CUP").contains(event.getFormat()) || !"SCHEDULED".equals(event.getStatus()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A prova não tem jogos ativos");
         if (score == null || score.homeScore() < 0 || score.awayScore() < 0
                 || score.homeScore() > 999 || score.awayScore() > 999)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resultado inválido");
@@ -262,6 +263,17 @@ public class CommunityChampionshipEventService {
                 .filter(row -> row.getEvent().getId().equals(eventId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Jogo não encontrado nesta prova"));
+        if ("CUP".equals(event.getFormat()) && score.homeScore() == score.awayScore())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Uma eliminatória precisa de vencedor. Regista o resultado final após desempate.");
+        if ("CUP".equals(event.getFormat())) {
+            int latestRound = fixtures.findByEventIdOrderByRoundNumberAscMatchNumberAsc(eventId)
+                    .stream().mapToInt(CommunityChampionshipFixture::getRoundNumber)
+                    .max().orElse(0);
+            if (fixture.getRoundNumber() != latestRound)
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Não podes alterar o resultado de uma ronda anterior");
+        }
         long existingHomeGoals = goals.findByFixtureIdOrderByIdAsc(fixtureId).stream()
                 .filter(goal -> goal.getTeam().getId().equals(fixture.getHomeTeam().getId())).count();
         long existingAwayGoals = goals.findByFixtureIdOrderByIdAsc(fixtureId).stream()
@@ -733,6 +745,72 @@ public class CommunityChampionshipEventService {
         event.setStatus("SCHEDULED");
         events.saveAndFlush(event);
         return new CupOpeningRound(List.copyOf(matches), List.copyOf(automatic));
+    }
+
+    /** Advance the current knockout round. The opening draw's byes only enter
+     * the first advancement; every subsequent round is an even elimination bracket.
+     * The event lock serializes result writes and round generation.
+     */
+    public CupOpeningRound advanceCup(Long communityId, Long championshipId,
+                                     Long eventId, String username) {
+        requireMember(communityId, username, true);
+        var season = getChampionship(communityId, championshipId);
+        ensureOpen(season);
+        if (!Set.of("Futebol", "Futsal").contains(season.getSport()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Esta modalidade requer regras específicas");
+        var event = lockOwnedEvent(championshipId, eventId);
+        if (!"CUP".equals(event.getFormat()) || !"SCHEDULED".equals(event.getStatus()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A taça não está ativa");
+        var allMatches = fixtures.findByEventIdOrderByRoundNumberAscMatchNumberAsc(eventId);
+        if (allMatches.isEmpty())
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A taça ainda não tem jogos");
+        int currentRound = allMatches.stream().mapToInt(CommunityChampionshipFixture::getRoundNumber)
+                .max().orElseThrow();
+        var roundMatches = allMatches.stream()
+                .filter(game -> game.getRoundNumber() == currentRound)
+                .sorted(java.util.Comparator.comparingInt(CommunityChampionshipFixture::getMatchNumber))
+                .toList();
+        var qualifiers = new java.util.ArrayList<CommunityChampionshipTeam>();
+        var unique = new java.util.HashSet<Long>();
+        if (currentRound == 1) {
+            for (var bye : cupByes.findByEventIdOrderBySlotNumberAsc(eventId)) {
+                if (!unique.add(bye.getTeam().getId()))
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Equipa duplicada na ronda");
+                qualifiers.add(bye.getTeam());
+            }
+        }
+        for (var match : roundMatches) {
+            if (match.getHomeScore() == null || match.getAwayScore() == null
+                    || match.getHomeScore().equals(match.getAwayScore()))
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Todos os jogos precisam de resultado e vencedor antes da próxima ronda");
+            var winner = match.getHomeScore() > match.getAwayScore()
+                    ? match.getHomeTeam() : match.getAwayTeam();
+            if (!unique.add(winner.getId()))
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Equipa repetida na ronda");
+            qualifiers.add(winner);
+        }
+        if (qualifiers.size() == 1) {
+            var champion = qualifiers.get(0);
+            if (!championshipId.equals(champion.getChampionship().getId()))
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Vencedor fora do campeonato");
+            event.setWinnerTeam(champion);
+            event.setWinnerTeamName(champion.getName());
+            event.setFinalizedAt(Instant.now());
+            event.setStatus("COMPLETED");
+            events.saveAndFlush(event);
+            return cupOpeningRound(communityId, championshipId, eventId, username);
+        }
+        if (qualifiers.size() < 2 || qualifiers.size() % 2 != 0)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A ronda não permite gerar confrontos válidos");
+        var nextRound = currentRound + 1;
+        // Keep deterministic qualification order; no second draw after the opening.
+        for (int i = 0; i < qualifiers.size(); i += 2) {
+            fixtures.save(CommunityChampionshipFixture.builder().event(event)
+                    .roundNumber(nextRound).matchNumber(i / 2 + 1)
+                    .homeTeam(qualifiers.get(i)).awayTeam(qualifiers.get(i + 1)).build());
+        }
+        return cupOpeningRound(communityId, championshipId, eventId, username);
     }
 
     private CupBye cupByeResponse(CommunityChampionshipCupBye bye) {
