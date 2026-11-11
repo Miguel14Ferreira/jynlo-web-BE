@@ -203,6 +203,7 @@ public class CommunityTournamentTeamService {
     public TeamAdministration transferAdministration(Long communityId, Long tournamentId,
                                                        Long teamId, Long successorId, String username) {
         Profile current = actor(username);
+        requireMember(communityId, current);
         lockedTeamTournament(communityId, tournamentId);
         CommunityTournamentTeam selected = team(tournamentId, teamId);
         if (selected.getAdminProfile() == null
@@ -242,6 +243,7 @@ public class CommunityTournamentTeamService {
     public TeamAdministration cancelAdministrationTransfer(Long communityId, Long tournamentId,
                                                              Long teamId, String username) {
         Profile current = actor(username);
+        requireMember(communityId, current);
         lockedTeamTournament(communityId, tournamentId);
         CommunityTournamentTeam selected = team(tournamentId, teamId);
         if (selected.getAdminProfile() == null
