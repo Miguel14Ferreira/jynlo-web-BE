@@ -157,7 +157,10 @@ public class CommunityChampionshipController {
             @PathVariable Long communityId, @PathVariable Long championshipId,
             @PathVariable Long teamId, @RequestBody @Valid AddSeasonTeamPlayerRequest request,
             Authentication auth) {
-        return championshipTeams.addPlayer(communityId, championshipId, teamId, request.profileId(), auth.getName());
+        // Legacy endpoint also sends an invitation; only explicit acceptance
+        // can create team membership or assign the first administrator.
+        championshipTeams.invitePlayer(communityId, championshipId, teamId, request.profileId(), auth.getName());
+        return championshipTeams.players(communityId, championshipId, teamId, auth.getName());
     }
 
     @DeleteMapping("/{championshipId}/teams/{teamId}/players/{profileId}")
