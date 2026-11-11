@@ -6,5 +6,6 @@ public record StoryResponse(
         Long id, String authorUsername, String displayName, String avatarUrl,
         Long communityId, String communityName, String communityPhotoUrl,
         String caption, String mediaUrl, boolean video,
-        Instant createdAt, Instant expiresAt, boolean canDelete) {
+        Instant createdAt, Instant expiresAt, boolean canDelete,
+        long likeCount, boolean likedByMe) {
 }
