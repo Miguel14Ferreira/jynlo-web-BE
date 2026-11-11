@@ -1,0 +1,43 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-11-tournament-team-member-invitations
+      author: jynlo
+      changes:
+        - createTable:
+            schemaName: desporto24
+            tableName: community_tournament_team_invite
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: tournament_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: team_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: profile_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: invited_at, type: timestamp with time zone, constraints: {nullable: false}}
+        - addUniqueConstraint:
+            schemaName: desporto24
+            tableName: community_tournament_team_invite
+            columnNames: team_id,profile_id
+            constraintName: uk_tournament_team_invitee
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: community_tournament_team_invite
+            baseColumnNames: tournament_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: community_tournament
+            referencedColumnNames: id
+            constraintName: fk_tournament_team_invite_tournament
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: community_tournament_team_invite
+            baseColumnNames: team_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: community_tournament_team
+            referencedColumnNames: id
+            constraintName: fk_tournament_team_invite_team
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: community_tournament_team_invite
+            baseColumnNames: profile_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_tournament_team_invite_profile
