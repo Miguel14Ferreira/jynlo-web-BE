@@ -48,6 +48,7 @@ public class CommunityChampionshipEventService {
     private final CommunityMemberRepository members;
     private final CommunityChampionshipTeamPlayerRepository roster;
     private final CommunityChampionshipGoalRepository goals;
+    private final CommunityChampionshipDisciplinaryCardRepository disciplinaryCards;
     private final ProfileRepository profiles;
 
     public record CreateEvent(String name, String format) {}
@@ -355,6 +356,87 @@ public class CommunityChampionshipEventService {
                 goal.getAssister() == null ? null
                         : (goal.getAssister().getFullName() == null || goal.getAssister().getFullName().isBlank()
                                 ? goal.getAssister().getUsername() : goal.getAssister().getFullName()));
+    }
+
+    public record CardInput(Long profileId, Long teamId, String cardType, Integer minute) {}
+    public record CardEvent(Long id, Long profileId, String playerName,
+                            Long teamId, String teamName, String cardType, Integer minute) {}
+
+    @Transactional(readOnly = true)
+    public List<CardEvent> cards(Long communityId, Long championshipId, Long eventId,
+                                 Long fixtureId, String username) {
+        requireMember(communityId, username, false);
+        getChampionship(communityId, championshipId);
+        getOwnedEvent(championshipId, eventId);
+        var fixture = fixtures.findById(fixtureId)
+                .filter(row -> row.getEvent().getId().equals(eventId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
+        return disciplinaryCards.findByFixtureIdOrderByIdAsc(fixture.getId()).stream()
+                .map(this::cardResponse).toList();
+    }
+
+    public List<CardEvent> addCard(Long communityId, Long championshipId, Long eventId,
+                                   Long fixtureId, CardInput input, String username) {
+        requireMember(communityId, username, true);
+        var championship = getChampionship(communityId, championshipId);
+        ensureOpen(championship);
+        if (!Set.of("Futebol", "Futsal").contains(championship.getSport()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cartões desta modalidade requerem regras próprias");
+        var event = lockOwnedEvent(championshipId, eventId);
+        if (!"LEAGUE".equals(event.getFormat()) || !"SCHEDULED".equals(event.getStatus()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A liga não está agendada");
+        if (input == null || input.profileId() == null || input.teamId() == null
+                || !Set.of("YELLOW", "RED").contains(input.cardType() == null ? "" : input.cardType())
+                || input.minute() != null && (input.minute() < 0 || input.minute() > 200))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cartão inválido");
+        var fixture = fixtures.findById(fixtureId)
+                .filter(row -> row.getEvent().getId().equals(eventId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
+        if (fixture.getHomeScore() == null || fixture.getAwayScore() == null)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Regista primeiro o resultado do jogo");
+        if (!input.teamId().equals(fixture.getHomeTeam().getId())
+                && !input.teamId().equals(fixture.getAwayTeam().getId()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Equipa fora do jogo");
+        var player = roster.findByChampionshipIdAndProfileId(championshipId, input.profileId())
+                .filter(reg -> reg.getTeam().getId().equals(input.teamId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "O jogador não pertence à equipa nesta época"));
+        var existing = disciplinaryCards.findByFixtureIdOrderByIdAsc(fixtureId).stream()
+                .filter(card -> card.getPlayer().getId().equals(input.profileId())).toList();
+        long yellowCount = existing.stream().filter(card -> "YELLOW".equals(card.getCardType())).count();
+        boolean redPresent = existing.stream().anyMatch(card -> "RED".equals(card.getCardType()));
+        if (redPresent || "YELLOW".equals(input.cardType()) && yellowCount >= 2
+                || "RED".equals(input.cardType()) && yellowCount >= 2)
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Sequência de cartões inválida para este jogador");
+        disciplinaryCards.saveAndFlush(CommunityChampionshipDisciplinaryCard.builder()
+                .fixture(fixture).team(player.getTeam()).player(player.getProfile())
+                .cardType(input.cardType()).matchMinute(input.minute())
+                .recordedAt(Instant.now()).build());
+        return disciplinaryCards.findByFixtureIdOrderByIdAsc(fixtureId).stream()
+                .map(this::cardResponse).toList();
+    }
+
+    public void removeCard(Long communityId, Long championshipId, Long eventId,
+                           Long fixtureId, Long cardId, String username) {
+        requireMember(communityId, username, true);
+        ensureOpen(getChampionship(communityId, championshipId));
+        lockOwnedEvent(championshipId, eventId);
+        var fixture = fixtures.findById(fixtureId)
+                .filter(row -> row.getEvent().getId().equals(eventId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
+        var card = disciplinaryCards.findByIdAndFixtureId(cardId, fixture.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cartão não encontrado"));
+        disciplinaryCards.delete(card);
+    }
+
+    private CardEvent cardResponse(CommunityChampionshipDisciplinaryCard card) {
+        var profile = card.getPlayer();
+        return new CardEvent(card.getId(), profile.getId(),
+                profile.getFullName() == null || profile.getFullName().isBlank()
+                        ? profile.getUsername() : profile.getFullName(),
+                card.getTeam().getId(), card.getTeam().getName(),
+                card.getCardType(), card.getMatchMinute());
     }
 
     public record CupBye(Long id, int slot, Long teamId, String teamName) {}
