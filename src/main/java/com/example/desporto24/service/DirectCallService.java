@@ -110,8 +110,8 @@ public class DirectCallService {
                 try {
                     // Both sides can lose access after a ring is issued. Never
                     // recover an invitation from a caller who can no longer call.
-                    inbox.requireConversationAccess(call.caller, "direct", call.peer);
                     inbox.requireConversationAccess(recipient, "direct", call.caller);
+                    inbox.requireConversationAccess(call.caller, "direct", call.peer);
                 } catch (org.springframework.security.access.AccessDeniedException denied) {
                     // Revoked invitations must not hide other valid incoming calls.
                     continue;
