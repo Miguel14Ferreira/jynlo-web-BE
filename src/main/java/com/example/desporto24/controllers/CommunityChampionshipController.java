@@ -260,6 +260,13 @@ public class CommunityChampionshipController {
         return ownedEvents.recordFixtureScore(communityId, championshipId, eventId, fixtureId, score, auth.getName());
     }
 
+    @GetMapping("/{championshipId}/owned-events/{eventId}/player-stats")
+    public List<com.example.desporto24.service.ChampionshipPlayerEventStatistics.Row> ownedLeaguePlayerStats(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, Authentication auth) {
+        return ownedEvents.ownedLeaguePlayerStats(communityId, championshipId, eventId, auth.getName());
+    }
+
     @GetMapping("/{championshipId}/owned-events/{eventId}/standings")
     public com.example.desporto24.service.ChampionshipOwnedLeagueStandings.Table ownedLeagueStandings(
             @PathVariable Long communityId, @PathVariable Long championshipId,
