@@ -438,6 +438,22 @@ public class CommunityChampionshipService {
                     tournament.getId(), tournament.getName(), tournament.getFormat().name(),
                     kind, playerId, seasonTeamId, name));
         }
+        for (CommunityChampionshipEvent event :
+                ownedEvents.findByChampionshipIdOrderByCreatedAtAscIdAsc(championship.getId())) {
+            if (!"COMPLETED".equals(event.getStatus())
+                    || event.getFinalizedAt() == null || event.getWinnerTeam() == null
+                    || event.getWinnerTeamName() == null || event.getWinnerTeamName().isBlank()
+                    || event.getWinnerTeam().getChampionship() == null
+                    || !championship.getId().equals(event.getWinnerTeam().getChampionship().getId())
+                    || (!"LEAGUE".equals(event.getFormat()) && !"CUP".equals(event.getFormat()))) continue;
+            // Explicit event ID avoids pretending the owned competition is a
+            // standalone CommunityTournament; KNOCKOUT is the honours display format.
+            snapshots.add(new CommunityChampionshipTrophySnapshot(
+                    null, event.getName(),
+                    "CUP".equals(event.getFormat()) ? "KNOCKOUT" : "LEAGUE",
+                    "TEAM", null, event.getWinnerTeam().getId(),
+                    event.getWinnerTeamName(), event.getId()));
+        }
         return java.util.List.copyOf(snapshots);
     }
 
