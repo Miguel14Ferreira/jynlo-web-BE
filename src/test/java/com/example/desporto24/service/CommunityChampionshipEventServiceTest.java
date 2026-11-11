@@ -273,6 +273,74 @@ class CommunityChampionshipEventServiceTest {
     }
 
     @Test
+    void advancesCupFromOpeningByeAndDecisiveMatch() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var cup = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Taça").format("CUP").status("SCHEDULED").build();
+        var a = CommunityChampionshipTeam.builder().id(30L).name("Águias").championship(championship).build();
+        var b = CommunityChampionshipTeam.builder().id(31L).name("Leões").championship(championship).build();
+        var c = CommunityChampionshipTeam.builder().id(32L).name("Tigres").championship(championship).build();
+        var opening = CommunityChampionshipFixture.builder().id(10L).event(cup)
+                .roundNumber(1).matchNumber(1).homeTeam(b).awayTeam(c)
+                .homeScore(2).awayScore(0).build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(cup));
+        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(cup));
+        when(fixtures.findByEventIdOrderByRoundNumberAscMatchNumberAsc(100L))
+                .thenReturn(List.of(opening));
+        when(cupByes.findByEventIdOrderBySlotNumberAsc(100L)).thenReturn(List.of(
+                CommunityChampionshipCupBye.builder().id(1L).event(cup).team(a).slotNumber(1).build()));
+        service.advanceCup(7L, 15L, 100L, "member");
+        var saved = org.mockito.ArgumentCaptor.forClass(CommunityChampionshipFixture.class);
+        verify(fixtures).save(saved.capture());
+        assertEquals(2, saved.getValue().getRoundNumber());
+        assertEquals(30L, saved.getValue().getHomeTeam().getId());
+        assertEquals(31L, saved.getValue().getAwayTeam().getId());
+        assertEquals("SCHEDULED", cup.getStatus());
+    }
+
+    @Test
+    void finalizesDecisiveTwoTeamCupAndPreservesWinner() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var cup = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Taça").format("CUP").status("SCHEDULED").build();
+        var a = CommunityChampionshipTeam.builder().id(30L).name("Águias").championship(championship).build();
+        var b = CommunityChampionshipTeam.builder().id(31L).name("Leões").championship(championship).build();
+        var finalGame = CommunityChampionshipFixture.builder().id(10L).event(cup)
+                .roundNumber(1).matchNumber(1).homeTeam(a).awayTeam(b)
+                .homeScore(0).awayScore(2).build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(cup));
+        when(events.findByIdAndChampionshipId(100L, 15L)).thenReturn(Optional.of(cup));
+        when(fixtures.findByEventIdOrderByRoundNumberAscMatchNumberAsc(100L))
+                .thenReturn(List.of(finalGame));
+        service.advanceCup(7L, 15L, 100L, "member");
+        assertEquals("COMPLETED", cup.getStatus());
+        assertEquals(31L, cup.getWinnerTeam().getId());
+        assertEquals("Leões", cup.getWinnerTeamName());
+        assertNotNull(cup.getFinalizedAt());
+        verify(events).saveAndFlush(cup);
+    }
+
+    @Test
+    void cupCannotAdvanceUntilAllMatchesHaveDecisiveResults() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var cup = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("CUP").status("SCHEDULED").build();
+        var a = CommunityChampionshipTeam.builder().id(30L).name("Águias").build();
+        var b = CommunityChampionshipTeam.builder().id(31L).name("Leões").build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(cup));
+        when(fixtures.findByEventIdOrderByRoundNumberAscMatchNumberAsc(100L)).thenReturn(List.of(
+                CommunityChampionshipFixture.builder().event(cup).roundNumber(1)
+                        .homeTeam(a).awayTeam(b).homeScore(1).awayScore(1).build()));
+        assertThrows(ResponseStatusException.class,
+                () -> service.advanceCup(7L, 15L, 100L, "member"));
+        verify(fixtures, never()).save(any());
+        verify(events, never()).saveAndFlush(any());
+    }
+
+    @Test
     void refusesCupDrawForNonOrganizerAndWrongFormat() {
         member(CommunityRole.MEMBER);
         assertThrows(AccessDeniedException.class,
