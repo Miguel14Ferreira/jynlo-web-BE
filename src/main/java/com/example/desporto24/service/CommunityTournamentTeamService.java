@@ -124,7 +124,7 @@ public class CommunityTournamentTeamService {
         if (playerRepository.countByTeamId(teamId) >= capacity(tournament)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A equipa já está completa");
         }
-        playerRepository.saveAndFlush(CommunityTournamentTeamPlayer.builder()
+        playerRepository.save(CommunityTournamentTeamPlayer.builder()
                 .tournament(tournament).team(target).profile(player)
                 .assignedAt(Instant.now()).build());
         // The tournament row lock serializes simultaneous acceptances:
@@ -246,11 +246,13 @@ public class CommunityTournamentTeamService {
     }
 
     private void requireTeamManager(Long communityId, Profile actor, CommunityTournamentTeam selected) {
-        requireMember(communityId, actor);
+        var membership = memberRepository.findByCommunityIdAndProfileId(communityId, actor.getId())
+                .orElseThrow(() -> new AccessDeniedException("Não pertences a esta comunidade"));
         if (selected.getAdminProfile() != null
                 && Objects.equals(selected.getAdminProfile().getId(), actor.getId())) return;
         // Organizers retain moderation privileges; routine roster work belongs to the team.
-        requireManager(communityId, actor);
+        if (membership.getRole() != CommunityRole.OWNER && membership.getRole() != CommunityRole.ADMIN)
+            throw new AccessDeniedException("Não administras esta equipa");
     }
 
     @Transactional(readOnly = true)
