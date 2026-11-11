@@ -382,3 +382,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-11-championship-owned-league-finalization.yaml
   - include:
       file: db/changelog/changes/2026-11-11-championship-team-admin-invites.yaml
+  - include:
+      file: db/changelog/changes/2026-11-11-tournament-team-administration.yaml
