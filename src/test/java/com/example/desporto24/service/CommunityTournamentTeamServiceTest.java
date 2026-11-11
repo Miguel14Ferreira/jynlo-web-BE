@@ -9,11 +9,13 @@ import com.example.desporto24.model.community.CommunityMember;
 import com.example.desporto24.model.community.CommunityTournament;
 import com.example.desporto24.model.community.CommunityTournamentTeam;
 import com.example.desporto24.model.community.CommunityTournamentTeamPlayer;
+import com.example.desporto24.model.community.CommunityTournamentTeamInvite;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.community.CommunityMemberRepository;
 import com.example.desporto24.repository.community.CommunityTournamentRepository;
 import com.example.desporto24.repository.community.CommunityTournamentTeamRepository;
 import com.example.desporto24.repository.community.CommunityTournamentTeamPlayerRepository;
+import com.example.desporto24.repository.community.CommunityTournamentTeamInviteRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -38,6 +40,7 @@ class CommunityTournamentTeamServiceTest {
     @Mock private CommunityTournamentRepository tournamentRepository;
     @Mock private CommunityTournamentTeamRepository teamRepository;
     @Mock private CommunityTournamentTeamPlayerRepository playerRepository;
+    @Mock private CommunityTournamentTeamInviteRepository inviteRepository;
     @Mock private CommunityTournamentSuspensionService suspensionService;
     @InjectMocks private CommunityTournamentTeamService service;
 
@@ -71,6 +74,40 @@ class CommunityTournamentTeamServiceTest {
     private CommunityTournamentTeam team(long id, String name) {
         return CommunityTournamentTeam.builder().id(id).tournament(teamTournament)
                 .name(name).normalizedName(name.toLowerCase()).createdAt(Instant.now()).build();
+    }
+
+    @Test
+    void invitingAPlayerDoesNotAddThemOrAssignAdministratorBeforeAcceptance() {
+        manager();
+        draft();
+        var azul = team(10L, "Azul");
+        when(teamRepository.findById(10L)).thenReturn(Optional.of(azul));
+        when(memberRepository.existsByCommunityIdAndProfileId(7L, 2L)).thenReturn(true);
+        when(profileRepository.findById(2L)).thenReturn(Optional.of(player));
+        when(playerRepository.findByTournamentIdOrderByTeamIdAscIdAsc(19L)).thenReturn(List.of());
+
+        var invited = service.invitePlayer(7L, 19L, 10L, "owner", 2L);
+
+        assertTrue(invited.players().isEmpty());
+        assertNull(azul.getAdminProfile());
+        verify(inviteRepository).saveAndFlush(any(CommunityTournamentTeamInvite.class));
+        verify(playerRepository, never()).save(any());
+    }
+
+    @Test
+    void onlyTheInvitedAccountCanSeeOrDeclineItsPersonalInvitation() {
+        var azul = team(10L, "Azul");
+        when(profileRepository.findUserByUsernameIgnoreCase("ana")).thenReturn(Optional.of(player));
+        when(memberRepository.existsByCommunityIdAndProfileId(7L, 2L)).thenReturn(true);
+        when(tournamentRepository.findById(19L)).thenReturn(Optional.of(teamTournament));
+        when(teamRepository.findById(10L)).thenReturn(Optional.of(azul));
+        when(inviteRepository.findByTeamIdAndProfileId(10L, 2L)).thenReturn(Optional.of(
+                CommunityTournamentTeamInvite.builder().id(12L).team(azul).profile(player).build()));
+        assertTrue(service.hasInvitation(7L, 19L, 10L, "ana"));
+        draft();
+        service.declineInvitation(7L, 19L, 10L, "ana");
+        verify(inviteRepository).delete(any(CommunityTournamentTeamInvite.class));
+        verify(playerRepository, never()).save(any());
     }
 
     @Test
