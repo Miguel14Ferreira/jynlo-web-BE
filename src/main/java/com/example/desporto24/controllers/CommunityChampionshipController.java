@@ -71,6 +71,39 @@ public class CommunityChampionshipController {
         return championshipTeams.create(communityId, championshipId, request.name(), auth.getName());
     }
 
+    public record TeamPlayerInviteRequest(@jakarta.validation.constraints.NotNull Long profileId) {}
+
+    @PostMapping("/{championshipId}/teams/{teamId}/invitations")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void invitePlayerToSeasonTeam(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long teamId, @RequestBody @Valid TeamPlayerInviteRequest request,
+            Authentication auth) {
+        championshipTeams.invitePlayer(communityId, championshipId, teamId, request.profileId(), auth.getName());
+    }
+
+    @GetMapping("/{championshipId}/teams/{teamId}/invitations/mine")
+    public java.util.Map<String, Boolean> mySeasonTeamInvitation(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long teamId, Authentication auth) {
+        return java.util.Map.of("invited", championshipTeams.hasPlayerInvite(
+                communityId, championshipId, teamId, auth.getName()));
+    }
+
+    @PostMapping("/{championshipId}/teams/{teamId}/invitations/accept")
+    public List<com.example.desporto24.service.CommunityChampionshipTeamsService.TeamPlayer> acceptSeasonTeamInvitation(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long teamId, Authentication auth) {
+        return championshipTeams.respondPlayerInvite(communityId, championshipId, teamId, true, auth.getName());
+    }
+
+    @PostMapping("/{championshipId}/teams/{teamId}/invitations/decline")
+    public List<com.example.desporto24.service.CommunityChampionshipTeamsService.TeamPlayer> declineSeasonTeamInvitation(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long teamId, Authentication auth) {
+        return championshipTeams.respondPlayerInvite(communityId, championshipId, teamId, false, auth.getName());
+    }
+
     public record TeamAdministratorInviteRequest(@jakarta.validation.constraints.NotNull Long profileId) {}
 
     @GetMapping("/{championshipId}/teams/{teamId}/administrator")
