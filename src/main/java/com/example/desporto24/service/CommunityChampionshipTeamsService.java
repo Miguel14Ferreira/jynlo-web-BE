@@ -157,48 +157,66 @@ public class CommunityChampionshipTeamsService {
         return teamInvites.findByTeamIdAndProfileId(teamId, current.getId()).isPresent();
     }
 
-    /** The organizer nominates a responsible member. No privileges are granted until acceptance. */
+    /** Only an existing administrator can propose another confirmed team member. */
     public TeamAdminStatus inviteAdministrator(Long communityId, Long championshipId,
                                                 Long teamId, Long profileId, String username) {
-        requireOrganizer(communityId, username);
-        ensureOpen(getChampionship(communityId, championshipId));
+        var actor = profiles.findUserByUsername(username)
+                .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
+        requireMember(communityId, username);
+        var season = championships.findForClosing(championshipId, communityId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        ensureOpen(season);
         var team = getSeasonTeam(communityId, championshipId, teamId);
-        if (profileId == null || !members.existsByCommunityIdAndProfileId(communityId, profileId))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O responsável deve pertencer à comunidade");
-        var proposed = profiles.findById(profileId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Perfil não encontrado"));
-        var existing = playerRegistrations.findByChampionshipIdAndProfileId(championshipId, profileId);
-        if (existing.isPresent() && !existing.get().getTeam().getId().equals(teamId))
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "O jogador pertence a outra equipa nesta época");
-        if (team.getAdminProfile() != null && team.getAdminProfile().getId().equals(profileId))
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Este perfil já administra a equipa");
-        team.setPendingAdminProfile(proposed);
+        if (team.getAdminProfile() == null
+                || !team.getAdminProfile().getId().equals(actor.getId()))
+            throw new AccessDeniedException("Apenas o administrador atual pode transferir a equipa");
+        var existing = profileId == null ? java.util.Optional.<CommunityChampionshipTeamPlayer>empty()
+                : playerRegistrations.findByChampionshipIdAndProfileId(championshipId, profileId);
+        if (existing.isEmpty() || !existing.get().getTeam().getId().equals(teamId)
+                || profileId.equals(actor.getId()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Escolhe outro jogador confirmado nesta equipa");
+        team.setPendingAdminProfile(existing.get().getProfile());
         seasonTeams.saveAndFlush(team);
         return administrator(communityId, championshipId, teamId, username);
     }
 
-    /** Only the invited account can activate its own team administration. */
     public TeamAdminStatus respondAdministrator(Long communityId, Long championshipId,
                                                  Long teamId, boolean accept, String username) {
         var actor = profiles.findUserByUsername(username)
                 .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
-        var team = getSeasonTeam(communityId, championshipId, teamId);
-        ensureOpen(team.getChampionship());
-        if (team.getPendingAdminProfile() == null ||
-                !actor.getId().equals(team.getPendingAdminProfile().getId()))
-            throw new AccessDeniedException("Não tens um convite de administração para esta equipa");
         requireMember(communityId, username);
+        var season = championships.findForClosing(championshipId, communityId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        ensureOpen(season);
+        var team = getSeasonTeam(communityId, championshipId, teamId);
+        if (team.getPendingAdminProfile() == null
+                || !actor.getId().equals(team.getPendingAdminProfile().getId()))
+            throw new AccessDeniedException("Não tens uma transferência de administração pendente");
         if (accept) {
-            var existing = playerRegistrations.findByChampionshipIdAndProfileId(championshipId, actor.getId());
-            if (existing.isPresent() && !existing.get().getTeam().getId().equals(teamId))
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Já pertences a outra equipa nesta época");
-            if (existing.isEmpty()) {
-                playerRegistrations.saveAndFlush(CommunityChampionshipTeamPlayer.builder()
-                        .championship(team.getChampionship()).team(team).profile(actor)
-                        .joinedAt(Instant.now()).build());
-            }
+            var registered = playerRegistrations.findByChampionshipIdAndProfileId(championshipId, actor.getId());
+            if (registered.isEmpty() || !registered.get().getTeam().getId().equals(teamId))
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Já não pertences a esta equipa");
             team.setAdminProfile(actor);
         }
+        team.setPendingAdminProfile(null);
+        seasonTeams.saveAndFlush(team);
+        return administrator(communityId, championshipId, teamId, username);
+    }
+
+    public TeamAdminStatus cancelAdministratorTransfer(Long communityId, Long championshipId,
+                                                        Long teamId, String username) {
+        var actor = profiles.findUserByUsername(username)
+                .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
+        requireMember(communityId, username);
+        var season = championships.findForClosing(championshipId, communityId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        ensureOpen(season);
+        var team = getSeasonTeam(communityId, championshipId, teamId);
+        if (team.getAdminProfile() == null
+                || !team.getAdminProfile().getId().equals(actor.getId()))
+            throw new AccessDeniedException("Não administras esta equipa");
         team.setPendingAdminProfile(null);
         seasonTeams.saveAndFlush(team);
         return administrator(communityId, championshipId, teamId, username);
