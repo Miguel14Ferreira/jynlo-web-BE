@@ -65,6 +65,21 @@ class CommunityChampionshipServiceTest {
     }
 
     @Test
+    void refusesChampionshipDeletionForNonOrganizerBeforeAnyDatabaseMutation() {
+        Profile actor = new Profile();
+        actor.setId(44L);
+        actor.setUsername("member");
+        when(profiles.findUserByUsername("member")).thenReturn(Optional.of(actor));
+        when(members.findByCommunityIdAndProfileId(7L, 44L))
+                .thenReturn(Optional.of(CommunityMember.builder().role(CommunityRole.MEMBER).build()));
+
+        assertThrows(AccessDeniedException.class,
+                () -> service.deleteUnplayed(7L, 15L, "member"));
+        verify(championships, never()).findForClosing(any(), any());
+        verifyNoInteractions(entityManager);
+    }
+
+    @Test
     void refusesToDeleteAClosedChampionshipEvenWhenItHasNoTeams() {
         organizer();
         championship.setClosedAt(Instant.parse("2026-11-11T18:00:00Z"));
