@@ -201,6 +201,33 @@ public class CommunityChampionshipController {
         return ownedEvents.drawCup(communityId, championshipId, eventId, auth.getName());
     }
 
+    @GetMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/lineup")
+    public List<com.example.desporto24.service.CommunityChampionshipEventService.LineupPlayer> fixtureLineup(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, @PathVariable Long fixtureId, Authentication auth) {
+        return ownedEvents.matchLineup(communityId, championshipId, eventId, fixtureId, auth.getName());
+    }
+
+    @PutMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/lineup")
+    public List<com.example.desporto24.service.CommunityChampionshipEventService.LineupPlayer> setFixtureLineup(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, @PathVariable Long fixtureId,
+            @RequestBody com.example.desporto24.service.CommunityChampionshipEventService.LineupInput input,
+            Authentication auth) {
+        return ownedEvents.setLineupPlayer(communityId, championshipId, eventId, fixtureId,
+                input, auth.getName());
+    }
+
+    @DeleteMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/lineup/{profileId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeFixtureLineupPlayer(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, @PathVariable Long fixtureId,
+            @PathVariable Long profileId, Authentication auth) {
+        ownedEvents.removeLineupPlayer(communityId, championshipId, eventId, fixtureId,
+                profileId, auth.getName());
+    }
+
     @GetMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/substitutions")
     public List<com.example.desporto24.service.CommunityChampionshipEventService.SubstitutionEvent> fixtureSubstitutions(
             @PathVariable Long communityId, @PathVariable Long championshipId,
