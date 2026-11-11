@@ -12,6 +12,8 @@ import com.example.desporto24.repository.community.CommunityMemberRepository;
 import com.example.desporto24.repository.community.CommunityRepository;
 import com.example.desporto24.repository.social.ProfileFollowRepository;
 import com.example.desporto24.repository.social.SocialStoryRepository;
+import com.example.desporto24.repository.social.SocialStoryLikeRepository;
+import com.example.desporto24.service.interfaces.NotificationService;
 import com.example.desporto24.storage.MediaStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +38,9 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class SocialStoryServiceTest {
     @Mock private SocialStoryRepository stories;
+    @Mock private SocialStoryLikeRepository likes;
+    @Mock private NotificationService notificationService;
+    @Mock private NotificationPreferencesService notificationPreferences;
     @Mock private ProfileRepository profiles;
     @Mock private CommunityRepository communities;
     @Mock private CommunityMemberRepository memberships;
@@ -128,6 +133,32 @@ class SocialStoryServiceTest {
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> service.view(4L, "joao"));
         assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
+    }
+
+    @Test
+    void storyReplyIsPrivateNotificationToAuthorNotPublicComment() {
+        Profile owner = new Profile();
+        owner.setId(20L);
+        owner.setUsername("maria");
+        SocialStory story = SocialStory.builder().id(5L).author(owner)
+                .createdAt(Instant.now()).expiresAt(Instant.now().plusSeconds(3600))
+                .build();
+        when(stories.findById(5L)).thenReturn(Optional.of(story));
+        when(notificationPreferences.allowsInApp("maria",
+                com.example.desporto24.enumeration.NotificationType.SOCIAL_STORY_REPLIED)).thenReturn(true);
+        service.reply(5L, "joao", "Grande jogada!");
+        verify(notificationService).save(argThat(n -> n.getUsername().equals("maria")
+                && n.getMessage().contains("Grande jogada!")
+                && n.getRelatedUsername().equals("joao")));
+    }
+
+    @Test
+    void storyReplyRejectsSelfAndExpiredStory() {
+        SocialStory story = SocialStory.builder().id(6L).author(actor)
+                .createdAt(Instant.now()).expiresAt(Instant.now().plusSeconds(3600)).build();
+        when(stories.findById(6L)).thenReturn(Optional.of(story));
+        assertThrows(IllegalArgumentException.class, () -> service.reply(6L, "joao", "Olá"));
+        verifyNoInteractions(notificationService);
     }
 
     private Community publicCommunity() {
