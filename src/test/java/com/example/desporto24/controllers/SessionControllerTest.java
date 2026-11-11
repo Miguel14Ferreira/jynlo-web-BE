@@ -43,6 +43,22 @@ class SessionControllerTest {
     @InjectMocks private SessionController controller;
 
     @Test
+    void editingSessionForwardsOptionalDescriptionSeparatelyFromArrivalDirections() {
+        Instant future = Instant.parse("2099-11-11T18:00:00Z");
+        var request = new SessionController.EditSessionDetailsRequest(
+                "Futebol", future, 10, 6, BigDecimal.ZERO,
+                "Lisboa", "Rua do Campo", "Entrada no portão lateral",
+                "Jogo amigável com todos os níveis");
+        when(authentication.getName()).thenReturn("creator");
+
+        controller.updateDetails(7L, request, authentication);
+
+        verify(sessionService).updateDetails(7L, "Futebol", future, 10, 6,
+                BigDecimal.ZERO, "Lisboa", "Rua do Campo",
+                "Entrada no portão lateral", "Jogo amigável com todos os níveis", "creator");
+    }
+
+    @Test
     void discoverUsesAuthenticatedIdentityWhenAvailable() {
         when(authentication.isAuthenticated()).thenReturn(true);
         when(authentication.getName()).thenReturn("miguel");
