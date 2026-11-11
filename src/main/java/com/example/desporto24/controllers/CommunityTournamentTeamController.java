@@ -115,8 +115,25 @@ public class CommunityTournamentTeamController {
             @PathVariable Long teamId,
             @RequestBody @Valid AssignCommunityTournamentTeamPlayerRequest request,
             Authentication authentication) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.assignPlayer(
+        // A roster proposal is only an invitation. Membership requires the player's acceptance.
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(service.invitePlayer(
                 communityId, tournamentId, teamId, authentication.getName(), request.profileId()));
+    }
+
+    @GetMapping("/{teamId}/invitations/mine")
+    public java.util.Map<String, Boolean> myTeamInvitation(
+            @PathVariable Long communityId, @PathVariable Long tournamentId,
+            @PathVariable Long teamId, Authentication authentication) {
+        return java.util.Map.of("invited", service.hasInvitation(
+                communityId, tournamentId, teamId, authentication.getName()));
+    }
+
+    @PostMapping("/{teamId}/invitations/decline")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void declineTeamInvitation(
+            @PathVariable Long communityId, @PathVariable Long tournamentId,
+            @PathVariable Long teamId, Authentication authentication) {
+        service.declineInvitation(communityId, tournamentId, teamId, authentication.getName());
     }
 
     @PutMapping("/{teamId}/players/me")
