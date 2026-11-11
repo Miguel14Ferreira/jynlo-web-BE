@@ -7,12 +7,14 @@ import com.example.desporto24.model.Profile;
 import com.example.desporto24.model.community.CommunityTournament;
 import com.example.desporto24.model.community.CommunityTournamentTeam;
 import com.example.desporto24.model.community.CommunityTournamentTeamPlayer;
+import com.example.desporto24.model.community.CommunityTournamentTeamInvite;
 import com.example.desporto24.model.dto.community.CommunityTournamentTeamResponse;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.community.CommunityMemberRepository;
 import com.example.desporto24.repository.community.CommunityTournamentRepository;
 import com.example.desporto24.repository.community.CommunityTournamentTeamRepository;
 import com.example.desporto24.repository.community.CommunityTournamentTeamPlayerRepository;
+import com.example.desporto24.repository.community.CommunityTournamentTeamInviteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -37,6 +39,7 @@ public class CommunityTournamentTeamService {
     private final CommunityTournamentRepository tournamentRepository;
     private final CommunityTournamentTeamRepository teamRepository;
     private final CommunityTournamentTeamPlayerRepository playerRepository;
+    private final CommunityTournamentTeamInviteRepository inviteRepository;
     private final CommunityTournamentSuspensionService suspensionService;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private TeamInvitationNotificationService teamNotifications;
@@ -64,6 +67,57 @@ public class CommunityTournamentTeamService {
                 .tournament(tournament).name(cleaned).normalizedName(normalized)
                 .createdAt(Instant.now()).build());
         return toResponse(team, tournament.getPlayersPerTeam(), List.of());
+    }
+
+    /** Invite a specific community member without altering the confirmed roster. */
+    public CommunityTournamentTeamResponse invitePlayer(Long communityId, Long tournamentId,
+            Long teamId, String username, Long profileId) {
+        Profile inviter = actor(username);
+        CommunityTournament tournament = lockedTeamTournament(communityId, tournamentId);
+        requireDraft(tournament);
+        CommunityTournamentTeam selected = team(tournamentId, teamId);
+        requireTeamManager(communityId, inviter, selected);
+        if (profileId == null || profileId <= 0
+                || !memberRepository.existsByCommunityIdAndProfileId(communityId, profileId))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "O convidado tem de pertencer à comunidade");
+        suspensionService.requireEligible(communityId, profileId);
+        if (playerRepository.existsByTournamentIdAndProfileId(tournamentId, profileId))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "O jogador já pertence a uma equipa desta competição");
+        Profile recipient = profileRepository.findById(profileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogador não encontrado"));
+        if (inviteRepository.findByTeamIdAndProfileId(teamId, profileId).isEmpty()) {
+            inviteRepository.saveAndFlush(CommunityTournamentTeamInvite.builder()
+                    .tournament(tournament).team(selected).profile(recipient)
+                    .invitedAt(Instant.now()).build());
+            if (teamNotifications != null)
+                teamNotifications.memberInvitation(recipient, inviter, communityId, selected.getName());
+        }
+        return toResponse(selected, tournament.getPlayersPerTeam(),
+                playerRepository.findByTournamentIdOrderByTeamIdAscIdAsc(tournamentId).stream()
+                        .filter(p -> p.getTeam().getId().equals(teamId)).toList());
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasInvitation(Long communityId, Long tournamentId, Long teamId, String username) {
+        Profile current = actor(username);
+        requireMember(communityId, current);
+        CommunityTournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(this::notFound);
+        verifyScopeAndType(communityId, tournament);
+        team(tournamentId, teamId);
+        return inviteRepository.findByTeamIdAndProfileId(teamId, current.getId()).isPresent();
+    }
+
+    public void declineInvitation(Long communityId, Long tournamentId, Long teamId, String username) {
+        Profile current = actor(username);
+        requireMember(communityId, current);
+        lockedTeamTournament(communityId, tournamentId);
+        team(tournamentId, teamId);
+        var invite = inviteRepository.findByTeamIdAndProfileId(teamId, current.getId())
+                .orElseThrow(() -> new AccessDeniedException("Não tens convite pendente"));
+        inviteRepository.delete(invite);
     }
 
     public CommunityTournamentTeamResponse assignPlayer(Long communityId, Long tournamentId,
@@ -111,6 +165,9 @@ public class CommunityTournamentTeamService {
         requireDraft(tournament);
         CommunityTournamentTeam target = team(tournamentId, teamId);
         suspensionService.requireEligible(communityId, player.getId());
+        // The member explicitly accepts here. They may arrive through a shared team
+        // invitation link; a personal invitation is cleared after successful acceptance.
+        var pendingInvitation = inviteRepository.findByTeamIdAndProfileId(teamId, player.getId());
 
         var existing = playerRepository.findByTournamentIdAndProfileId(tournamentId, player.getId());
         if (existing.isPresent()) {
@@ -127,6 +184,7 @@ public class CommunityTournamentTeamService {
                 if (teamNotifications != null)
                     teamNotifications.assigned(player, communityId, target.getName());
             }
+            pendingInvitation.ifPresent(inviteRepository::delete);
             return toResponse(target, tournament.getPlayersPerTeam(),
                     playerRepository.findByTournamentIdOrderByTeamIdAscIdAsc(tournamentId)
                         .stream().filter(entry -> entry.getTeam().getId().equals(teamId)).toList());
@@ -147,6 +205,7 @@ public class CommunityTournamentTeamService {
             if (teamNotifications != null)
                 teamNotifications.assigned(player, communityId, target.getName());
         }
+        pendingInvitation.ifPresent(inviteRepository::delete);
         return toResponse(target, tournament.getPlayersPerTeam(),
                 playerRepository.findByTournamentIdOrderByTeamIdAscIdAsc(tournamentId)
                         .stream().filter(entry -> entry.getTeam().getId().equals(teamId)).toList());
