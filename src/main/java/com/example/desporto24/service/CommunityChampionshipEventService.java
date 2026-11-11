@@ -4,6 +4,7 @@ import com.example.desporto24.enumeration.CommunityRole;
 import com.example.desporto24.model.community.CommunityChampionshipEvent;
 import com.example.desporto24.model.community.CommunityChampionshipGoal;
 import com.example.desporto24.model.community.CommunityChampionshipDisciplinaryCard;
+import com.example.desporto24.model.community.CommunityChampionshipSubstitution;
 import com.example.desporto24.model.community.CommunityChampionship;
 import com.example.desporto24.model.community.CommunityChampionshipEventTeam;
 import com.example.desporto24.model.community.CommunityChampionshipCupBye;
@@ -13,6 +14,7 @@ import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipGoalRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipDisciplinaryCardRepository;
+import com.example.desporto24.repository.community.CommunityChampionshipSubstitutionRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipTeamPlayerRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipEventRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipEventTeamRepository;
@@ -51,6 +53,7 @@ public class CommunityChampionshipEventService {
     private final CommunityChampionshipTeamPlayerRepository roster;
     private final CommunityChampionshipGoalRepository goals;
     private final CommunityChampionshipDisciplinaryCardRepository disciplinaryCards;
+    private final CommunityChampionshipSubstitutionRepository substitutions;
     private final ProfileRepository profiles;
 
     public record CreateEvent(String name, String format) {}
@@ -460,6 +463,86 @@ public class CommunityChampionshipEventService {
                         ? profile.getUsername() : profile.getFullName(),
                 card.getTeam().getId(), card.getTeam().getName(),
                 card.getCardType(), card.getMatchMinute());
+    }
+
+    public record SubstitutionInput(Long teamId, Long outProfileId, Long inProfileId, Integer minute) {}
+    public record SubstitutionEvent(Long id, Long teamId, String teamName, Long outProfileId,
+                                    String playerOutName, Long inProfileId, String playerInName, int minute) {}
+
+    @Transactional(readOnly = true)
+    public List<SubstitutionEvent> matchSubstitutions(Long communityId, Long championshipId, Long eventId,
+                                                      Long fixtureId, String username) {
+        requireMember(communityId, username, false);
+        getChampionship(communityId, championshipId);
+        getOwnedEvent(championshipId, eventId);
+        var fixture = fixtures.findById(fixtureId)
+                .filter(f -> f.getEvent().getId().equals(eventId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
+        return substitutions.findByFixtureIdOrderByMatchMinuteAscIdAsc(fixture.getId())
+                .stream().map(this::substitutionResponse).toList();
+    }
+
+    public List<SubstitutionEvent> addSubstitution(Long communityId, Long championshipId,
+                                                   Long eventId, Long fixtureId,
+                                                   SubstitutionInput input, String username) {
+        requireMember(communityId, username, true);
+        var season = getChampionship(communityId, championshipId);
+        ensureOpen(season);
+        if (!Set.of("Futebol", "Futsal").contains(season.getSport()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Substituições indisponíveis nesta modalidade");
+        var event = lockOwnedEvent(championshipId, eventId);
+        if (!"LEAGUE".equals(event.getFormat()) || !"SCHEDULED".equals(event.getStatus()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A liga não está agendada");
+        if (input == null || input.teamId() == null || input.outProfileId() == null
+                || input.inProfileId() == null || input.outProfileId().equals(input.inProfileId())
+                || input.minute() == null || input.minute() < 0 || input.minute() > 200)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Substituição inválida");
+        var fixture = fixtures.findById(fixtureId)
+                .filter(f -> f.getEvent().getId().equals(eventId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
+        if (fixture.getHomeScore() == null || fixture.getAwayScore() == null)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Regista primeiro o resultado do jogo");
+        if (!input.teamId().equals(fixture.getHomeTeam().getId())
+                && !input.teamId().equals(fixture.getAwayTeam().getId()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Equipa não participa no jogo");
+        var out = roster.findByChampionshipIdAndProfileId(championshipId, input.outProfileId())
+                .filter(reg -> reg.getTeam().getId().equals(input.teamId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Jogador a sair não está inscrito nesta equipa"));
+        var in = roster.findByChampionshipIdAndProfileId(championshipId, input.inProfileId())
+                .filter(reg -> reg.getTeam().getId().equals(input.teamId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Jogador a entrar não está inscrito nesta equipa"));
+        substitutions.saveAndFlush(CommunityChampionshipSubstitution.builder()
+                .fixture(fixture).team(out.getTeam()).playerOut(out.getProfile()).playerIn(in.getProfile())
+                .matchMinute(input.minute()).recordedAt(Instant.now()).build());
+        return substitutions.findByFixtureIdOrderByMatchMinuteAscIdAsc(fixtureId)
+                .stream().map(this::substitutionResponse).toList();
+    }
+
+    public void removeSubstitution(Long communityId, Long championshipId, Long eventId,
+                                   Long fixtureId, Long substitutionId, String username) {
+        requireMember(communityId, username, true);
+        ensureOpen(getChampionship(communityId, championshipId));
+        lockOwnedEvent(championshipId, eventId);
+        var fixture = fixtures.findById(fixtureId)
+                .filter(f -> f.getEvent().getId().equals(eventId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
+        var substitution = substitutions.findByIdAndFixtureId(substitutionId, fixture.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Substituição não encontrada"));
+        substitutions.delete(substitution);
+    }
+
+    private SubstitutionEvent substitutionResponse(CommunityChampionshipSubstitution item) {
+        var out = item.getPlayerOut();
+        var in = item.getPlayerIn();
+        return new SubstitutionEvent(item.getId(), item.getTeam().getId(), item.getTeam().getName(),
+                out.getId(), displayPlayer(out), in.getId(), displayPlayer(in), item.getMatchMinute());
+    }
+
+    private String displayPlayer(com.example.desporto24.model.Profile player) {
+        return player.getFullName() == null || player.getFullName().isBlank()
+                ? player.getUsername() : player.getFullName();
     }
 
     public record CupBye(Long id, int slot, Long teamId, String teamName) {}
