@@ -513,6 +513,16 @@ public class CommunityChampionshipEventService {
                 .filter(reg -> reg.getTeam().getId().equals(input.teamId()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Jogador a entrar não está inscrito nesta equipa"));
+        // Without confirmed starting lineups, do not infer who is currently on the
+        // pitch. Still reject the exact same substitution being recorded twice.
+        boolean duplicate = substitutions.findByFixtureIdOrderByMatchMinuteAscIdAsc(fixtureId)
+                .stream().anyMatch(change -> change.getTeam().getId().equals(input.teamId())
+                        && change.getMatchMinute() == input.minute()
+                        && change.getPlayerOut().getId().equals(input.outProfileId())
+                        && change.getPlayerIn().getId().equals(input.inProfileId()));
+        if (duplicate)
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Esta substituição já está registada neste jogo e minuto");
         substitutions.saveAndFlush(CommunityChampionshipSubstitution.builder()
                 .fixture(fixture).team(out.getTeam()).playerOut(out.getProfile()).playerIn(in.getProfile())
                 .matchMinute(input.minute()).recordedAt(Instant.now()).build());
