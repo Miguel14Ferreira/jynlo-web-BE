@@ -401,7 +401,10 @@ public class CommunityChampionshipEventService {
                            Long fixtureId, Long goalId, String username) {
         requireMember(communityId, username, true);
         ensureOpen(getChampionship(communityId, championshipId));
-        lockOwnedEvent(championshipId, eventId);
+        var event = lockOwnedEvent(championshipId, eventId);
+        if (!"SCHEDULED".equals(event.getStatus()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "A prova está concluída ou não tem calendário ativo");
         var fixture = fixtures.findById(fixtureId)
                 .filter(row -> row.getEvent().getId().equals(eventId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
@@ -485,7 +488,10 @@ public class CommunityChampionshipEventService {
                            Long fixtureId, Long cardId, String username) {
         requireMember(communityId, username, true);
         ensureOpen(getChampionship(communityId, championshipId));
-        lockOwnedEvent(championshipId, eventId);
+        var event = lockOwnedEvent(championshipId, eventId);
+        if (!"SCHEDULED".equals(event.getStatus()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "A prova está concluída ou não tem calendário ativo");
         var fixture = fixtures.findById(fixtureId)
                 .filter(row -> row.getEvent().getId().equals(eventId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
@@ -556,7 +562,10 @@ public class CommunityChampionshipEventService {
                                    Long fixtureId, Long profileId, String username) {
         requireMember(communityId, username, true);
         ensureOpen(getChampionship(communityId, championshipId));
-        lockOwnedEvent(championshipId, eventId);
+        var event = lockOwnedEvent(championshipId, eventId);
+        if (!"SCHEDULED".equals(event.getStatus()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "A prova está concluída ou não tem calendário ativo");
         var fixture = fixtures.findById(fixtureId)
                 .filter(f -> f.getEvent().getId().equals(eventId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
@@ -640,7 +649,10 @@ public class CommunityChampionshipEventService {
                                    Long fixtureId, Long substitutionId, String username) {
         requireMember(communityId, username, true);
         ensureOpen(getChampionship(communityId, championshipId));
-        lockOwnedEvent(championshipId, eventId);
+        var event = lockOwnedEvent(championshipId, eventId);
+        if (!"SCHEDULED".equals(event.getStatus()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "A prova está concluída ou não tem calendário ativo");
         var fixture = fixtures.findById(fixtureId)
                 .filter(f -> f.getEvent().getId().equals(eventId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
