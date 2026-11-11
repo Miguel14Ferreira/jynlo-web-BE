@@ -137,7 +137,7 @@ class DirectCallServiceTest {
     @Test
     void revokedSessionPermissionPreventsAcceptingAnAlreadyRingingCall() {
         var outgoing = calls.start("ana", "bea", "voice");
-        doThrow(new org.springframework.security.access.AccessDeniedException("Session participation revoked"))
+        lenient().doThrow(new org.springframework.security.access.AccessDeniedException("Session participation revoked"))
                 .when(inbox).requireConversationAccess("bea", "direct", "ana");
 
         assertThrows(org.springframework.security.access.AccessDeniedException.class,
