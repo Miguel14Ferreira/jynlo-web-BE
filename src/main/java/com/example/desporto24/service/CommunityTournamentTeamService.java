@@ -92,7 +92,8 @@ public class CommunityTournamentTeamService {
                     .tournament(tournament).team(selected).profile(recipient)
                     .invitedAt(Instant.now()).build());
             if (teamNotifications != null)
-                teamNotifications.memberInvitation(recipient, inviter, communityId, selected.getName());
+                teamNotifications.memberInvitation(recipient, inviter, communityId, selected.getName(),
+                        TeamInvitationNotificationService.CompetitionTarget.tournament(tournamentId, teamId));
         }
         return toResponse(selected, tournament.getPlayersPerTeam(),
                 playerRepository.findByTournamentIdOrderByTeamIdAscIdAsc(tournamentId).stream()
@@ -182,7 +183,8 @@ public class CommunityTournamentTeamService {
                 target.setPendingAdminProfile(null);
                 teamRepository.saveAndFlush(target);
                 if (teamNotifications != null)
-                    teamNotifications.assigned(player, communityId, target.getName());
+                    teamNotifications.assigned(player, communityId, target.getName(),
+                            TeamInvitationNotificationService.CompetitionTarget.tournament(tournamentId, teamId));
             }
             pendingInvitation.ifPresent(inviteRepository::delete);
             return toResponse(target, tournament.getPlayersPerTeam(),
@@ -203,7 +205,8 @@ public class CommunityTournamentTeamService {
             target.setPendingAdminProfile(null);
             teamRepository.saveAndFlush(target);
             if (teamNotifications != null)
-                teamNotifications.assigned(player, communityId, target.getName());
+                teamNotifications.assigned(player, communityId, target.getName(),
+                            TeamInvitationNotificationService.CompetitionTarget.tournament(tournamentId, teamId));
         }
         pendingInvitation.ifPresent(inviteRepository::delete);
         return toResponse(target, tournament.getPlayersPerTeam(),
@@ -285,7 +288,8 @@ public class CommunityTournamentTeamService {
         selected.setPendingAdminProfile(successor);
         teamRepository.saveAndFlush(selected);
         if (teamNotifications != null)
-            teamNotifications.adminTransfer(successor, current, communityId, selected.getName());
+            teamNotifications.adminTransfer(successor, current, communityId, selected.getName(),
+                    TeamInvitationNotificationService.CompetitionTarget.tournament(tournamentId, teamId));
         return administrationStatus(selected, current);
     }
 
@@ -305,7 +309,8 @@ public class CommunityTournamentTeamService {
                         "Já não pertences à equipa");
             selected.setAdminProfile(current);
             if (teamNotifications != null)
-                teamNotifications.assigned(current, communityId, selected.getName());
+                teamNotifications.assigned(current, communityId, selected.getName(),
+                        TeamInvitationNotificationService.CompetitionTarget.tournament(tournamentId, teamId));
         }
         selected.setPendingAdminProfile(null);
         teamRepository.saveAndFlush(selected);
