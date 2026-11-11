@@ -185,6 +185,7 @@ public class SocialStoryService {
         Notifications notice = new Notifications();
         notice.setUsername(owner.getUsername());
         notice.setRelatedUsername(viewer.getUsername());
+        notice.setStoryId(story.getId());
         notice.setSubject(type == NotificationType.SOCIAL_STORY_LIKED ? "Gosto na Story" : "Resposta à Story");
         notice.setMessage(message);
         notice.setGreeting("");
