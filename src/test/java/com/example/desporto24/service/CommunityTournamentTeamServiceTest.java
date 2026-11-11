@@ -138,6 +138,58 @@ class CommunityTournamentTeamServiceTest {
     }
 
     @Test
+    void firstPlayerWhoAcceptsBecomesTheOnlyAdministrator() {
+        invitee();
+        draft();
+        var azul = team(10L, "Azul");
+        when(teamRepository.findById(10L)).thenReturn(Optional.of(azul));
+        service.joinInvitedTeam(7L, 19L, 10L, "ana");
+        assertEquals(2L, azul.getAdminProfile().getId());
+        assertNull(azul.getPendingAdminProfile());
+        verify(teamRepository).saveAndFlush(azul);
+    }
+
+    @Test
+    void administratorCanTransferOnlyToConfirmedTeammateAfterAcceptance() {
+        var azul = team(10L, "Azul");
+        azul.setAdminProfile(player);
+        var bea = profile(3L, "bea");
+        draft();
+        when(teamRepository.findById(10L)).thenReturn(Optional.of(azul));
+        when(profileRepository.findUserByUsernameIgnoreCase("ana")).thenReturn(Optional.of(player));
+        when(memberRepository.existsByCommunityIdAndProfileId(7L, 2L)).thenReturn(true);
+        when(playerRepository.findByTeamIdAndProfileId(10L, 3L)).thenReturn(Optional.of(
+                CommunityTournamentTeamPlayer.builder().team(azul).profile(bea).build()));
+        when(profileRepository.findById(3L)).thenReturn(Optional.of(bea));
+        var transfer = service.transferAdministration(7L, 19L, 10L, 3L, "ana");
+        assertEquals(2L, transfer.adminProfileId());
+        assertEquals(3L, transfer.pendingProfileId());
+        assertEquals(2L, azul.getAdminProfile().getId(), "Pending handover must not revoke admin");
+
+        when(profileRepository.findUserByUsernameIgnoreCase("bea")).thenReturn(Optional.of(bea));
+        when(memberRepository.existsByCommunityIdAndProfileId(7L, 3L)).thenReturn(true);
+        var accepted = service.respondAdministration(7L, 19L, 10L, true, "bea");
+        assertEquals(3L, accepted.adminProfileId());
+        assertNull(accepted.pendingProfileId());
+        assertFalse(accepted.canAccept());
+    }
+
+    @Test
+    void administratorCannotTransferToNonMemberOrSelf() {
+        var azul = team(10L, "Azul");
+        azul.setAdminProfile(player);
+        draft();
+        when(teamRepository.findById(10L)).thenReturn(Optional.of(azul));
+        when(profileRepository.findUserByUsernameIgnoreCase("ana")).thenReturn(Optional.of(player));
+        when(memberRepository.existsByCommunityIdAndProfileId(7L, 2L)).thenReturn(true);
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> service.transferAdministration(7L, 19L, 10L, 3L, "ana")).getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> service.transferAdministration(7L, 19L, 10L, 2L, "ana")).getStatusCode());
+        assertSame(player, azul.getAdminProfile());
+    }
+
+    @Test
     void acceptingSameInviteTwiceIsIdempotent() {
         invitee();
         draft();
