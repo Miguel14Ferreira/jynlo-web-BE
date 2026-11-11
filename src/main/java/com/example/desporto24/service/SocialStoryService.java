@@ -32,6 +32,9 @@ import java.net.URI;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -71,15 +74,13 @@ public class SocialStoryService {
                 .forEach(group -> groups.add(group.getId()));
         // Avoid passing an empty collection into JPQL IN on different databases.
         if (groups.isEmpty()) groups.add(-1L);
-        return stories.findActiveFeed(Instant.now(), authors, groups, PageRequest.of(0, FEED_LIMIT))
-                .stream().map(story -> response(story, actor)).toList();
+        return responses(stories.findActiveFeed(Instant.now(), authors, groups, PageRequest.of(0, FEED_LIMIT)), actor);
     }
 
     @Transactional(readOnly = true)
     public List<StoryResponse> mine(String username) {
         Profile actor = actor(username);
-        return stories.findTop20ByAuthorIdAndExpiresAtAfterOrderByCreatedAtDesc(actor.getId(), Instant.now())
-                .stream().map(story -> response(story, actor)).toList();
+        return responses(stories.findTop20ByAuthorIdAndExpiresAtAfterOrderByCreatedAtDesc(actor.getId(), Instant.now()), actor);
     }
 
     @Transactional(readOnly = true)
@@ -258,7 +259,24 @@ public class SocialStoryService {
                 .isPresent();
     }
 
+    private List<StoryResponse> responses(List<SocialStory> page, Profile actor) {
+        if (page.isEmpty()) return List.of();
+        Set<Long> ids = page.stream().map(SocialStory::getId).collect(Collectors.toSet());
+        Map<Long, Long> counts = new HashMap<>();
+        for (Object[] row : likes.countByStoryIds(ids)) {
+            counts.put(((Number) row[0]).longValue(), ((Number) row[1]).longValue());
+        }
+        Set<Long> liked = likes.likedStoryIds(ids, actor.getId());
+        return page.stream().map(story -> response(story, actor,
+                counts.getOrDefault(story.getId(), 0L), liked.contains(story.getId()))).toList();
+    }
+
     private StoryResponse response(SocialStory story, Profile actor) {
+        return response(story, actor, likes.countByStoryId(story.getId()),
+                likes.existsByStoryIdAndProfileId(story.getId(), actor.getId()));
+    }
+
+    private StoryResponse response(SocialStory story, Profile actor, long likeCount, boolean likedByMe) {
         Profile author = story.getAuthor();
         Community group = story.getCommunity();
         String name = author.getNickname() != null && !author.getNickname().isBlank()
@@ -272,7 +290,7 @@ public class SocialStoryService {
                 story.getCaption(), story.getMediaUrl(), story.isVideo(),
                 story.getCreatedAt(), story.getExpiresAt(),
                 author.getId().equals(actor.getId()) || (group != null && canManage(group, actor)),
-                likes.countByStoryId(story.getId()), likes.existsByStoryIdAndProfileId(story.getId(), actor.getId()));
+                likeCount, likedByMe);
     }
 
     private Profile actor(String username) {
