@@ -98,6 +98,29 @@ class ChatServiceImplReplyTest {
     }
 
     @Test
+    void sessionOnlyContactIsRateLimitedBeforeSavingOrNotifying() {
+        when(chats.countRecentOutbound(eq("ana"), eq("bea"), any(java.util.Date.class)))
+                .thenReturn(10L);
+        Chat message = message("ana", "bea", "repeated");
+        ResponseStatusException denied = assertThrows(ResponseStatusException.class,
+                () -> service.sendMessage(message));
+        assertEquals(429, denied.getStatusCode().value());
+        verify(chats, never()).save(any());
+        verify(events, never()).publishEvent(any());
+        verify(notifications, never()).save(any());
+    }
+
+    @Test
+    void sessionOnlyContactIsRateLimitedOverAnHour() {
+        when(chats.countRecentOutbound(eq("ana"), eq("bea"), any(java.util.Date.class)))
+                .thenReturn(0L, 60L);
+        assertEquals(429, assertThrows(ResponseStatusException.class,
+                () -> service.sendMessage(message("ana", "bea", "repeated")))
+                .getStatusCode().value());
+        verify(chats, never()).save(any());
+    }
+
+    @Test
     void missingAndInvalidParentIdsDoNotCreateMessages() {
         Chat missing = message("ana", "bea", "no parent");
         missing.setReplyToMessageId(99999L);
