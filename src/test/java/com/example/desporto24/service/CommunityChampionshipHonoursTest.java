@@ -86,6 +86,27 @@ class CommunityChampionshipHonoursTest {
     }
 
     @Test
+    void independentSeasonStillDisplaysLeagueAndCupTrophiesWithoutOverallChampion() {
+        var independent = CommunityChampionship.builder().id(15L).name("Época 2026/27")
+                .sport("Futebol").seasonLabel("2026/27").standingsMode("INDEPENDENT")
+                .closedAt(Instant.parse("2026-11-11T12:00:00Z")).build();
+        var permanent = new CommunityChampionshipHonours.PermanentTeam(99L, "Águias FC");
+        var result = CommunityChampionshipHonours.calculate(7L,
+                List.of(independent), java.util.Map.of(), java.util.Map.of(30L, permanent),
+                java.util.Map.of(15L, List.of(
+                        new com.example.desporto24.model.dto.community.CommunityChampionshipTrophySnapshot(
+                                null, "Liga", "LEAGUE", "TEAM", null, 30L, "Águias", 100L),
+                        new com.example.desporto24.model.dto.community.CommunityChampionshipTrophySnapshot(
+                                null, "Taça", "KNOCKOUT", "TEAM", null, 30L, "Águias", 101L))));
+        assertTrue(result.titles().isEmpty());
+        assertEquals(2, result.competitionTitles().size());
+        assertEquals(1, result.teamHonours().get(0).leagues());
+        assertEquals(1, result.teamHonours().get(0).cups());
+        assertEquals(100L, result.competitionTitles().get(0).ownedEventId());
+        assertNull(result.competitionTitles().get(0).tournamentId());
+    }
+
+    @Test
     void ignoresUnfinishedAndInvalidChampionSnapshots() {
         var result = CommunityChampionshipHonours.calculate(7L, List.of(
                 season(1L, "TEAM", 11L, "Águias", null),
