@@ -70,6 +70,30 @@ class TeamInvitationNotificationServiceTest {
     }
 
     @Test
+    void tournamentInvitationKeepsExactTeamLinkInNotification() {
+        notifications.memberInvitation(player(2L, "ana"), player(1L, "organizador"),
+                7L, "Águias", TeamInvitationNotificationService.CompetitionTarget.tournament(19L, 40L));
+        var captor = ArgumentCaptor.forClass(Notifications.class);
+        verify(repository).save(captor.capture());
+        var sent = captor.getValue();
+        assertEquals(19L, sent.getCompetitionTournamentId());
+        assertEquals(40L, sent.getCompetitionTeamId());
+        assertNull(sent.getCompetitionChampionshipId());
+    }
+
+    @Test
+    void championshipTransferKeepsChampionshipIdInsteadOfTournamentId() {
+        notifications.adminTransfer(player(3L, "bea"), player(2L, "ana"),
+                7L, "Verdes", TeamInvitationNotificationService.CompetitionTarget.championship(15L, 99L));
+        var captor = ArgumentCaptor.forClass(Notifications.class);
+        verify(repository).save(captor.capture());
+        var sent = captor.getValue();
+        assertEquals(15L, sent.getCompetitionChampionshipId());
+        assertEquals(99L, sent.getCompetitionTeamId());
+        assertNull(sent.getCompetitionTournamentId());
+    }
+
+    @Test
     void missingRecipientUsernameNeverCreatesNotification() {
         notifications.memberInvitation(player(4L, null), player(1L, "organizador"), 7L, "Águias");
         verifyNoInteractions(repository);
