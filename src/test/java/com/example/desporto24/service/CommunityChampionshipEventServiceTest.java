@@ -33,6 +33,7 @@ class CommunityChampionshipEventServiceTest {
     @Mock CommunityChampionshipGoalRepository goals;
     @Mock CommunityChampionshipDisciplinaryCardRepository disciplinaryCards;
     @Mock CommunityChampionshipSubstitutionRepository substitutions;
+    @Mock CommunityChampionshipLineupPlayerRepository lineups;
     @Mock CommunityChampionshipCupByeRepository cupByes;
     @Mock CommunityChampionshipTeamRepository championshipTeams;
     @Mock CommunityMemberRepository members;
@@ -632,6 +633,61 @@ class CommunityChampionshipEventServiceTest {
                         new CommunityChampionshipEventService.SubstitutionInput(30L, 41L, 42L, 60),
                         "member"));
         verify(substitutions, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void organizerCanSelectRealStarterForFixture() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("LEAGUE").status("SCHEDULED").build();
+        var home = CommunityChampionshipTeam.builder().id(30L).championship(championship).name("Águias").build();
+        var away = CommunityChampionshipTeam.builder().id(31L).championship(championship).name("Leões").build();
+        var fixture = CommunityChampionshipFixture.builder().id(80L).event(league)
+                .homeTeam(home).awayTeam(away).build();
+        var player = new Profile(); player.setId(44L); player.setUsername("player44");
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
+        when(fixtures.findById(80L)).thenReturn(Optional.of(fixture));
+        when(roster.findByChampionshipIdAndProfileId(15L, 44L)).thenReturn(Optional.of(
+                CommunityChampionshipTeamPlayer.builder().team(home).profile(player).build()));
+        when(lineups.findByFixtureIdAndPlayerId(80L, 44L)).thenReturn(Optional.empty());
+        when(lineups.findByFixtureIdOrderByTeamIdAscIdAsc(80L)).thenReturn(List.of());
+        service.setLineupPlayer(7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.LineupInput(30L, 44L, "STARTER"), "member");
+        var captured = org.mockito.ArgumentCaptor.forClass(CommunityChampionshipLineupPlayer.class);
+        verify(lineups).saveAndFlush(captured.capture());
+        assertEquals("STARTER", captured.getValue().getSelection());
+        assertEquals(44L, captured.getValue().getPlayer().getId());
+    }
+
+    @Test
+    void cannotSelectUnregisteredPlayerOrUnsupportedSelection() {
+        member(CommunityRole.ADMIN);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("LEAGUE").status("SCHEDULED").build();
+        var home = CommunityChampionshipTeam.builder().id(30L).championship(championship).name("Águias").build();
+        var away = CommunityChampionshipTeam.builder().id(31L).championship(championship).name("Leões").build();
+        var fixture = CommunityChampionshipFixture.builder().id(80L).event(league)
+                .homeTeam(home).awayTeam(away).build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
+        assertThrows(ResponseStatusException.class, () -> service.setLineupPlayer(
+                7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.LineupInput(30L, 44L, "INVALID"), "member"));
+        when(fixtures.findById(80L)).thenReturn(Optional.of(fixture));
+        assertThrows(ResponseStatusException.class, () -> service.setLineupPlayer(
+                7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.LineupInput(30L, 44L, "BENCH"), "member"));
+        verify(lineups, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void regularMemberCannotChangeLineup() {
+        member(CommunityRole.MEMBER);
+        assertThrows(AccessDeniedException.class, () -> service.setLineupPlayer(
+                7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.LineupInput(30L, 44L, "STARTER"), "member"));
+        verifyNoInteractions(lineups);
     }
 
     @Test
