@@ -81,6 +81,89 @@ public class CommunityChampionshipTeamsService {
     }
 
     public record TeamPlayer(Long profileId, String username, String displayName, String profilePicUrl) {}
+    public record TeamAdminStatus(Long teamId, Long adminProfileId, Long pendingProfileId,
+                                  boolean canManage, boolean canAccept) {}
+
+    @Transactional(readOnly = true)
+    public TeamAdminStatus administrator(Long communityId, Long championshipId,
+                                         Long teamId, String username) {
+        requireMember(communityId, username);
+        var team = getSeasonTeam(communityId, championshipId, teamId);
+        var actor = profiles.findUserByUsername(username)
+                .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
+        boolean organizer = isOrganizer(communityId, actor.getId());
+        Long adminId = team.getAdminProfile() == null ? null : team.getAdminProfile().getId();
+        Long pendingId = team.getPendingAdminProfile() == null ? null : team.getPendingAdminProfile().getId();
+        // Only the organizer and invited player see the pending identity.
+        return new TeamAdminStatus(teamId, adminId,
+                organizer || actor.getId().equals(pendingId) ? pendingId : null,
+                organizer || actor.getId().equals(adminId), actor.getId().equals(pendingId));
+    }
+
+    /** The organizer nominates a responsible member. No privileges are granted until acceptance. */
+    public TeamAdminStatus inviteAdministrator(Long communityId, Long championshipId,
+                                                Long teamId, Long profileId, String username) {
+        requireOrganizer(communityId, username);
+        ensureOpen(getChampionship(communityId, championshipId));
+        var team = getSeasonTeam(communityId, championshipId, teamId);
+        if (profileId == null || !members.existsByCommunityIdAndProfileId(communityId, profileId))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O responsável deve pertencer à comunidade");
+        var proposed = profiles.findById(profileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Perfil não encontrado"));
+        var existing = playerRegistrations.findByChampionshipIdAndProfileId(championshipId, profileId);
+        if (existing.isPresent() && !existing.get().getTeam().getId().equals(teamId))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "O jogador pertence a outra equipa nesta época");
+        if (team.getAdminProfile() != null && team.getAdminProfile().getId().equals(profileId))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Este perfil já administra a equipa");
+        team.setPendingAdminProfile(proposed);
+        seasonTeams.saveAndFlush(team);
+        return administrator(communityId, championshipId, teamId, username);
+    }
+
+    /** Only the invited account can activate its own team administration. */
+    public TeamAdminStatus respondAdministrator(Long communityId, Long championshipId,
+                                                 Long teamId, boolean accept, String username) {
+        var actor = profiles.findUserByUsername(username)
+                .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
+        var team = getSeasonTeam(communityId, championshipId, teamId);
+        ensureOpen(team.getChampionship());
+        if (team.getPendingAdminProfile() == null ||
+                !actor.getId().equals(team.getPendingAdminProfile().getId()))
+            throw new AccessDeniedException("Não tens um convite de administração para esta equipa");
+        requireMember(communityId, username);
+        if (accept) {
+            var existing = playerRegistrations.findByChampionshipIdAndProfileId(championshipId, actor.getId());
+            if (existing.isPresent() && !existing.get().getTeam().getId().equals(teamId))
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Já pertences a outra equipa nesta época");
+            if (existing.isEmpty()) {
+                playerRegistrations.saveAndFlush(CommunityChampionshipTeamPlayer.builder()
+                        .championship(team.getChampionship()).team(team).profile(actor)
+                        .joinedAt(Instant.now()).build());
+            }
+            team.setAdminProfile(actor);
+        }
+        team.setPendingAdminProfile(null);
+        seasonTeams.saveAndFlush(team);
+        return administrator(communityId, championshipId, teamId, username);
+    }
+
+    private boolean isOrganizer(Long communityId, Long profileId) {
+        return members.findByCommunityIdAndProfileId(communityId, profileId)
+                .map(m -> m.getRole() == CommunityRole.OWNER || m.getRole() == CommunityRole.ADMIN)
+                .orElse(false);
+    }
+
+    private void requireOrganizerOrTeamAdmin(Long communityId, Long championshipId, Long teamId,
+                                             String username) {
+        var actor = profiles.findUserByUsername(username)
+                .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
+        if (!members.existsByCommunityIdAndProfileId(communityId, actor.getId()))
+            throw new AccessDeniedException("Não pertences a esta comunidade");
+        if (isOrganizer(communityId, actor.getId())) return;
+        var team = getSeasonTeam(communityId, championshipId, teamId);
+        if (team.getAdminProfile() == null || !actor.getId().equals(team.getAdminProfile().getId()))
+            throw new AccessDeniedException("Não administras esta equipa");
+    }
 
     @Transactional(readOnly = true)
     public List<TeamPlayer> players(Long communityId, Long championshipId, Long teamId, String username) {
@@ -98,7 +181,7 @@ public class CommunityChampionshipTeamsService {
 
     public List<TeamPlayer> addPlayer(Long communityId, Long championshipId, Long teamId,
                                       Long profileId, String username) {
-        requireOrganizer(communityId, username);
+        requireOrganizerOrTeamAdmin(communityId, championshipId, teamId, username);
         var season = getChampionship(communityId, championshipId);
         ensureOpen(season);
         var team = getSeasonTeam(communityId, championshipId, teamId);
@@ -122,9 +205,13 @@ public class CommunityChampionshipTeamsService {
 
     public void removePlayer(Long communityId, Long championshipId, Long teamId,
                              Long profileId, String username) {
-        requireOrganizer(communityId, username);
+        requireOrganizerOrTeamAdmin(communityId, championshipId, teamId, username);
         ensureOpen(getChampionship(communityId, championshipId));
-        getSeasonTeam(communityId, championshipId, teamId);
+        var managedTeam = getSeasonTeam(communityId, championshipId, teamId);
+        if (managedTeam.getAdminProfile() != null &&
+                managedTeam.getAdminProfile().getId().equals(profileId))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Substitui o administrador antes de o remover do plantel");
         var registration = playerRegistrations.findByChampionshipIdAndProfileId(championshipId, profileId)
                 .filter(reg -> reg.getTeam().getId().equals(teamId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
