@@ -157,6 +157,23 @@ public class CommunityChampionshipEventService {
         }
     }
 
+    /** Provisional table only: the result engine does not yet finalize owned competitions. */
+    @Transactional(readOnly = true)
+    public ChampionshipOwnedLeagueStandings.Table ownedLeagueStandings(
+            Long communityId, Long championshipId, Long eventId, String username) {
+        requireMember(communityId, username, false);
+        var season = getChampionship(communityId, championshipId);
+        if (!Set.of("Futebol", "Futsal").contains(season.getSport()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A classificação desta modalidade requer um motor próprio");
+        var event = getOwnedEvent(championshipId, eventId);
+        if (!"LEAGUE".equals(event.getFormat()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A prova não é uma liga");
+        return ChampionshipOwnedLeagueStandings.calculate(eventId,
+                eventTeams.findByEventIdOrderByIdAsc(eventId),
+                fixtures.findByEventIdOrderByRoundNumberAscMatchNumberAsc(eventId));
+    }
+
     public record MatchScore(int homeScore, int awayScore) {}
 
     /** The scorer must be a community organizer; fixtures are scoped to the season and event. */
