@@ -201,6 +201,31 @@ public class CommunityChampionshipController {
         return ownedEvents.drawCup(communityId, championshipId, eventId, auth.getName());
     }
 
+    @GetMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/cards")
+    public List<com.example.desporto24.service.CommunityChampionshipEventService.CardEvent> fixtureCards(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, @PathVariable Long fixtureId, Authentication auth) {
+        return ownedEvents.cards(communityId, championshipId, eventId, fixtureId, auth.getName());
+    }
+
+    @PostMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/cards")
+    public List<com.example.desporto24.service.CommunityChampionshipEventService.CardEvent> addFixtureCard(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, @PathVariable Long fixtureId,
+            @RequestBody com.example.desporto24.service.CommunityChampionshipEventService.CardInput input,
+            Authentication auth) {
+        return ownedEvents.addCard(communityId, championshipId, eventId, fixtureId, input, auth.getName());
+    }
+
+    @DeleteMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/cards/{cardId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeFixtureCard(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, @PathVariable Long fixtureId,
+            @PathVariable Long cardId, Authentication auth) {
+        ownedEvents.removeCard(communityId, championshipId, eventId, fixtureId, cardId, auth.getName());
+    }
+
     @GetMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/goals")
     public List<com.example.desporto24.service.CommunityChampionshipEventService.GoalEvent> fixtureGoals(
             @PathVariable Long communityId, @PathVariable Long championshipId,
