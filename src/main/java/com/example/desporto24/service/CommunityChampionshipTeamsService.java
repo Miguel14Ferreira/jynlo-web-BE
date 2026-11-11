@@ -26,6 +26,9 @@ public class CommunityChampionshipTeamsService {
     private final ProfileRepository profiles;
     private final CommunityMemberRepository members;
     private final CommunityChampionshipTeamPlayerRepository playerRegistrations;
+    private final CommunityChampionshipGoalRepository goals;
+    private final CommunityChampionshipDisciplinaryCardRepository disciplinaryCards;
+    private final CommunityChampionshipSubstitutionRepository substitutions;
 
     @Transactional(readOnly = true)
     public CommunityChampionshipTeamsResponse list(Long communityId, Long championshipId, String username) {
@@ -125,6 +128,16 @@ public class CommunityChampionshipTeamsService {
                 .filter(reg -> reg.getTeam().getId().equals(teamId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Jogador não inscrito nesta equipa"));
+        // Preserve historical attribution: removing a player after a recorded
+        // event would make match timelines inconsistent with the season roster.
+        if (goals.existsByFixtureEventChampionshipIdAndScorerId(championshipId, profileId)
+                || goals.existsByFixtureEventChampionshipIdAndAssisterId(championshipId, profileId)
+                || disciplinaryCards.existsByFixtureEventChampionshipIdAndPlayerId(championshipId, profileId)
+                || substitutions.existsByFixtureEventChampionshipIdAndPlayerOutId(championshipId, profileId)
+                || substitutions.existsByFixtureEventChampionshipIdAndPlayerInId(championshipId, profileId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Este jogador tem acontecimentos registados. Corrige o histórico antes de o remover do plantel.");
+        }
         playerRegistrations.delete(registration);
     }
 
