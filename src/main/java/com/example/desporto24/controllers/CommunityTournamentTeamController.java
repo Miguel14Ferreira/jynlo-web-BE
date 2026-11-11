@@ -127,6 +127,45 @@ public class CommunityTournamentTeamController {
                 communityId, tournamentId, teamId, authentication.getName());
     }
 
+    public record TeamAdminTransferRequest(@jakarta.validation.constraints.NotNull Long profileId) {}
+
+    @GetMapping("/{teamId}/administrator")
+    public CommunityTournamentTeamService.TeamAdministration teamAdministrator(
+            @PathVariable Long communityId, @PathVariable Long tournamentId,
+            @PathVariable Long teamId, Authentication authentication) {
+        return service.administration(communityId, tournamentId, teamId, authentication.getName());
+    }
+
+    @PostMapping("/{teamId}/administrator/transfer")
+    public CommunityTournamentTeamService.TeamAdministration transferTeamAdministrator(
+            @PathVariable Long communityId, @PathVariable Long tournamentId,
+            @PathVariable Long teamId, @RequestBody @Valid TeamAdminTransferRequest request,
+            Authentication authentication) {
+        return service.transferAdministration(communityId, tournamentId,
+                teamId, request.profileId(), authentication.getName());
+    }
+
+    @PostMapping("/{teamId}/administrator/accept")
+    public CommunityTournamentTeamService.TeamAdministration acceptTeamAdministration(
+            @PathVariable Long communityId, @PathVariable Long tournamentId,
+            @PathVariable Long teamId, Authentication authentication) {
+        return service.respondAdministration(communityId, tournamentId, teamId, true, authentication.getName());
+    }
+
+    @PostMapping("/{teamId}/administrator/decline")
+    public CommunityTournamentTeamService.TeamAdministration declineTeamAdministration(
+            @PathVariable Long communityId, @PathVariable Long tournamentId,
+            @PathVariable Long teamId, Authentication authentication) {
+        return service.respondAdministration(communityId, tournamentId, teamId, false, authentication.getName());
+    }
+
+    @PostMapping("/{teamId}/administrator/cancel")
+    public CommunityTournamentTeamService.TeamAdministration cancelTeamAdministrationTransfer(
+            @PathVariable Long communityId, @PathVariable Long tournamentId,
+            @PathVariable Long teamId, Authentication authentication) {
+        return service.cancelAdministrationTransfer(communityId, tournamentId, teamId, authentication.getName());
+    }
+
     @DeleteMapping("/{teamId}/players/{profileId}")
     public ResponseEntity<Void> removePlayer(
             @PathVariable Long communityId, @PathVariable Long tournamentId,
