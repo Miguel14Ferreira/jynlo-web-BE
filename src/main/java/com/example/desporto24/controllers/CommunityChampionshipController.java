@@ -71,6 +71,38 @@ public class CommunityChampionshipController {
         return championshipTeams.create(communityId, championshipId, request.name(), auth.getName());
     }
 
+    public record TeamAdministratorInviteRequest(@jakarta.validation.constraints.NotNull Long profileId) {}
+
+    @GetMapping("/{championshipId}/teams/{teamId}/administrator")
+    public com.example.desporto24.service.CommunityChampionshipTeamsService.TeamAdminStatus teamAdministrator(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long teamId, Authentication auth) {
+        return championshipTeams.administrator(communityId, championshipId, teamId, auth.getName());
+    }
+
+    @PostMapping("/{championshipId}/teams/{teamId}/administrator/invite")
+    public com.example.desporto24.service.CommunityChampionshipTeamsService.TeamAdminStatus inviteTeamAdministrator(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long teamId, @RequestBody @Valid TeamAdministratorInviteRequest request,
+            Authentication auth) {
+        return championshipTeams.inviteAdministrator(communityId, championshipId,
+                teamId, request.profileId(), auth.getName());
+    }
+
+    @PostMapping("/{championshipId}/teams/{teamId}/administrator/accept")
+    public com.example.desporto24.service.CommunityChampionshipTeamsService.TeamAdminStatus acceptTeamAdministrator(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long teamId, Authentication auth) {
+        return championshipTeams.respondAdministrator(communityId, championshipId, teamId, true, auth.getName());
+    }
+
+    @PostMapping("/{championshipId}/teams/{teamId}/administrator/decline")
+    public com.example.desporto24.service.CommunityChampionshipTeamsService.TeamAdminStatus declineTeamAdministrator(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long teamId, Authentication auth) {
+        return championshipTeams.respondAdministrator(communityId, championshipId, teamId, false, auth.getName());
+    }
+
     public record AddSeasonTeamPlayerRequest(@jakarta.validation.constraints.NotNull Long profileId) {}
 
     @GetMapping("/{championshipId}/teams/{teamId}/players")
