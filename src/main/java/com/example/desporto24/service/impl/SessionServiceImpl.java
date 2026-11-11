@@ -337,6 +337,8 @@ public class SessionServiceImpl implements SessionService {
         session.setGameDate(Date.from(gameDate));
         session.setCity(linkedVenue == null ? request.city() : linkedVenue.getCity());
         session.setAddress(linkedVenue == null ? request.address() : linkedVenue.getAddress());
+        session.setDescription(request.description() == null || request.description().isBlank()
+                ? null : request.description().trim());
         String arrivalNote = request.meetingPointInstructions();
         session.setMeetingPointInstructions(arrivalNote == null || arrivalNote.isBlank()
                 ? null : arrivalNote.trim());
@@ -836,7 +838,7 @@ public class SessionServiceImpl implements SessionService {
     @Transactional
     public SessionDetailResponse updateDetails(Long sessionId, String sport, Instant gameDate,
             int maxParticipants, int minParticipants, BigDecimal priceAmount,
-            String city, String address, String meetingPointInstructions, String username) {
+            String city, String address, String meetingPointInstructions, String description, String username) {
         Session session = sessionRepository.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new SessionNotFound("Session not found"));
         Profile actor = profileRepository.findUserByUsername(username)
@@ -901,6 +903,11 @@ public class SessionServiceImpl implements SessionService {
                     org.springframework.http.HttpStatus.CONFLICT,
                     "A morada de um recinto associado deve ser alterada selecionando outro recinto");
         }
+        if (description != null && (description.length() > 1000
+                || description.codePoints().anyMatch(cp -> Character.isISOControl(cp)
+                        && cp != '\\n' && cp != '\\r' && cp != '\\t'))) {
+            throw new IllegalArgumentException("Descrição da sessão inválida");
+        }
         if (meetingPointInstructions != null
                 && (meetingPointInstructions.length() > 240
                 || meetingPointInstructions.codePoints().anyMatch(Character::isISOControl))) {
@@ -924,7 +931,10 @@ public class SessionServiceImpl implements SessionService {
                 || !java.util.Objects.equals(
                         meetingPointInstructions == null || meetingPointInstructions.isBlank()
                                 ? null : meetingPointInstructions.trim(),
-                        session.getMeetingPointInstructions());
+                        session.getMeetingPointInstructions())
+                || !java.util.Objects.equals(
+                        description == null || description.isBlank() ? null : description.trim(),
+                        session.getDescription());
         int previousCapacity = session.getMaxParticipants();
         if (sportChanged) {
             session.setSport(selectedSport);
@@ -946,6 +956,7 @@ public class SessionServiceImpl implements SessionService {
         session.setMeetingPointInstructions(
                 meetingPointInstructions == null || meetingPointInstructions.isBlank()
                         ? null : meetingPointInstructions.trim());
+        session.setDescription(description == null || description.isBlank() ? null : description.trim());
         session.setStatus(confirmed == maxParticipants ? SessionStatus.FULL : SessionStatus.OPEN);
         session.setUpdatedAt(now);
         sessionRepository.save(session);
