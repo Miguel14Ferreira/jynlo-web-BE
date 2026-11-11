@@ -162,6 +162,44 @@ class SocialStoryServiceTest {
         verifyNoInteractions(notificationService);
     }
 
+    @Test
+    void storyLikeCanBeToggledAndNotifiesOnlyOnFirstLike() {
+        Profile owner = new Profile();
+        owner.setId(20L);
+        owner.setUsername("maria");
+        SocialStory story = SocialStory.builder().id(7L).author(owner)
+                .createdAt(Instant.now()).expiresAt(Instant.now().plusSeconds(3600)).build();
+        when(stories.findById(7L)).thenReturn(Optional.of(story));
+        when(likes.existsByStoryIdAndProfileId(7L, 19L)).thenReturn(false, true, true);
+        when(likes.countByStoryId(7L)).thenReturn(1L);
+        when(notificationPreferences.allowsInApp("maria",
+                com.example.desporto24.enumeration.NotificationType.SOCIAL_STORY_LIKED)).thenReturn(true);
+        StoryResponse first = service.like(7L, "joao");
+        assertTrue(first.likedByMe());
+        assertEquals(1L, first.likeCount());
+        service.like(7L, "joao");
+        verify(likes, times(1)).save(any());
+        verify(notificationService, times(1)).save(argThat(n ->
+                n.getStoryId().equals(7L) &&
+                n.getType() == com.example.desporto24.enumeration.NotificationType.SOCIAL_STORY_LIKED));
+        service.unlike(7L, "joao");
+        verify(likes).deleteByStoryIdAndProfileId(7L, 19L);
+    }
+
+    @Test
+    void storyRepliesRejectEmptyAndExcessivelyLongText() {
+        Profile owner = new Profile();
+        owner.setId(20L);
+        owner.setUsername("maria");
+        SocialStory story = SocialStory.builder().id(8L).author(owner)
+                .createdAt(Instant.now()).expiresAt(Instant.now().plusSeconds(3600)).build();
+        when(stories.findById(8L)).thenReturn(Optional.of(story));
+        assertThrows(IllegalArgumentException.class, () -> service.reply(8L, "joao", "  "));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.reply(8L, "joao", "x".repeat(501)));
+        verifyNoInteractions(notificationService);
+    }
+
     private Community publicCommunity() {
         Profile owner = new Profile();
         owner.setId(200L);
