@@ -78,6 +78,18 @@ class CommunityChampionshipEventServiceTest {
     }
 
     @Test
+    void cannotCreateUnfinishableOwnedSupercupOrOtherFormat() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        for (String format : List.of("SUPERCUP", "OTHER")) {
+            assertThrows(ResponseStatusException.class,
+                    () -> service.create(7L, 15L, "member",
+                            new CommunityChampionshipEventService.CreateEvent("Prova", format)));
+        }
+        verify(events, never()).save(any());
+    }
+
+    @Test
     void refusesCreationByOrdinaryMember() {
         member(CommunityRole.MEMBER);
         assertThrows(AccessDeniedException.class, () -> service.create(7L, 15L,
