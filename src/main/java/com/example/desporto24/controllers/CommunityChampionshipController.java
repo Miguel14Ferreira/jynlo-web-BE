@@ -190,6 +190,14 @@ public class CommunityChampionshipController {
         return championships.setStandingsMode(communityId, championshipId, request.mode(), auth.getName());
     }
 
+    /** A season can be removed before any result or player event is recorded. */
+    @DeleteMapping("/{championshipId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteUnplayed(@PathVariable Long communityId,
+                               @PathVariable Long championshipId, Authentication auth) {
+        championships.deleteUnplayed(communityId, championshipId, auth.getName());
+    }
+
     @PostMapping("/{championshipId}/close")
     public CommunityChampionshipResponse close(
             @PathVariable Long communityId, @PathVariable Long championshipId, Authentication auth) {
