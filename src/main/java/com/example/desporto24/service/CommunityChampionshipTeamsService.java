@@ -123,7 +123,8 @@ public class CommunityChampionshipTeamsService {
                 .championship(championship).team(selected).profile(player).invitedAt(Instant.now()).build());
         if (teamNotifications != null) {
             var sender = profiles.findUserByUsername(username).orElse(null);
-            teamNotifications.memberInvitation(player, sender, communityId, selected.getName());
+            teamNotifications.memberInvitation(player, sender, communityId, selected.getName(),
+                    TeamInvitationNotificationService.CompetitionTarget.championship(championshipId, teamId));
         }
     }
 
@@ -150,7 +151,8 @@ public class CommunityChampionshipTeamsService {
                 team.setPendingAdminProfile(null);
                 seasonTeams.saveAndFlush(team);
                 if (teamNotifications != null)
-                    teamNotifications.assigned(current, communityId, team.getName());
+                    teamNotifications.assigned(current, communityId, team.getName(),
+                            TeamInvitationNotificationService.CompetitionTarget.championship(championshipId, teamId));
             }
         }
         teamInvites.delete(invite);
@@ -188,7 +190,8 @@ public class CommunityChampionshipTeamsService {
         team.setPendingAdminProfile(existing.get().getProfile());
         seasonTeams.saveAndFlush(team);
         if (teamNotifications != null)
-            teamNotifications.adminTransfer(existing.get().getProfile(), actor, communityId, team.getName());
+            teamNotifications.adminTransfer(existing.get().getProfile(), actor, communityId, team.getName(),
+                    TeamInvitationNotificationService.CompetitionTarget.championship(championshipId, teamId));
         return administrator(communityId, championshipId, teamId, username);
     }
 
@@ -211,7 +214,8 @@ public class CommunityChampionshipTeamsService {
                         "Já não pertences a esta equipa");
             team.setAdminProfile(actor);
             if (teamNotifications != null)
-                teamNotifications.assigned(actor, communityId, team.getName());
+                teamNotifications.assigned(actor, communityId, team.getName(),
+                        TeamInvitationNotificationService.CompetitionTarget.championship(championshipId, teamId));
         }
         team.setPendingAdminProfile(null);
         seasonTeams.saveAndFlush(team);
