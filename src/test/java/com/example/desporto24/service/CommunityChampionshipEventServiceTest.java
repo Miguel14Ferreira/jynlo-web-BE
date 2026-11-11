@@ -544,6 +544,32 @@ class CommunityChampionshipEventServiceTest {
     }
 
     @Test
+    void cupRejectsDrawAndEditsToPreviousRounds() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var cup = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("CUP").status("SCHEDULED").build();
+        var a = CommunityChampionshipTeam.builder().id(30L).name("Águias").build();
+        var b = CommunityChampionshipTeam.builder().id(31L).name("Leões").build();
+        var oldGame = CommunityChampionshipFixture.builder().id(80L).event(cup)
+                .roundNumber(1).matchNumber(1).homeTeam(a).awayTeam(b)
+                .homeScore(2).awayScore(0).build();
+        var newGame = CommunityChampionshipFixture.builder().id(81L).event(cup)
+                .roundNumber(2).matchNumber(1).homeTeam(a).awayTeam(b).build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(cup));
+        when(fixtures.findById(80L)).thenReturn(Optional.of(oldGame));
+        when(fixtures.findByEventIdOrderByRoundNumberAscMatchNumberAsc(100L))
+                .thenReturn(List.of(oldGame, newGame));
+        assertThrows(ResponseStatusException.class, () -> service.recordFixtureScore(
+                7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.MatchScore(2, 2), "member"));
+        assertThrows(ResponseStatusException.class, () -> service.recordFixtureScore(
+                7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.MatchScore(3, 1), "member"));
+        verify(fixtures, never()).saveAndFlush(any());
+    }
+
+    @Test
     void refusesInvalidOrCrossEventScoresWithoutPersisting() {
         member(CommunityRole.OWNER);
         when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
