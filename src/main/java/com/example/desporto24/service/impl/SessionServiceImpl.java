@@ -932,9 +932,9 @@ public class SessionServiceImpl implements SessionService {
                         meetingPointInstructions == null || meetingPointInstructions.isBlank()
                                 ? null : meetingPointInstructions.trim(),
                         session.getMeetingPointInstructions())
-                || !java.util.Objects.equals(
-                        description == null || description.isBlank() ? null : description.trim(),
-                        session.getDescription());
+                || (description != null && !java.util.Objects.equals(
+                        description.isBlank() ? null : description.trim(),
+                        session.getDescription()));
         int previousCapacity = session.getMaxParticipants();
         if (sportChanged) {
             session.setSport(selectedSport);
@@ -956,7 +956,11 @@ public class SessionServiceImpl implements SessionService {
         session.setMeetingPointInstructions(
                 meetingPointInstructions == null || meetingPointInstructions.isBlank()
                         ? null : meetingPointInstructions.trim());
-        session.setDescription(description == null || description.isBlank() ? null : description.trim());
+        // Omitted by older clients: keep the previously saved description.
+        // An explicit empty string from the editor clears it.
+        if (description != null) {
+            session.setDescription(description.isBlank() ? null : description.trim());
+        }
         session.setStatus(confirmed == maxParticipants ? SessionStatus.FULL : SessionStatus.OPEN);
         session.setUpdatedAt(now);
         sessionRepository.save(session);
