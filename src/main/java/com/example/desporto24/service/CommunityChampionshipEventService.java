@@ -5,6 +5,7 @@ import com.example.desporto24.model.community.CommunityChampionshipEvent;
 import com.example.desporto24.model.community.CommunityChampionshipGoal;
 import com.example.desporto24.model.community.CommunityChampionshipDisciplinaryCard;
 import com.example.desporto24.model.community.CommunityChampionshipSubstitution;
+import com.example.desporto24.model.community.CommunityChampionshipLineupPlayer;
 import com.example.desporto24.model.community.CommunityChampionship;
 import com.example.desporto24.model.community.CommunityChampionshipEventTeam;
 import com.example.desporto24.model.community.CommunityChampionshipCupBye;
@@ -15,6 +16,7 @@ import com.example.desporto24.repository.community.CommunityChampionshipReposito
 import com.example.desporto24.repository.community.CommunityChampionshipGoalRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipDisciplinaryCardRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipSubstitutionRepository;
+import com.example.desporto24.repository.community.CommunityChampionshipLineupPlayerRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipTeamPlayerRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipEventRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipEventTeamRepository;
@@ -54,6 +56,7 @@ public class CommunityChampionshipEventService {
     private final CommunityChampionshipGoalRepository goals;
     private final CommunityChampionshipDisciplinaryCardRepository disciplinaryCards;
     private final CommunityChampionshipSubstitutionRepository substitutions;
+    private final CommunityChampionshipLineupPlayerRepository lineups;
     private final ProfileRepository profiles;
 
     public record CreateEvent(String name, String format) {}
@@ -463,6 +466,74 @@ public class CommunityChampionshipEventService {
                         ? profile.getUsername() : profile.getFullName(),
                 card.getTeam().getId(), card.getTeam().getName(),
                 card.getCardType(), card.getMatchMinute());
+    }
+
+    public record LineupInput(Long teamId, Long profileId, String selection) {}
+    public record LineupPlayer(Long id, Long teamId, Long profileId, String playerName, String selection) {}
+
+    @Transactional(readOnly = true)
+    public List<LineupPlayer> matchLineup(Long communityId, Long championshipId, Long eventId,
+                                        Long fixtureId, String username) {
+        requireMember(communityId, username, false);
+        getChampionship(communityId, championshipId);
+        getOwnedEvent(championshipId, eventId);
+        var fixture = fixtures.findById(fixtureId)
+                .filter(f -> f.getEvent().getId().equals(eventId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
+        return lineups.findByFixtureIdOrderByTeamIdAscIdAsc(fixture.getId())
+                .stream().map(this::lineupResponse).toList();
+    }
+
+    public List<LineupPlayer> setLineupPlayer(Long communityId, Long championshipId, Long eventId,
+                                             Long fixtureId, LineupInput input, String username) {
+        requireMember(communityId, username, true);
+        var season = getChampionship(communityId, championshipId);
+        ensureOpen(season);
+        if (!Set.of("Futebol", "Futsal").contains(season.getSport()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Escalação requer regras específicas para esta modalidade");
+        var event = lockOwnedEvent(championshipId, eventId);
+        if (!"LEAGUE".equals(event.getFormat()) || !"SCHEDULED".equals(event.getStatus()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Liga sem calendário ativo");
+        if (input == null || input.teamId() == null || input.profileId() == null
+                || !Set.of("STARTER", "BENCH").contains(input.selection() == null ? "" : input.selection()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Escalação inválida");
+        var fixture = fixtures.findById(fixtureId)
+                .filter(f -> f.getEvent().getId().equals(eventId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
+        if (!input.teamId().equals(fixture.getHomeTeam().getId())
+                && !input.teamId().equals(fixture.getAwayTeam().getId()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Equipa fora deste jogo");
+        var member = roster.findByChampionshipIdAndProfileId(championshipId, input.profileId())
+                .filter(reg -> reg.getTeam().getId().equals(input.teamId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "O jogador não pertence ao plantel desta equipa"));
+        var existing = lineups.findByFixtureIdAndPlayerId(fixtureId, input.profileId());
+        var record = existing.orElseGet(() -> CommunityChampionshipLineupPlayer.builder()
+                .fixture(fixture).team(member.getTeam()).player(member.getProfile()).build());
+        record.setSelection(input.selection());
+        record.setUpdatedAt(Instant.now());
+        lineups.saveAndFlush(record);
+        return lineups.findByFixtureIdOrderByTeamIdAscIdAsc(fixtureId)
+                .stream().map(this::lineupResponse).toList();
+    }
+
+    public void removeLineupPlayer(Long communityId, Long championshipId, Long eventId,
+                                   Long fixtureId, Long profileId, String username) {
+        requireMember(communityId, username, true);
+        ensureOpen(getChampionship(communityId, championshipId));
+        lockOwnedEvent(championshipId, eventId);
+        var fixture = fixtures.findById(fixtureId)
+                .filter(f -> f.getEvent().getId().equals(eventId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogo não encontrado"));
+        var registration = lineups.findByFixtureIdAndPlayerId(fixtureId, profileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Jogador não está nesta escalação"));
+        lineups.delete(registration);
+    }
+
+    private LineupPlayer lineupResponse(CommunityChampionshipLineupPlayer entry) {
+        return new LineupPlayer(entry.getId(), entry.getTeam().getId(), entry.getPlayer().getId(),
+                displayPlayer(entry.getPlayer()), entry.getSelection());
     }
 
     public record SubstitutionInput(Long teamId, Long outProfileId, Long inProfileId, Integer minute) {}
