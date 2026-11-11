@@ -38,6 +38,8 @@ public class CommunityTournamentTeamService {
     private final CommunityTournamentTeamRepository teamRepository;
     private final CommunityTournamentTeamPlayerRepository playerRepository;
     private final CommunityTournamentSuspensionService suspensionService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private TeamInvitationNotificationService teamNotifications;
 
     public CommunityTournamentTeamResponse createTeam(
             Long communityId, Long tournamentId, String username, String name) {
@@ -122,6 +124,8 @@ public class CommunityTournamentTeamService {
                 target.setAdminProfile(player);
                 target.setPendingAdminProfile(null);
                 teamRepository.saveAndFlush(target);
+                if (teamNotifications != null)
+                    teamNotifications.assigned(player, communityId, target.getName());
             }
             return toResponse(target, tournament.getPlayersPerTeam(),
                     playerRepository.findByTournamentIdOrderByTeamIdAscIdAsc(tournamentId)
@@ -140,6 +144,8 @@ public class CommunityTournamentTeamService {
             target.setAdminProfile(player);
             target.setPendingAdminProfile(null);
             teamRepository.saveAndFlush(target);
+            if (teamNotifications != null)
+                teamNotifications.assigned(player, communityId, target.getName());
         }
         return toResponse(target, tournament.getPlayersPerTeam(),
                 playerRepository.findByTournamentIdOrderByTeamIdAscIdAsc(tournamentId)
@@ -216,6 +222,8 @@ public class CommunityTournamentTeamService {
         Profile successor = profileRepository.findById(successorId).orElseThrow(this::notFound);
         selected.setPendingAdminProfile(successor);
         teamRepository.saveAndFlush(selected);
+        if (teamNotifications != null)
+            teamNotifications.adminTransfer(successor, current, communityId, selected.getName());
         return administrationStatus(selected, current);
     }
 
@@ -234,6 +242,8 @@ public class CommunityTournamentTeamService {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                         "Já não pertences à equipa");
             selected.setAdminProfile(current);
+            if (teamNotifications != null)
+                teamNotifications.assigned(current, communityId, selected.getName());
         }
         selected.setPendingAdminProfile(null);
         teamRepository.saveAndFlush(selected);
