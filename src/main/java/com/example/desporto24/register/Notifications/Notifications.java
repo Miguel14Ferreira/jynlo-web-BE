@@ -80,6 +80,9 @@ public class Notifications {
     @Column(name = "post_id")
     private Long postId;
 
+    @Column(name = "story_id")
+    private Long storyId;
+
     @Column(name = "read", nullable = false)
     private boolean read;
 
