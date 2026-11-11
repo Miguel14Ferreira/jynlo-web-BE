@@ -239,6 +239,9 @@ public class CommunityTournamentTeamService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Retira primeiro os jogadores da equipa");
         }
+        // Invitations are not roster members; remove them before deleting
+        // an empty team so no invitation references a deleted team.
+        inviteRepository.deleteByTeamId(teamId);
         teamRepository.delete(team);
     }
 
