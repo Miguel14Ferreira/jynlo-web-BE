@@ -34,8 +34,10 @@ public final class CommunityChampionshipHonours {
         List<CommunityChampionshipHonoursResponse.Title> titles = new ArrayList<>();
         Map<Long, IndividualBuilder> individuals = new HashMap<>();
         Map<Long, TeamBuilder> teams = new HashMap<>();
+        int closedIndependentSeasons = 0;
         for (CommunityChampionship season : seasons) {
             if (season.getClosedAt() == null) continue;
+            if ("INDEPENDENT".equals(season.getStandingsMode())) closedIndependentSeasons++;
             String kind = season.getChampionEntryType();
             boolean hasOverallChampion = season.getChampionParticipantId() != null
                     && season.getChampionDisplayName() != null
@@ -99,7 +101,8 @@ public final class CommunityChampionshipHonours {
                         .thenComparing(CommunityChampionshipHonoursResponse.TeamHonour::name)
                         .thenComparing(CommunityChampionshipHonoursResponse.TeamHonour::permanentTeamId))
                 .toList();
-        return new CommunityChampionshipHonoursResponse(communityId, titles.size(),
+        return new CommunityChampionshipHonoursResponse(communityId,
+                titles.size() + closedIndependentSeasons,
                 List.copyOf(titles), leaders, teamLeaders, List.copyOf(competitionTitles));
     }
 
