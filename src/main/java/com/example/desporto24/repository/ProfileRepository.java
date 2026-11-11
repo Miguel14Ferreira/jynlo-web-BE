@@ -36,6 +36,10 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
      List<Profile> findTop2ByEmailIgnoreCase(String email);
      Optional<Profile> findUserByUsername(String username);
      Optional<Profile> findUserByUsernameIgnoreCase(String username);
+     /** Serialize session-only outbound chat quotas across application instances. */
+     @Lock(LockModeType.PESSIMISTIC_WRITE)
+     @Query("SELECT p FROM Profile p WHERE LOWER(p.username) = LOWER(:username)")
+     Optional<Profile> lockForSessionChatQuota(@Param("username") String username);
      Optional<Profile> findUserByPhone(String phone);
      Optional<Profile> findUserByOldEmail(String email);
      Optional<Profile> findUserByUserId(String userId);
