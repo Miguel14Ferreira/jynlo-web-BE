@@ -27,4 +27,14 @@ public class CommunityChampionshipEvent {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    @Column(name = "finalized_at")
+    private Instant finalizedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "winner_team_id")
+    private CommunityChampionshipTeam winnerTeam;
+
+    @Column(name = "winner_team_name", length = 120)
+    private String winnerTeamName;
 }
