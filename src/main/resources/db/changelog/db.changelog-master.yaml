@@ -372,3 +372,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-10-championship-goal-scorers.yaml
   - include:
       file: db/changelog/changes/2026-11-11-championship-goal-assists.yaml
+  - include:
+      file: db/changelog/changes/2026-11-11-championship-discipline.yaml
