@@ -2,6 +2,7 @@ package com.example.desporto24.service;
 
 import com.example.desporto24.enumeration.CommunityRole;
 import com.example.desporto24.model.community.CommunityChampionshipEvent;
+import com.example.desporto24.model.community.CommunityChampionshipGoal;
 import com.example.desporto24.model.community.CommunityChampionship;
 import com.example.desporto24.model.community.CommunityChampionshipEventTeam;
 import com.example.desporto24.model.community.CommunityChampionshipCupBye;
@@ -9,6 +10,8 @@ import com.example.desporto24.model.community.CommunityChampionshipTeam;
 import com.example.desporto24.model.community.CommunityMember;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipRepository;
+import com.example.desporto24.repository.community.CommunityChampionshipGoalRepository;
+import com.example.desporto24.repository.community.CommunityChampionshipTeamPlayerRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipEventRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipEventTeamRepository;
 import com.example.desporto24.repository.community.CommunityChampionshipTeamRepository;
