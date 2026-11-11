@@ -60,7 +60,12 @@ public class CommunityChampionshipEventService {
     private final ProfileRepository profiles;
 
     public record CreateEvent(String name, String format) {}
-    public record Event(Long id, Long championshipId, String name, String format, String status, Instant createdAt) {}
+    public record Event(Long id, Long championshipId, String name, String format, String status,
+                        Instant createdAt, Instant finalizedAt, Long winnerTeamId, String winnerTeamName) {
+        public Event(Long id, Long championshipId, String name, String format, String status, Instant createdAt) {
+            this(id, championshipId, name, format, status, createdAt, null, null, null);
+        }
+    }
     public record TeamRegistration(Long id, Long championshipTeamId, String name) {}
 
     @Transactional(readOnly = true)
@@ -166,7 +171,37 @@ public class CommunityChampionshipEventService {
         }
     }
 
-    /** Provisional table only: the result engine does not yet finalize owned competitions. */
+    /** Confirm a league winner only after every fixture has a valid result and
+     * the leading team is unambiguous under the supported ranking rules. */
+    public Event finalizeLeague(Long communityId, Long championshipId, Long eventId, String username) {
+        requireMember(communityId, username, true);
+        var championship = getChampionship(communityId, championshipId);
+        ensureOpen(championship);
+        if (!Set.of("Futebol", "Futsal").contains(championship.getSport()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Este desporto requer um motor de classificação específico");
+        var event = lockOwnedEvent(championshipId, eventId);
+        if (!"LEAGUE".equals(event.getFormat()) || !"SCHEDULED".equals(event.getStatus()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A liga não está pronta para concluir");
+        var table = ChampionshipOwnedLeagueStandings.calculate(eventId,
+                eventTeams.findByEventIdOrderByIdAsc(eventId),
+                fixtures.findByEventIdOrderByRoundNumberAscMatchNumberAsc(eventId));
+        if (!table.completed() || table.firstPlaceTied() || table.standings().size() < 2)
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Conclui todos os jogos e resolve o empate no primeiro lugar");
+        var winnerId = table.standings().get(0).teamId();
+        var winner = championshipTeams.findById(winnerId)
+                .filter(team -> team.getChampionship().getId().equals(championshipId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
+                        "A equipa vencedora já não pertence a este campeonato"));
+        event.setWinnerTeam(winner);
+        event.setWinnerTeamName(winner.getName());
+        event.setFinalizedAt(Instant.now());
+        event.setStatus("COMPLETED");
+        return response(events.saveAndFlush(event));
+    }
+
+    /** League table from recorded fixtures; completed leagues are immutable. */
     @Transactional(readOnly = true)
     public ChampionshipOwnedLeagueStandings.Table ownedLeagueStandings(
             Long communityId, Long championshipId, Long eventId, String username) {
@@ -742,7 +777,9 @@ public class CommunityChampionshipEventService {
 
     private Event response(CommunityChampionshipEvent event) {
         return new Event(event.getId(), event.getChampionship().getId(), event.getName(),
-                event.getFormat(), event.getStatus(), event.getCreatedAt());
+                event.getFormat(), event.getStatus(), event.getCreatedAt(),
+                event.getFinalizedAt(), event.getWinnerTeam() == null ? null : event.getWinnerTeam().getId(),
+                event.getWinnerTeamName());
     }
 
     private void requireMember(Long communityId, String username, boolean organizer) {
