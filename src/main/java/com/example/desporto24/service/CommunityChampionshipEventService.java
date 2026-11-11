@@ -300,7 +300,11 @@ public class CommunityChampionshipEventService {
     public List<LeagueFixture> scheduleLeague(Long communityId, Long championshipId,
                                                Long eventId, int legs, String username) {
         requireMember(communityId, username, true);
-        ensureOpen(getChampionship(communityId, championshipId));
+        var championship = getChampionship(communityId, championshipId);
+        ensureOpen(championship);
+        if (!Set.of("Futebol", "Futsal").contains(championship.getSport()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Esta modalidade ainda não tem motor de resultados para ligas internas");
         CommunityChampionshipEvent event = events.lockForScheduling(eventId, championshipId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Liga não encontrada neste campeonato"));
@@ -705,7 +709,11 @@ public class CommunityChampionshipEventService {
     public CupOpeningRound drawCup(Long communityId, Long championshipId,
                                    Long eventId, String username) {
         requireMember(communityId, username, true);
-        ensureOpen(getChampionship(communityId, championshipId));
+        var championship = getChampionship(communityId, championshipId);
+        ensureOpen(championship);
+        if (!Set.of("Futebol", "Futsal").contains(championship.getSport()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Esta modalidade ainda não tem motor de eliminatórias compatível");
         CommunityChampionshipEvent event = lockOwnedEvent(championshipId, eventId);
         if (!"CUP".equals(event.getFormat()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A prova não é uma taça");
