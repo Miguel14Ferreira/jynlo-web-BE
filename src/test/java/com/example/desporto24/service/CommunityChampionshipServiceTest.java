@@ -421,6 +421,71 @@ class CommunityChampionshipServiceTest {
     }
 
     @Test
+    void closesSeasonFromCompletedOwnLeagueAndCupAndArchivesBothTrophies() {
+        organizer();
+        when(members.existsByCommunityIdAndProfileId(7L, 33L)).thenReturn(true);
+        var team = CommunityChampionshipTeam.builder().id(30L).name("Águias")
+                .championship(championship).build();
+        var league = CommunityChampionshipEvent.builder().id(100L).name("Liga")
+                .championship(championship).format("LEAGUE").status("COMPLETED")
+                .winnerTeam(team).winnerTeamName("Águias")
+                .finalizedAt(Instant.now()).build();
+        var cup = CommunityChampionshipEvent.builder().id(101L).name("Taça")
+                .championship(championship).format("CUP").status("COMPLETED")
+                .winnerTeam(team).winnerTeamName("Águias")
+                .finalizedAt(Instant.now()).build();
+        when(championships.findForClosing(15L, 7L)).thenReturn(Optional.of(championship));
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        when(ownedEvents.findByChampionshipIdOrderByCreatedAtAscIdAsc(15L))
+                .thenReturn(java.util.List.of(league, cup));
+        when(championships.saveAndFlush(championship)).thenReturn(championship);
+        var result = service.close(7L, 15L, "organizer");
+        assertNotNull(result.closedAt());
+        assertEquals("TEAM", result.championEntryType());
+        assertEquals(30L, result.championParticipantId());
+        assertTrue(championship.getFinalTrophiesJson().contains("ownedEventId"));
+        assertTrue(championship.getFinalTrophiesJson().contains("Liga"));
+        assertTrue(championship.getFinalTrophiesJson().contains("Taça"));
+        assertEquals(20, service.standings(7L, 15L, "organizer").standings().get(0).points());
+    }
+
+    @Test
+    void independentSeasonCanCloseWithOwnCupWithoutCreatingOverallChampion() {
+        organizer();
+        when(members.existsByCommunityIdAndProfileId(7L, 33L)).thenReturn(true);
+        championship.setStandingsMode("INDEPENDENT");
+        var team = CommunityChampionshipTeam.builder().id(30L).name("Águias")
+                .championship(championship).build();
+        var cup = CommunityChampionshipEvent.builder().id(101L).name("Taça")
+                .championship(championship).format("CUP").status("COMPLETED")
+                .winnerTeam(team).winnerTeamName("Águias")
+                .finalizedAt(Instant.now()).build();
+        when(championships.findForClosing(15L, 7L)).thenReturn(Optional.of(championship));
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        when(ownedEvents.findByChampionshipIdOrderByCreatedAtAscIdAsc(15L))
+                .thenReturn(java.util.List.of(cup));
+        when(championships.saveAndFlush(championship)).thenReturn(championship);
+        var closed = service.close(7L, 15L, "organizer");
+        assertNotNull(closed.closedAt());
+        assertNull(closed.championParticipantId());
+        assertTrue(championship.getFinalStandingsJson().contains("standings"));
+        assertTrue(championship.getFinalTrophiesJson().contains("Taça"));
+    }
+
+    @Test
+    void unfinishedOwnCupPreventsSeasonClose() {
+        organizer();
+        var cup = CommunityChampionshipEvent.builder().id(101L).name("Taça")
+                .championship(championship).format("CUP").status("SCHEDULED").build();
+        when(championships.findForClosing(15L, 7L)).thenReturn(Optional.of(championship));
+        when(ownedEvents.findByChampionshipIdOrderByCreatedAtAscIdAsc(15L))
+                .thenReturn(java.util.List.of(cup));
+        assertThrows(ResponseStatusException.class,
+                () -> service.close(7L, 15L, "organizer"));
+        verify(championships, never()).saveAndFlush(any());
+    }
+
+    @Test
     void deniesCreationToNonOrganizer() {
         Profile actor = new Profile();
         actor.setId(33L);
