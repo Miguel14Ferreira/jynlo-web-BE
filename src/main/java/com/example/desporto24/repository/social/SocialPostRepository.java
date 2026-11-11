@@ -33,6 +33,8 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, Long> {
 
     List<SocialPost> findByAuthorId(Long authorId);
 
+    List<SocialPost> findByAuthorIdAndActivityTypeIsNullOrderByCreatedAtDesc(Long authorId, Pageable pageable);
+
     java.util.Optional<SocialPost> findByActivityTypeAndAuthorIdAndSessionId(
             String activityType, Long authorId, Long sessionId);
 
