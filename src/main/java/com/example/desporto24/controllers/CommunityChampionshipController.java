@@ -187,6 +187,13 @@ public class CommunityChampionshipController {
         ownedEvents.delete(communityId, championshipId, eventId, auth.getName());
     }
 
+    @PostMapping("/{championshipId}/owned-events/{eventId}/cup-advance")
+    public com.example.desporto24.service.CommunityChampionshipEventService.CupOpeningRound advanceOwnedCup(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, Authentication auth) {
+        return ownedEvents.advanceCup(communityId, championshipId, eventId, auth.getName());
+    }
+
     @GetMapping("/{championshipId}/owned-events/{eventId}/cup-draw")
     public com.example.desporto24.service.CommunityChampionshipEventService.CupOpeningRound cupDraw(
             @PathVariable Long communityId, @PathVariable Long championshipId,
