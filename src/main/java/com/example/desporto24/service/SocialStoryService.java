@@ -44,6 +44,7 @@ public class SocialStoryService {
     private final SocialStoryLikeRepository likes;
     private final NotificationService notificationService;
     private final NotificationPreferencesService notificationPreferences;
+    private final UserBlockService userBlockService;
     private final ProfileRepository profiles;
     private final CommunityRepository communities;
     private final CommunityMemberRepository memberships;
@@ -140,6 +141,7 @@ public class SocialStoryService {
     public StoryResponse like(Long id, String username) {
         Profile viewer = actor(username);
         SocialStory story = visibleStory(id, viewer);
+        userBlockService.ensureInteractionAllowed(viewer, story.getAuthor());
         if (!likes.existsByStoryIdAndProfileId(id, viewer.getId())) {
             likes.save(SocialStoryLike.builder().story(story).profile(viewer)
                     .createdAt(Instant.now()).build());
@@ -171,6 +173,7 @@ public class SocialStoryService {
         if (viewer.getId().equals(story.getAuthor().getId())) {
             throw new IllegalArgumentException("Não podes responder à tua própria Story.");
         }
+        userBlockService.ensureInteractionAllowed(viewer, story.getAuthor());
         notifyAuthor(story, viewer, NotificationType.SOCIAL_STORY_REPLIED,
                 viewer.getUsername() + " respondeu à tua Story: " + content.trim());
     }
