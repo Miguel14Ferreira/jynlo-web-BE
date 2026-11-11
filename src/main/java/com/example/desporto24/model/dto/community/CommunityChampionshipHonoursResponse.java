@@ -11,7 +11,14 @@ public record CommunityChampionshipHonoursResponse(
     public record CompetitionTitle(Long championshipId, Long tournamentId,
                                    String tournamentName, String seasonLabel, String sport,
                                    String format, String entryType, String winnerName,
-                                   Long permanentTeamId) {}
+                                   Long permanentTeamId, Long ownedEventId) {
+        public CompetitionTitle(Long championshipId, Long tournamentId, String tournamentName,
+                                String seasonLabel, String sport, String format,
+                                String entryType, String winnerName, Long permanentTeamId) {
+            this(championshipId, tournamentId, tournamentName, seasonLabel, sport,
+                    format, entryType, winnerName, permanentTeamId, null);
+        }
+    }
     public record Title(Long championshipId, String championshipName, String seasonLabel,
                         String sport, Instant closedAt, String entryType,
                         Long participantId, String championName, Long permanentTeamId) {}
