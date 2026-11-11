@@ -77,6 +77,18 @@ class CommunityTournamentTeamServiceTest {
     }
 
     @Test
+    void deletingAnEmptyTeamAlsoCancelsOutstandingInvitations() {
+        manager();
+        draft();
+        var selected = team(10L, "Azul");
+        when(teamRepository.findById(10L)).thenReturn(Optional.of(selected));
+        service.deleteTeam(7L, 19L, 10L, "owner");
+        var order = inOrder(inviteRepository, teamRepository);
+        order.verify(inviteRepository).deleteByTeamId(10L);
+        order.verify(teamRepository).delete(selected);
+    }
+
+    @Test
     void invitingAPlayerDoesNotAddThemOrAssignAdministratorBeforeAcceptance() {
         manager();
         draft();
