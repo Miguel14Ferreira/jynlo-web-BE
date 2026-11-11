@@ -263,9 +263,14 @@ public class CommunityChampionshipEventService {
         return List.copyOf(saved);
     }
 
-    public record GoalInput(Long profileId, Long teamId, Integer minute) {}
+    public record GoalInput(Long profileId, Long teamId, Integer minute, Long assistProfileId) {
+        public GoalInput(Long profileId, Long teamId, Integer minute) {
+            this(profileId, teamId, minute, null);
+        }
+    }
     public record GoalEvent(Long id, Long profileId, String scorerName, Long teamId,
-                            String teamName, Integer minute) {}
+                            String teamName, Integer minute,
+                            Long assistProfileId, String assisterName) {}
 
     @Transactional(readOnly = true)
     public List<GoalEvent> goalScorers(Long communityId, Long championshipId, Long eventId,
@@ -305,6 +310,17 @@ public class CommunityChampionshipEventService {
                 .filter(item -> item.getTeam().getId().equals(input.teamId()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "O marcador não pertence à equipa nesta época"));
+        com.example.desporto24.model.Profile assister = null;
+        if (input.assistProfileId() != null) {
+            if (input.assistProfileId().equals(input.profileId()))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "O marcador não pode assistir o próprio golo");
+            assister = roster.findByChampionshipIdAndProfileId(championshipId, input.assistProfileId())
+                    .filter(item -> item.getTeam().getId().equals(input.teamId()))
+                    .map(item -> item.getProfile())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "A assistência deve pertencer a outro jogador da mesma equipa"));
+        }
         long count = goals.findByFixtureIdOrderByIdAsc(fixtureId).stream()
                 .filter(goal -> goal.getTeam().getId().equals(input.teamId())).count();
         if (count >= (home ? fixture.getHomeScore() : fixture.getAwayScore()))
@@ -312,7 +328,7 @@ public class CommunityChampionshipEventService {
                     "O número de marcadores não pode exceder o resultado da equipa");
         goals.saveAndFlush(CommunityChampionshipGoal.builder().fixture(fixture)
                 .team(registration.getTeam()).scorer(registration.getProfile())
-                .matchMinute(input.minute()).recordedAt(Instant.now()).build());
+                .assister(assister).matchMinute(input.minute()).recordedAt(Instant.now()).build());
         return goals.findByFixtureIdOrderByIdAsc(fixtureId).stream().map(this::goalResponse).toList();
     }
 
@@ -334,7 +350,11 @@ public class CommunityChampionshipEventService {
         return new GoalEvent(goal.getId(), player.getId(),
                 player.getFullName() == null || player.getFullName().isBlank()
                         ? player.getUsername() : player.getFullName(),
-                goal.getTeam().getId(), goal.getTeam().getName(), goal.getMatchMinute());
+                goal.getTeam().getId(), goal.getTeam().getName(), goal.getMatchMinute(),
+                goal.getAssister() == null ? null : goal.getAssister().getId(),
+                goal.getAssister() == null ? null
+                        : (goal.getAssister().getFullName() == null || goal.getAssister().getFullName().isBlank()
+                                ? goal.getAssister().getUsername() : goal.getAssister().getFullName()));
     }
 
     public record CupBye(Long id, int slot, Long teamId, String teamName) {}
