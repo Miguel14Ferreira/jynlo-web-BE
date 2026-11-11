@@ -59,6 +59,19 @@ public class ChatServiceImpl implements ChatService {
             throw new ChatBlockedException(CHAT_BLOCKED);
         }
 
+        // Session-only contacts are not friends: restrict bursts without
+        // changing the established friendship chat experience.
+        if (friend.getId() == null) {
+            Date now = new Date();
+            if (chatRepository.countRecentOutbound(chat.getUsername1(), chat.getUsername2(),
+                    Date.from(now.toInstant().minusSeconds(60))) >= 10
+                    || chatRepository.countRecentOutbound(chat.getUsername1(), chat.getUsername2(),
+                    Date.from(now.toInstant().minusSeconds(3600))) >= 60) {
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                        "Too many messages to this session participant");
+            }
+        }
+
         attachVerifiedReply(chat);
         Chat saved = saveChatMessage(chat, new Date());
         createChatNotification(saved);
