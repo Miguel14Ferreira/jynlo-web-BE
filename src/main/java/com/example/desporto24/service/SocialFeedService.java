@@ -223,6 +223,23 @@ public class SocialFeedService {
                 liked ? Set.of(postId) : Set.of());
     }
 
+    /** Permanent authored publications, independent from expiring Stories and automatic activities. */
+    @Transactional(readOnly = true)
+    public List<FeedItemResponse> profilePosts(String authorUsername, String viewerUsername) {
+        Profile author = profile(authorUsername);
+        Profile viewer = profile(viewerUsername);
+        List<SocialPost> posts = postRepository.findByAuthorIdAndActivityTypeIsNullOrderByCreatedAtDesc(
+                author.getId(), PageRequest.of(0, 60));
+        return posts.stream().map(post -> {
+            Long id = post.getId();
+            return postItem(post,
+                    Map.of(id, likeRepository.countByPostId(id)),
+                    Map.of(id, commentRepository.countByPostId(id)),
+                    likeRepository.existsByPostIdAndProfileId(id, viewer.getId())
+                            ? Set.of(id) : Set.of());
+        }).toList();
+    }
+
     @Transactional(readOnly = true)
     public List<FeedItemResponse> feed(String username) {
         Profile actor = profile(username);
