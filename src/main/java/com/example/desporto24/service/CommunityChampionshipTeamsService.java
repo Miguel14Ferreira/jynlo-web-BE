@@ -157,9 +157,9 @@ public class CommunityChampionshipTeamsService {
                                              String username) {
         var actor = profiles.findUserByUsername(username)
                 .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
-        if (!members.existsByCommunityIdAndProfileId(communityId, actor.getId()))
-            throw new AccessDeniedException("Não pertences a esta comunidade");
-        if (isOrganizer(communityId, actor.getId())) return;
+        var membership = members.findByCommunityIdAndProfileId(communityId, actor.getId())
+                .orElseThrow(() -> new AccessDeniedException("Não pertences a esta comunidade"));
+        if (membership.getRole() == CommunityRole.OWNER || membership.getRole() == CommunityRole.ADMIN) return;
         var team = getSeasonTeam(communityId, championshipId, teamId);
         if (team.getAdminProfile() == null || !actor.getId().equals(team.getAdminProfile().getId()))
             throw new AccessDeniedException("Não administras esta equipa");
