@@ -60,6 +60,16 @@ class TeamInvitationNotificationServiceTest {
     }
 
     @Test
+    void inAppPreferencesCanSuppressOptionalTeamNotifications() {
+        var preferences = mock(NotificationPreferencesService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(notifications, "preferences", preferences);
+        when(preferences.allowsInApp(eq("ana"), any(Notifications.class))).thenReturn(false);
+        notifications.memberInvitation(player(2L, "ana"), player(1L, "owner"), 7L, "Águias");
+        verify(preferences).allowsInApp(eq("ana"), any(Notifications.class));
+        verifyNoInteractions(repository);
+    }
+
+    @Test
     void missingRecipientUsernameNeverCreatesNotification() {
         notifications.memberInvitation(player(4L, null), player(1L, "organizador"), 7L, "Águias");
         verifyNoInteractions(repository);
