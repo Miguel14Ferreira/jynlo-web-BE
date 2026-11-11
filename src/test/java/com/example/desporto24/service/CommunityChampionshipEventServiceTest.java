@@ -32,6 +32,7 @@ class CommunityChampionshipEventServiceTest {
     @Mock CommunityChampionshipTeamPlayerRepository roster;
     @Mock CommunityChampionshipGoalRepository goals;
     @Mock CommunityChampionshipDisciplinaryCardRepository disciplinaryCards;
+    @Mock CommunityChampionshipSubstitutionRepository substitutions;
     @Mock CommunityChampionshipCupByeRepository cupByes;
     @Mock CommunityChampionshipTeamRepository championshipTeams;
     @Mock CommunityMemberRepository members;
@@ -549,6 +550,68 @@ class CommunityChampionshipEventServiceTest {
         when(disciplinaryCards.findByFixtureIdOrderByIdAsc(80L)).thenReturn(List.of(first, second));
         assertThrows(ResponseStatusException.class, () -> service.addCard(7L, 15L, 100L, 80L,
                 new CommunityChampionshipEventService.CardInput(44L, 30L, "YELLOW", 45), "member"));
+    }
+
+    @Test
+    void organizerRecordsSubstitutionWithTwoRegisteredTeammates() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("LEAGUE").status("SCHEDULED").build();
+        var home = CommunityChampionshipTeam.builder().id(30L).championship(championship).name("Águias").build();
+        var away = CommunityChampionshipTeam.builder().id(31L).championship(championship).name("Leões").build();
+        var fixture = CommunityChampionshipFixture.builder().id(80L).event(league)
+                .homeTeam(home).awayTeam(away).homeScore(1).awayScore(0).build();
+        var out = new Profile(); out.setId(41L); out.setUsername("sai");
+        var in = new Profile(); in.setId(42L); in.setUsername("entra");
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
+        when(fixtures.findById(80L)).thenReturn(Optional.of(fixture));
+        when(roster.findByChampionshipIdAndProfileId(15L, 41L)).thenReturn(Optional.of(
+                CommunityChampionshipTeamPlayer.builder().team(home).profile(out).build()));
+        when(roster.findByChampionshipIdAndProfileId(15L, 42L)).thenReturn(Optional.of(
+                CommunityChampionshipTeamPlayer.builder().team(home).profile(in).build()));
+        when(substitutions.findByFixtureIdOrderByMatchMinuteAscIdAsc(80L)).thenReturn(List.of());
+        service.addSubstitution(7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.SubstitutionInput(30L, 41L, 42L, 60), "member");
+        var captured = org.mockito.ArgumentCaptor.forClass(CommunityChampionshipSubstitution.class);
+        verify(substitutions).saveAndFlush(captured.capture());
+        assertEquals(60, captured.getValue().getMatchMinute());
+        assertEquals(41L, captured.getValue().getPlayerOut().getId());
+        assertEquals(42L, captured.getValue().getPlayerIn().getId());
+    }
+
+    @Test
+    void rejectsInvalidAndCrossTeamSubstitutions() {
+        member(CommunityRole.ADMIN);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("LEAGUE").status("SCHEDULED").build();
+        var home = CommunityChampionshipTeam.builder().id(30L).championship(championship).name("Águias").build();
+        var away = CommunityChampionshipTeam.builder().id(31L).championship(championship).name("Leões").build();
+        var fixture = CommunityChampionshipFixture.builder().id(80L).event(league)
+                .homeTeam(home).awayTeam(away).homeScore(0).awayScore(0).build();
+        var out = new Profile(); out.setId(41L);
+        var in = new Profile(); in.setId(42L);
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
+        assertThrows(ResponseStatusException.class, () -> service.addSubstitution(7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.SubstitutionInput(30L, 41L, 41L, 20), "member"));
+        when(fixtures.findById(80L)).thenReturn(Optional.of(fixture));
+        when(roster.findByChampionshipIdAndProfileId(15L, 41L)).thenReturn(Optional.of(
+                CommunityChampionshipTeamPlayer.builder().team(home).profile(out).build()));
+        when(roster.findByChampionshipIdAndProfileId(15L, 42L)).thenReturn(Optional.of(
+                CommunityChampionshipTeamPlayer.builder().team(away).profile(in).build()));
+        assertThrows(ResponseStatusException.class, () -> service.addSubstitution(7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.SubstitutionInput(30L, 41L, 42L, 20), "member"));
+        verify(substitutions, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void ordinaryMemberCannotRecordSubstitution() {
+        member(CommunityRole.MEMBER);
+        assertThrows(AccessDeniedException.class, () -> service.addSubstitution(
+                7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.SubstitutionInput(30L, 41L, 42L, 20), "member"));
+        verifyNoInteractions(substitutions);
     }
 
     @Test
