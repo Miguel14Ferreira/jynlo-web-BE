@@ -38,6 +38,9 @@ public class Session {
     private Date gameDate;
     private String city;
     private String address;
+    /** Public, optional session overview. Never used for confidential arrival instructions. */
+    @Column(name = "description", length = 1000)
+    private String description;
     /** Optional arrival instructions, visible only after the player joins. */
     @Column(name = "meeting_point_instructions", length = 240)
     private String meetingPointInstructions;
