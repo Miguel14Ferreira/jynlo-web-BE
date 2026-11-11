@@ -225,11 +225,12 @@ public class SocialFeedService {
 
     /** Permanent authored publications, independent from expiring Stories and automatic activities. */
     @Transactional(readOnly = true)
-    public List<FeedItemResponse> profilePosts(String authorUsername, String viewerUsername) {
+    public List<FeedItemResponse> profilePosts(String authorUsername, String viewerUsername, int page) {
+        if (page < 0 || page > 1000) throw new IllegalArgumentException("Página inválida");
         Profile author = profile(authorUsername);
         Profile viewer = profile(viewerUsername);
         List<SocialPost> posts = postRepository.findByAuthorIdAndActivityTypeIsNullOrderByCreatedAtDesc(
-                author.getId(), PageRequest.of(0, 60));
+                author.getId(), PageRequest.of(page, 20));
         return posts.stream().map(post -> {
             Long id = post.getId();
             return postItem(post,
