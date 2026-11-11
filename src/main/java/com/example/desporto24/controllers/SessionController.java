@@ -149,14 +149,23 @@ public class SessionController {
             java.math.BigDecimal priceAmount,
             @jakarta.validation.constraints.NotBlank String city,
             @jakarta.validation.constraints.NotBlank String address,
-            @jakarta.validation.constraints.Size(max = 240) String meetingPointInstructions) {}
+            @jakarta.validation.constraints.Size(max = 240) String meetingPointInstructions,
+            @jakarta.validation.constraints.Size(max = 1000) String description) {
+        /** Source compatibility for callers not providing a description. */
+        public EditSessionDetailsRequest(String sport, java.time.Instant gameDate,
+                int maxParticipants, int minParticipants, java.math.BigDecimal priceAmount,
+                String city, String address, String meetingPointInstructions) {
+            this(sport, gameDate, maxParticipants, minParticipants, priceAmount,
+                    city, address, meetingPointInstructions, null);
+        }
+    }
 
     @PatchMapping("/{id}/details")
     public SessionDetailResponse updateDetails(@PathVariable Long id,
             @RequestBody @Valid EditSessionDetailsRequest request, Authentication authentication) {
         return sessionService.updateDetails(id, request.sport(), request.gameDate(), request.maxParticipants(),
                 request.minParticipants(), request.priceAmount(), request.city(), request.address(),
-                request.meetingPointInstructions(), authentication.getName());
+                request.meetingPointInstructions(), request.description(), authentication.getName());
     }
 
     /** Organizer-only capacity correction, validated against existing confirmed places. */
