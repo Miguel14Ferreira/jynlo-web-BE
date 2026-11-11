@@ -44,7 +44,9 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Transactional
 public class CommunityChampionshipEventService {
-    private static final Set<String> FORMATS = Set.of("LEAGUE", "CUP", "SUPERCUP", "OTHER");
+    // Only formats with implemented fixture/result/finalization flows can be created.
+// Old draft SUPERCUP/OTHER records remain readable and may be deleted.
+    private static final Set<String> FORMATS = Set.of("LEAGUE", "CUP");
 
     private final CommunityChampionshipRepository championships;
     private final CommunityChampionshipEventRepository events;
