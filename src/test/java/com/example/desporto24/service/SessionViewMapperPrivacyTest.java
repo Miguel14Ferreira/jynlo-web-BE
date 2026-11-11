@@ -29,6 +29,20 @@ class SessionViewMapperPrivacyTest {
     );
 
     @Test
+    void optionalDescriptionIsVisibleButArrivalInstructionsStayPrivate() {
+        Session session = session(profile(1L, "creator"));
+        session.setDescription("Jogo informal. Todos os níveis são bem-vindos.");
+        session.setMeetingPointInstructions("Portão de acesso reservado");
+        Profile outsider = profile(2L, "outsider");
+
+        SessionDetailResponse detail = mapper.toDetail(session, outsider);
+
+        assertEquals("Jogo informal. Todos os níveis são bem-vindos.", detail.description());
+        assertNull(detail.meetingPointInstructions());
+        assertNull(detail.address());
+    }
+
+    @Test
     void publicAirsoftTypeIsSerializedInApiWithoutPrivateArrivalDetails() throws Exception {
         Session session = session(profile(1L, "creator"));
         session.setSport("Airsoft");
