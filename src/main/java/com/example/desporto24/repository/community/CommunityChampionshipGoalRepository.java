@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface CommunityChampionshipGoalRepository extends JpaRepository<CommunityChampionshipGoal, Long> {
     List<CommunityChampionshipGoal> findByFixtureIdOrderByIdAsc(Long fixtureId);
     Optional<CommunityChampionshipGoal> findByIdAndFixtureId(Long id, Long fixtureId);
+    boolean existsByFixtureEventChampionshipIdAndScorerId(Long championshipId, Long profileId);
+    boolean existsByFixtureEventChampionshipIdAndAssisterId(Long championshipId, Long profileId);
 }
