@@ -174,7 +174,8 @@ public class SessionViewMapper {
                 // the precise street and nested venue GPS coordinates.
                 canSeeExactAddress ? session.getMeetingPointInstructions() : null,
                 SessionMinimumPlayers.required(session),
-                session.getAirsoftGameType()
+                session.getAirsoftGameType(),
+                session.getDescription()
         );
     }
 }
