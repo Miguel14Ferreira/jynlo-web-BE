@@ -97,5 +97,16 @@ public interface ChatRepository extends JpaRepository<Chat, Long> {
         """)
     List<String> findConversationPeers(@Param("username") String username, Pageable page);
 
+    /** Count recent outbound messages for a session-only contact (persistent across instances). */
+    @Query("""
+        select count(c) from Chat c
+        where lower(c.username1) = lower(:sender)
+          and lower(c.username2) = lower(:recipient)
+          and c.date >= :since
+        """)
+    long countRecentOutbound(@Param("sender") String sender,
+                             @Param("recipient") String recipient,
+                             @Param("since") Date since);
+
     long deleteByUsername1OrUsername2(String username1, String username2);
 }
