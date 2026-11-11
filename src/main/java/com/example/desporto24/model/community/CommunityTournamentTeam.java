@@ -30,6 +30,16 @@ public class CommunityTournamentTeam {
     @JoinColumn(name = "championship_team_id")
     private CommunityChampionshipTeam championshipTeam;
 
+    /** The first player accepting membership becomes administrator. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "admin_profile_id")
+    private com.example.desporto24.model.Profile adminProfile;
+
+    /** Transfer is effective only after the proposed team member accepts. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pending_admin_profile_id")
+    private com.example.desporto24.model.Profile pendingAdminProfile;
+
     // Assigned only when the organizer publishes the group-stage draw.
     @Column(name = "group_number")
     private Integer groupNumber;
