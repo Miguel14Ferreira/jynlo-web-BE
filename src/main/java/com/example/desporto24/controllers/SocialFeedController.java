@@ -31,6 +31,12 @@ public class SocialFeedController {
         return feedService.feed(authentication.getName());
     }
 
+    @GetMapping("/users/{username}/posts")
+    public List<FeedItemResponse> profilePosts(@PathVariable String username,
+                                               Authentication authentication) {
+        return feedService.profilePosts(username, authentication.getName());
+    }
+
     @GetMapping("/posts/{postId}")
     public FeedItemResponse postById(@PathVariable Long postId, Authentication authentication) {
         return feedService.postById(postId, authentication.getName());
