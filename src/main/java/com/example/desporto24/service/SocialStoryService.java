@@ -7,6 +7,11 @@ import com.example.desporto24.model.community.Community;
 import com.example.desporto24.model.community.CommunityMember;
 import com.example.desporto24.model.dto.social.StoryResponse;
 import com.example.desporto24.model.social.SocialStory;
+import com.example.desporto24.model.social.SocialStoryLike;
+import com.example.desporto24.repository.social.SocialStoryLikeRepository;
+import com.example.desporto24.enumeration.NotificationType;
+import com.example.desporto24.register.Notifications.Notifications;
+import com.example.desporto24.service.interfaces.NotificationService;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.community.CommunityMemberRepository;
 import com.example.desporto24.repository.community.CommunityRepository;
@@ -36,6 +41,9 @@ import java.util.UUID;
 public class SocialStoryService {
     private static final int FEED_LIMIT = 100;
     private final SocialStoryRepository stories;
+    private final SocialStoryLikeRepository likes;
+    private final NotificationService notificationService;
+    private final NotificationPreferencesService notificationPreferences;
     private final ProfileRepository profiles;
     private final CommunityRepository communities;
     private final CommunityMemberRepository memberships;
@@ -129,6 +137,72 @@ public class SocialStoryService {
     }
 
     @Transactional
+    public StoryResponse like(Long id, String username) {
+        Profile viewer = actor(username);
+        SocialStory story = visibleStory(id, viewer);
+        if (!likes.existsByStoryIdAndProfileId(id, viewer.getId())) {
+            likes.save(SocialStoryLike.builder().story(story).profile(viewer)
+                    .createdAt(Instant.now()).build());
+            notifyAuthor(story, viewer, NotificationType.SOCIAL_STORY_LIKED,
+                    viewer.getUsername() + " gostou da tua Story.");
+        }
+        return response(story, viewer);
+    }
+
+    @Transactional
+    public StoryResponse unlike(Long id, String username) {
+        Profile viewer = actor(username);
+        SocialStory story = visibleStory(id, viewer);
+        likes.deleteByStoryIdAndProfileId(id, viewer.getId());
+        return response(story, viewer);
+    }
+
+    /**
+     * A story reply is private: notify the author only. Never publish it as
+     * a public comment or attach it to the story response/feed.
+     */
+    @Transactional
+    public void reply(Long id, String username, String content) {
+        Profile viewer = actor(username);
+        SocialStory story = visibleStory(id, viewer);
+        if (content == null || content.trim().isEmpty() || content.trim().length() > 500) {
+            throw new IllegalArgumentException("A resposta deve ter entre 1 e 500 caracteres.");
+        }
+        if (viewer.getId().equals(story.getAuthor().getId())) {
+            throw new IllegalArgumentException("Não podes responder à tua própria Story.");
+        }
+        notifyAuthor(story, viewer, NotificationType.SOCIAL_STORY_REPLIED,
+                viewer.getUsername() + " respondeu à tua Story: " + content.trim());
+    }
+
+    private void notifyAuthor(SocialStory story, Profile viewer, NotificationType type, String message) {
+        Profile owner = story.getAuthor();
+        if (owner.getId().equals(viewer.getId()) ||
+                !notificationPreferences.allowsInApp(owner.getUsername(), type)) return;
+        Notifications notice = new Notifications();
+        notice.setUsername(owner.getUsername());
+        notice.setRelatedUsername(viewer.getUsername());
+        notice.setSubject(type == NotificationType.SOCIAL_STORY_LIKED ? "Gosto na Story" : "Resposta à Story");
+        notice.setMessage(message);
+        notice.setGreeting("");
+        notice.setSignature("");
+        notice.setCreatedAt(Instant.now().toString());
+        notice.setType(type);
+        notice.setRead(false);
+        notificationService.save(notice);
+    }
+
+    private SocialStory visibleStory(Long id, Profile viewer) {
+        SocialStory story = activeStory(id);
+        if (story.getCommunity() != null &&
+                story.getCommunity().getVisibility() != CommunityVisibility.PUBLIC &&
+                !isMemberOrOwner(story.getCommunity(), viewer)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Story not found");
+        }
+        return story;
+    }
+
+    @Transactional
     public void delete(Long id, String username) {
         Profile actor = actor(username);
         SocialStory story = activeStory(id);
@@ -193,7 +267,8 @@ public class SocialStoryService {
                 group == null ? null : group.getPhotoUrl(),
                 story.getCaption(), story.getMediaUrl(), story.isVideo(),
                 story.getCreatedAt(), story.getExpiresAt(),
-                author.getId().equals(actor.getId()) || (group != null && canManage(group, actor)));
+                author.getId().equals(actor.getId()) || (group != null && canManage(group, actor)),
+                likes.countByStoryId(story.getId()), likes.existsByStoryIdAndProfileId(story.getId(), actor.getId()));
     }
 
     private Profile actor(String username) {
