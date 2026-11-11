@@ -27,6 +27,7 @@ class CommunityChampionshipTeamsServiceTest {
     @Mock ProfileRepository profiles;
     @Mock CommunityMemberRepository members;
     @Mock CommunityChampionshipTeamPlayerRepository playerRegistrations;
+    @Mock CommunityChampionshipTeamInviteRepository teamInvites;
     @Mock CommunityChampionshipGoalRepository goals;
     @Mock CommunityChampionshipDisciplinaryCardRepository disciplinaryCards;
     @Mock CommunityChampionshipSubstitutionRepository substitutions;
@@ -56,47 +57,45 @@ class CommunityChampionshipTeamsServiceTest {
     }
 
     @Test
-    void administratorInvitationRequiresExplicitConsentBeforeRosterPermissions() {
-        organizer();
-        var invited = new Profile();
-        invited.setId(44L);
-        invited.setUsername("jogador");
-        when(seasonTeams.findById(99L)).thenReturn(Optional.of(canonical));
+    void firstConfirmedInviteeBecomesAdministrator() {
+        var joining = new Profile();
+        joining.setId(44L);
+        joining.setUsername("jogador");
+        var invite = CommunityChampionshipTeamInvite.builder()
+                .id(1L).championship(season).team(canonical).profile(joining)
+                .invitedAt(Instant.now()).build();
+        when(profiles.findUserByUsername("jogador")).thenReturn(Optional.of(joining));
         when(members.existsByCommunityIdAndProfileId(7L, 44L)).thenReturn(true);
-        when(profiles.findById(44L)).thenReturn(Optional.of(invited));
-        when(profiles.findUserByUsername("jogador")).thenReturn(Optional.of(invited));
-        when(members.findByCommunityIdAndProfileId(7L, 44L))
-                .thenReturn(Optional.of(CommunityMember.builder().role(CommunityRole.MEMBER).build()));
+        when(championships.findForClosing(15L, 7L)).thenReturn(Optional.of(season));
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(season));
+        when(seasonTeams.findById(99L)).thenReturn(Optional.of(canonical));
+        when(teamInvites.findByTeamIdAndProfileId(99L, 44L)).thenReturn(Optional.of(invite));
         when(playerRegistrations.findByChampionshipIdAndProfileId(15L, 44L))
                 .thenReturn(Optional.empty());
-        service.inviteAdministrator(7L, 15L, 99L, 44L, "owner");
-        assertNull(canonical.getAdminProfile());
-        assertEquals(44L, canonical.getPendingAdminProfile().getId());
-        assertThrows(org.springframework.security.access.AccessDeniedException.class,
-                () -> service.addPlayer(7L, 15L, 99L, 55L, "jogador"));
-        verify(playerRegistrations, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
-        var accepted = service.respondAdministrator(7L, 15L, 99L, true, "jogador");
-        assertEquals(44L, accepted.adminProfileId());
-        assertNull(accepted.pendingProfileId());
-        assertTrue(accepted.canManage());
+        when(playerRegistrations.findByTeamIdOrderByJoinedAtAscIdAsc(99L)).thenReturn(List.of());
+        service.respondPlayerInvite(7L, 15L, 99L, true, "jogador");
+        assertSame(joining, canonical.getAdminProfile());
         verify(playerRegistrations).saveAndFlush(org.mockito.ArgumentMatchers.any());
+        verify(teamInvites).delete(invite);
     }
 
     @Test
-    void decliningInvitationDoesNotGrantAdministration() {
-        organizer();
-        var invited = new Profile();
-        invited.setId(44L);
-        invited.setUsername("jogador");
-        when(seasonTeams.findById(99L)).thenReturn(Optional.of(canonical));
+    void decliningTeamInvitationDoesNotAssignPlayerOrAdministrator() {
+        var joining = new Profile();
+        joining.setId(44L);
+        var invite = CommunityChampionshipTeamInvite.builder()
+                .id(1L).championship(season).team(canonical).profile(joining).build();
+        when(profiles.findUserByUsername("jogador")).thenReturn(Optional.of(joining));
         when(members.existsByCommunityIdAndProfileId(7L, 44L)).thenReturn(true);
-        when(profiles.findById(44L)).thenReturn(Optional.of(invited));
-        when(profiles.findUserByUsername("jogador")).thenReturn(Optional.of(invited));
-        service.inviteAdministrator(7L, 15L, 99L, 44L, "owner");
-        var response = service.respondAdministrator(7L, 15L, 99L, false, "jogador");
-        assertNull(response.adminProfileId());
-        assertNull(canonical.getPendingAdminProfile());
+        when(championships.findForClosing(15L, 7L)).thenReturn(Optional.of(season));
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(season));
+        when(seasonTeams.findById(99L)).thenReturn(Optional.of(canonical));
+        when(teamInvites.findByTeamIdAndProfileId(99L, 44L)).thenReturn(Optional.of(invite));
+        when(playerRegistrations.findByTeamIdOrderByJoinedAtAscIdAsc(99L)).thenReturn(List.of());
+        service.respondPlayerInvite(7L, 15L, 99L, false, "jogador");
+        assertNull(canonical.getAdminProfile());
         verify(playerRegistrations, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
+        verify(teamInvites).delete(invite);
     }
 
     @Test
@@ -131,10 +130,12 @@ class CommunityChampionshipTeamsServiceTest {
     }
 
     @Test
-    void unrelatedMemberCannotAcceptSomeoneElsesAdministratorInvitation() {
+    void unrelatedMemberCannotAcceptAnotherPlayersTransfer() {
         var outsider = new Profile();
         outsider.setId(55L);
         when(profiles.findUserByUsername("outsider")).thenReturn(Optional.of(outsider));
+        when(members.existsByCommunityIdAndProfileId(7L, 55L)).thenReturn(true);
+        when(championships.findForClosing(15L, 7L)).thenReturn(Optional.of(season));
         when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(season));
         when(seasonTeams.findById(99L)).thenReturn(Optional.of(canonical));
         var invited = new Profile();
