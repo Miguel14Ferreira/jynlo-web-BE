@@ -31,6 +31,7 @@ class CommunityChampionshipEventServiceTest {
     @Mock CommunityChampionshipFixtureRepository fixtures;
     @Mock CommunityChampionshipTeamPlayerRepository roster;
     @Mock CommunityChampionshipGoalRepository goals;
+    @Mock CommunityChampionshipDisciplinaryCardRepository disciplinaryCards;
     @Mock CommunityChampionshipCupByeRepository cupByes;
     @Mock CommunityChampionshipTeamRepository championshipTeams;
     @Mock CommunityMemberRepository members;
@@ -477,6 +478,77 @@ class CommunityChampionshipEventServiceTest {
                 CommunityChampionshipTeamPlayer.builder().team(away).profile(assister).build()));
         assertThrows(ResponseStatusException.class, () -> service.addGoal(7L, 15L, 100L, 80L,
                 new CommunityChampionshipEventService.GoalInput(44L, 30L, 21, 45L), "member"));
+    }
+
+    @Test
+    void ownerCanRecordYellowCardForRealTeamPlayer() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("LEAGUE").status("SCHEDULED").build();
+        var home = CommunityChampionshipTeam.builder().id(30L).championship(championship).name("Águias").build();
+        var away = CommunityChampionshipTeam.builder().id(31L).championship(championship).name("Leões").build();
+        var fixture = CommunityChampionshipFixture.builder().id(80L).event(league)
+                .homeTeam(home).awayTeam(away).homeScore(1).awayScore(0).build();
+        var profile = new Profile(); profile.setId(44L); profile.setUsername("jogador");
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
+        when(fixtures.findById(80L)).thenReturn(Optional.of(fixture));
+        when(roster.findByChampionshipIdAndProfileId(15L, 44L)).thenReturn(Optional.of(
+                CommunityChampionshipTeamPlayer.builder().team(home).profile(profile).build()));
+        when(disciplinaryCards.findByFixtureIdOrderByIdAsc(80L)).thenReturn(List.of());
+        service.addCard(7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.CardInput(44L, 30L, "YELLOW", 26), "member");
+        var captured = org.mockito.ArgumentCaptor.forClass(CommunityChampionshipDisciplinaryCard.class);
+        verify(disciplinaryCards).saveAndFlush(captured.capture());
+        assertEquals("YELLOW", captured.getValue().getCardType());
+        assertEquals(44L, captured.getValue().getPlayer().getId());
+    }
+
+    @Test
+    void cardMustMatchRegisteredPlayerAndTeam() {
+        member(CommunityRole.ADMIN);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("LEAGUE").status("SCHEDULED").build();
+        var home = CommunityChampionshipTeam.builder().id(30L).championship(championship).name("Águias").build();
+        var away = CommunityChampionshipTeam.builder().id(31L).championship(championship).name("Leões").build();
+        var fixture = CommunityChampionshipFixture.builder().id(80L).event(league)
+                .homeTeam(home).awayTeam(away).homeScore(0).awayScore(0).build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
+        when(fixtures.findById(80L)).thenReturn(Optional.of(fixture));
+        var player = new Profile(); player.setId(44L);
+        when(roster.findByChampionshipIdAndProfileId(15L, 44L)).thenReturn(Optional.of(
+                CommunityChampionshipTeamPlayer.builder().team(away).profile(player).build()));
+        assertThrows(ResponseStatusException.class, () -> service.addCard(7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.CardInput(44L, 30L, "RED", 55), "member"));
+        verify(disciplinaryCards, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void secondYellowIsAllowedButFurtherCardsAreBlocked() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("LEAGUE").status("SCHEDULED").build();
+        var home = CommunityChampionshipTeam.builder().id(30L).championship(championship).name("Águias").build();
+        var away = CommunityChampionshipTeam.builder().id(31L).championship(championship).name("Leões").build();
+        var fixture = CommunityChampionshipFixture.builder().id(80L).event(league)
+                .homeTeam(home).awayTeam(away).homeScore(0).awayScore(0).build();
+        var profile = new Profile(); profile.setId(44L);
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
+        when(fixtures.findById(80L)).thenReturn(Optional.of(fixture));
+        when(roster.findByChampionshipIdAndProfileId(15L, 44L)).thenReturn(Optional.of(
+                CommunityChampionshipTeamPlayer.builder().team(home).profile(profile).build()));
+        var first = CommunityChampionshipDisciplinaryCard.builder()
+                .player(profile).team(home).cardType("YELLOW").build();
+        when(disciplinaryCards.findByFixtureIdOrderByIdAsc(80L)).thenReturn(List.of(first));
+        service.addCard(7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.CardInput(44L, 30L, "YELLOW", 42), "member");
+        var second = CommunityChampionshipDisciplinaryCard.builder()
+                .player(profile).team(home).cardType("YELLOW").build();
+        when(disciplinaryCards.findByFixtureIdOrderByIdAsc(80L)).thenReturn(List.of(first, second));
+        assertThrows(ResponseStatusException.class, () -> service.addCard(7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.CardInput(44L, 30L, "YELLOW", 45), "member"));
     }
 
     @Test
