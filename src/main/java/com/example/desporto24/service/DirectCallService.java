@@ -328,6 +328,9 @@ public class DirectCallService {
         if (!"RINGING".equals(call.state)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Call not ringing");
         }
+        // Both original participants must still be authorized at acceptance time.
+        // A caller may have lost session membership after initiating the ring.
+        inbox.requireConversationAccess(call.caller, "direct", call.peer);
         inbox.requireConversationAccess(actor, "direct", call.caller);
         Call accepted = new Call(id, call.caller, call.peer, call.media, call.room,
                 Instant.now().plus(MAX_CALL_MINUTES, ChronoUnit.MINUTES), "ACTIVE");
