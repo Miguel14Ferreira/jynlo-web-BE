@@ -304,6 +304,12 @@ public class CommunityChampionshipTeamsService {
                     "Este jogador tem acontecimentos ou escalações registados. Corrige o histórico antes de o remover do plantel.");
         }
         playerRegistrations.delete(registration);
+        if (managedTeam.getPendingAdminProfile() != null
+                && managedTeam.getPendingAdminProfile().getId().equals(profileId)) {
+            // Removed members must not retain a pending administrator invitation.
+            managedTeam.setPendingAdminProfile(null);
+            seasonTeams.saveAndFlush(managedTeam);
+        }
     }
 
     private CommunityChampionshipTeam getSeasonTeam(Long communityId, Long championshipId, Long teamId) {
