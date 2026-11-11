@@ -35,23 +35,32 @@ public final class CommunityChampionshipHonours {
         Map<Long, IndividualBuilder> individuals = new HashMap<>();
         Map<Long, TeamBuilder> teams = new HashMap<>();
         for (CommunityChampionship season : seasons) {
-            if (season.getClosedAt() == null || season.getChampionParticipantId() == null
-                    || season.getChampionDisplayName() == null
-                    || season.getChampionDisplayName().isBlank()) continue;
+            if (season.getClosedAt() == null) continue;
             String kind = season.getChampionEntryType();
-            if (!"INDIVIDUAL".equals(kind) && !"TEAM".equals(kind)) continue;
-            PermanentTeam permanent = "TEAM".equals(kind)
-                    ? permanentChampionByChampionship.get(season.getId()) : null;
-            titles.add(new CommunityChampionshipHonoursResponse.Title(
-                    season.getId(), season.getName(), season.getSeasonLabel(),
-                    season.getSport(), season.getClosedAt(), kind,
-                    season.getChampionParticipantId(), season.getChampionDisplayName(),
-                    permanent == null ? null : permanent.id()));
-            if (permanent != null) {
-                var holder = teams.computeIfAbsent(permanent.id(),
-                        id -> new TeamBuilder(permanent.id(), permanent.name()));
-                holder.ids.add(season.getId());
+            boolean hasOverallChampion = season.getChampionParticipantId() != null
+                    && season.getChampionDisplayName() != null
+                    && !season.getChampionDisplayName().isBlank()
+                    && ("INDIVIDUAL".equals(kind) || "TEAM".equals(kind));
+            if (hasOverallChampion) {
+                PermanentTeam permanent = "TEAM".equals(kind)
+                        ? permanentChampionByChampionship.get(season.getId()) : null;
+                titles.add(new CommunityChampionshipHonoursResponse.Title(
+                        season.getId(), season.getName(), season.getSeasonLabel(),
+                        season.getSport(), season.getClosedAt(), kind,
+                        season.getChampionParticipantId(), season.getChampionDisplayName(),
+                        permanent == null ? null : permanent.id()));
+                if (permanent != null) {
+                    var holder = teams.computeIfAbsent(permanent.id(),
+                            id -> new TeamBuilder(permanent.id(), permanent.name()));
+                    holder.ids.add(season.getId());
+                }
+                if ("INDIVIDUAL".equals(kind)) {
+                    var holder = individuals.computeIfAbsent(season.getChampionParticipantId(),
+                            id -> new IndividualBuilder(id, season.getChampionDisplayName()));
+                    holder.ids.add(season.getId());
+                }
             }
+            // Independent seasons can have trophies even without an overall champion.
             for (CommunityChampionshipTrophySnapshot trophy :
                     trophiesByChampionship.getOrDefault(season.getId(), List.of())) {
                 if (!"LEAGUE".equals(trophy.format())
@@ -63,18 +72,13 @@ public final class CommunityChampionshipHonours {
                         season.getId(), trophy.tournamentId(), trophy.tournamentName(),
                         season.getSeasonLabel(), season.getSport(), trophy.format(),
                         trophy.entryType(), trophy.winnerName(),
-                        linked == null ? null : linked.id()));
+                        linked == null ? null : linked.id(), trophy.ownedEventId()));
                 if ("TEAM".equals(trophy.entryType()) && linked != null) {
                     var holder = teams.computeIfAbsent(linked.id(),
                             id -> new TeamBuilder(linked.id(), linked.name()));
                     if ("LEAGUE".equals(trophy.format())) holder.leagues++;
                     else holder.cups++;
                 }
-            }
-            if ("INDIVIDUAL".equals(kind)) {
-                var holder = individuals.computeIfAbsent(season.getChampionParticipantId(),
-                        id -> new IndividualBuilder(id, season.getChampionDisplayName()));
-                holder.ids.add(season.getId());
             }
         }
         titles.sort(Comparator.comparing(CommunityChampionshipHonoursResponse.Title::closedAt)
