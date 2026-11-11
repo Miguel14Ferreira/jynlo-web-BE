@@ -57,6 +57,16 @@ public class Notifications {
     @Column(name = "community_id")
     private Long communityId;
 
+    /** Optional competition context for direct navigation from team alerts. */
+    @Column(name = "competition_tournament_id")
+    private Long competitionTournamentId;
+
+    @Column(name = "competition_championship_id")
+    private Long competitionChampionshipId;
+
+    @Column(name = "competition_team_id")
+    private Long competitionTeamId;
+
     @Column(name = "venue_id")
     private Long venueId;
 
