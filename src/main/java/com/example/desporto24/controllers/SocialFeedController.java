@@ -33,8 +33,9 @@ public class SocialFeedController {
 
     @GetMapping("/users/{username}/posts")
     public List<FeedItemResponse> profilePosts(@PathVariable String username,
+                                               @RequestParam(defaultValue = "0") int page,
                                                Authentication authentication) {
-        return feedService.profilePosts(username, authentication.getName());
+        return feedService.profilePosts(username, authentication.getName(), page);
     }
 
     @GetMapping("/posts/{postId}")
