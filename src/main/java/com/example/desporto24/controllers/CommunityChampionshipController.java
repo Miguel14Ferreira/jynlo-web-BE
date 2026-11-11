@@ -201,6 +201,32 @@ public class CommunityChampionshipController {
         return ownedEvents.drawCup(communityId, championshipId, eventId, auth.getName());
     }
 
+    @GetMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/substitutions")
+    public List<com.example.desporto24.service.CommunityChampionshipEventService.SubstitutionEvent> fixtureSubstitutions(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, @PathVariable Long fixtureId, Authentication auth) {
+        return ownedEvents.matchSubstitutions(communityId, championshipId, eventId, fixtureId, auth.getName());
+    }
+
+    @PostMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/substitutions")
+    public List<com.example.desporto24.service.CommunityChampionshipEventService.SubstitutionEvent> addFixtureSubstitution(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, @PathVariable Long fixtureId,
+            @RequestBody com.example.desporto24.service.CommunityChampionshipEventService.SubstitutionInput input,
+            Authentication auth) {
+        return ownedEvents.addSubstitution(communityId, championshipId, eventId, fixtureId, input, auth.getName());
+    }
+
+    @DeleteMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/substitutions/{substitutionId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeFixtureSubstitution(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long eventId, @PathVariable Long fixtureId,
+            @PathVariable Long substitutionId, Authentication auth) {
+        ownedEvents.removeSubstitution(communityId, championshipId, eventId,
+                fixtureId, substitutionId, auth.getName());
+    }
+
     @GetMapping("/{championshipId}/owned-events/{eventId}/fixtures/{fixtureId}/cards")
     public List<com.example.desporto24.service.CommunityChampionshipEventService.CardEvent> fixtureCards(
             @PathVariable Long communityId, @PathVariable Long championshipId,
