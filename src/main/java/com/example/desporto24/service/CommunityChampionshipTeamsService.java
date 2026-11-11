@@ -83,7 +83,7 @@ public class CommunityChampionshipTeamsService {
 
     public record TeamPlayer(Long profileId, String username, String displayName, String profilePicUrl) {}
     public record TeamAdminStatus(Long teamId, Long adminProfileId, Long pendingProfileId,
-                                  boolean canManage, boolean canAccept) {}
+                                  boolean canManage, boolean canAccept, boolean canTransfer) {}
 
     @Transactional(readOnly = true)
     public TeamAdminStatus administrator(Long communityId, Long championshipId,
@@ -98,7 +98,8 @@ public class CommunityChampionshipTeamsService {
         // Only the organizer and invited player see the pending identity.
         return new TeamAdminStatus(teamId, adminId,
                 organizer || actor.getId().equals(pendingId) ? pendingId : null,
-                organizer || actor.getId().equals(adminId), actor.getId().equals(pendingId));
+                organizer || actor.getId().equals(adminId), actor.getId().equals(pendingId),
+                actor.getId().equals(adminId));
     }
 
     /** An invitation never adds a player or grants administration. */
