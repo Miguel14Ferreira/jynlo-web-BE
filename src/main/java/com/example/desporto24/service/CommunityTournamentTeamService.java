@@ -67,10 +67,10 @@ public class CommunityTournamentTeamService {
     public CommunityTournamentTeamResponse assignPlayer(Long communityId, Long tournamentId,
             Long teamId, String username, Long profileId) {
         Profile actor = actor(username);
-        requireManager(communityId, actor);
         CommunityTournament tournament = lockedTeamTournament(communityId, tournamentId);
         requireDraft(tournament);
         CommunityTournamentTeam team = team(tournamentId, teamId);
+        requireTeamManager(communityId, actor, team);
         if (profileId == null || profileId <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Jogador inválido");
         }
@@ -124,9 +124,16 @@ public class CommunityTournamentTeamService {
         if (playerRepository.countByTeamId(teamId) >= capacity(tournament)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A equipa já está completa");
         }
-        playerRepository.save(CommunityTournamentTeamPlayer.builder()
+        playerRepository.saveAndFlush(CommunityTournamentTeamPlayer.builder()
                 .tournament(tournament).team(target).profile(player)
                 .assignedAt(Instant.now()).build());
+        // The tournament row lock serializes simultaneous acceptances:
+        // only the first confirmed member receives administrator privileges.
+        if (target.getAdminProfile() == null) {
+            target.setAdminProfile(player);
+            target.setPendingAdminProfile(null);
+            teamRepository.saveAndFlush(target);
+        }
         return toResponse(target, tournament.getPlayersPerTeam(),
                 playerRepository.findByTournamentIdOrderByTeamIdAscIdAsc(tournamentId)
                         .stream().filter(entry -> entry.getTeam().getId().equals(teamId)).toList());
@@ -135,11 +142,20 @@ public class CommunityTournamentTeamService {
     public void removePlayer(Long communityId, Long tournamentId, Long teamId,
             String username, Long profileId) {
         Profile actor = actor(username);
-        requireManager(communityId, actor);
         requireDraft(lockedTeamTournament(communityId, tournamentId));
-        team(tournamentId, teamId);
+        CommunityTournamentTeam managed = team(tournamentId, teamId);
+        requireTeamManager(communityId, actor, managed);
+        if (managed.getAdminProfile() != null
+                && Objects.equals(managed.getAdminProfile().getId(), profileId))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Transfere primeiro a administração para outro membro");
         playerRepository.findByTeamIdAndProfileId(teamId, profileId)
                 .ifPresent(playerRepository::delete);
+        if (managed.getPendingAdminProfile() != null
+                && Objects.equals(managed.getPendingAdminProfile().getId(), profileId)) {
+            managed.setPendingAdminProfile(null);
+            teamRepository.saveAndFlush(managed);
+        }
     }
 
     public void deleteTeam(Long communityId, Long tournamentId, Long teamId, String username) {
@@ -152,6 +168,89 @@ public class CommunityTournamentTeamService {
                     "Retira primeiro os jogadores da equipa");
         }
         teamRepository.delete(team);
+    }
+
+    public record TeamAdministration(Long teamId, Long adminProfileId, Long pendingProfileId,
+                                      boolean canManage, boolean canAccept) {}
+
+    @Transactional(readOnly = true)
+    public TeamAdministration administration(Long communityId, Long tournamentId, Long teamId,
+                                              String username) {
+        Profile current = actor(username);
+        requireMember(communityId, current);
+        var tournament = tournamentRepository.findById(tournamentId).orElseThrow(this::notFound);
+        verifyScopeAndType(communityId, tournament);
+        return administrationStatus(team(tournamentId, teamId), current);
+    }
+
+    private TeamAdministration administrationStatus(CommunityTournamentTeam team, Profile actor) {
+        Long admin = team.getAdminProfile() == null ? null : team.getAdminProfile().getId();
+        Long pending = team.getPendingAdminProfile() == null ? null : team.getPendingAdminProfile().getId();
+        boolean canManage = Objects.equals(admin, actor.getId());
+        boolean canAccept = pending != null && Objects.equals(pending, actor.getId());
+        return new TeamAdministration(team.getId(), admin, canManage || canAccept ? pending : null,
+                canManage, canAccept);
+    }
+
+    /** The current administrator proposes a replacement already on the roster. */
+    public TeamAdministration transferAdministration(Long communityId, Long tournamentId,
+                                                       Long teamId, Long successorId, String username) {
+        Profile current = actor(username);
+        requireDraft(lockedTeamTournament(communityId, tournamentId));
+        CommunityTournamentTeam selected = team(tournamentId, teamId);
+        if (selected.getAdminProfile() == null
+                || !Objects.equals(selected.getAdminProfile().getId(), current.getId()))
+            throw new AccessDeniedException("Apenas o administrador atual pode transferir a equipa");
+        if (successorId == null || Objects.equals(successorId, current.getId())
+                || playerRepository.findByTeamIdAndProfileId(teamId, successorId).isEmpty())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Escolhe outro membro confirmado desta equipa");
+        Profile successor = profileRepository.findById(successorId).orElseThrow(this::notFound);
+        selected.setPendingAdminProfile(successor);
+        teamRepository.saveAndFlush(selected);
+        return administrationStatus(selected, current);
+    }
+
+    /** A transfer never leaves the team without an active administrator. */
+    public TeamAdministration respondAdministration(Long communityId, Long tournamentId,
+                                                     Long teamId, boolean accept, String username) {
+        Profile current = actor(username);
+        requireMember(communityId, current);
+        requireDraft(lockedTeamTournament(communityId, tournamentId));
+        CommunityTournamentTeam selected = team(tournamentId, teamId);
+        if (selected.getPendingAdminProfile() == null
+                || !Objects.equals(selected.getPendingAdminProfile().getId(), current.getId()))
+            throw new AccessDeniedException("Não tens uma transferência pendente");
+        if (accept) {
+            if (playerRepository.findByTeamIdAndProfileId(teamId, current.getId()).isEmpty())
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Já não pertences à equipa");
+            selected.setAdminProfile(current);
+        }
+        selected.setPendingAdminProfile(null);
+        teamRepository.saveAndFlush(selected);
+        return administrationStatus(selected, current);
+    }
+
+    public TeamAdministration cancelAdministrationTransfer(Long communityId, Long tournamentId,
+                                                             Long teamId, String username) {
+        Profile current = actor(username);
+        requireDraft(lockedTeamTournament(communityId, tournamentId));
+        CommunityTournamentTeam selected = team(tournamentId, teamId);
+        if (selected.getAdminProfile() == null
+                || !Objects.equals(selected.getAdminProfile().getId(), current.getId()))
+            throw new AccessDeniedException("Apenas o administrador atual pode cancelar");
+        selected.setPendingAdminProfile(null);
+        teamRepository.saveAndFlush(selected);
+        return administrationStatus(selected, current);
+    }
+
+    private void requireTeamManager(Long communityId, Profile actor, CommunityTournamentTeam selected) {
+        requireMember(communityId, actor);
+        if (selected.getAdminProfile() != null
+                && Objects.equals(selected.getAdminProfile().getId(), actor.getId())) return;
+        // Organizers retain moderation privileges; routine roster work belongs to the team.
+        requireManager(communityId, actor);
     }
 
     @Transactional(readOnly = true)
