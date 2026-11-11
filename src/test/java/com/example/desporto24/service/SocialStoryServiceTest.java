@@ -41,6 +41,7 @@ class SocialStoryServiceTest {
     @Mock private SocialStoryLikeRepository likes;
     @Mock private NotificationService notificationService;
     @Mock private NotificationPreferencesService notificationPreferences;
+    @Mock private UserBlockService userBlockService;
     @Mock private ProfileRepository profiles;
     @Mock private CommunityRepository communities;
     @Mock private CommunityMemberRepository memberships;
