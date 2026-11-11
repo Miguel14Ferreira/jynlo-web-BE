@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-11-session-description
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: session
+            columns:
+              - column:
+                  name: description
+                  type: varchar(1000)
