@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-11-story-notification-links
+      author: jynlo
+      changes:
+        - addColumn:
+            tableName: notifications
+            columns:
+              - column:
+                  name: story_id
+                  type: BIGINT
+        - createIndex:
+            tableName: notifications
+            indexName: idx_notifications_story_id
+            columns:
+              - column: { name: story_id }
