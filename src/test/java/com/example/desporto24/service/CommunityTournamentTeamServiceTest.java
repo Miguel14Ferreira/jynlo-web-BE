@@ -294,7 +294,7 @@ class CommunityTournamentTeamServiceTest {
 
     @Test
     void cannotManageTeamOwnedByAnotherTournament() {
-        manager();
+        when(profileRepository.findUserByUsernameIgnoreCase("owner")).thenReturn(Optional.of(owner));
         draft();
         var unrelatedTournament = CommunityTournament.builder().id(20L).build();
         when(teamRepository.findById(10L)).thenReturn(Optional.of(
