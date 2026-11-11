@@ -446,6 +446,35 @@ class CommunityChampionshipEventServiceTest {
     }
 
     @Test
+    void goalAssistMustBeDifferentRegisteredTeammate() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("LEAGUE").status("SCHEDULED").build();
+        var home = CommunityChampionshipTeam.builder().id(30L).championship(championship).name("Águias").build();
+        var away = CommunityChampionshipTeam.builder().id(31L).championship(championship).name("Leões").build();
+        var fixture = CommunityChampionshipFixture.builder().id(80L).event(league)
+                .homeTeam(home).awayTeam(away).homeScore(2).awayScore(0).build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
+        when(fixtures.findById(80L)).thenReturn(Optional.of(fixture));
+        var scorer = new Profile(); scorer.setId(44L); scorer.setUsername("ana");
+        var assister = new Profile(); assister.setId(45L); assister.setUsername("rui");
+        when(roster.findByChampionshipIdAndProfileId(15L, 44L)).thenReturn(Optional.of(
+                CommunityChampionshipTeamPlayer.builder().team(home).profile(scorer).build()));
+        when(roster.findByChampionshipIdAndProfileId(15L, 45L)).thenReturn(Optional.of(
+                CommunityChampionshipTeamPlayer.builder().team(home).profile(assister).build()));
+        when(goals.findByFixtureIdOrderByIdAsc(80L)).thenReturn(List.of());
+        service.addGoal(7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.GoalInput(44L, 30L, 21, 45L), "member");
+        var goal = org.mockito.ArgumentCaptor.forClass(CommunityChampionshipGoal.class);
+        verify(goals).saveAndFlush(goal.capture());
+        assertEquals(45L, goal.getValue().getAssister().getId());
+
+        assertThrows(ResponseStatusException.class, () -> service.addGoal(7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.GoalInput(44L, 30L, 21, 44L), "member"));
+    }
+
+    @Test
     void memberMayListOnlyTheSpecifiedChampionshipOwnEvents() {
         member(CommunityRole.MEMBER);
         when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
