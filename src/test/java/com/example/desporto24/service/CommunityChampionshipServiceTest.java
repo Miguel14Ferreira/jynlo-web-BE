@@ -97,6 +97,21 @@ class CommunityChampionshipServiceTest {
     }
 
     @Test
+    void refusesToDeleteAScheduledChampionshipWithRecordedMatchResults() {
+        organizer();
+        when(championships.findForClosing(15L, 7L)).thenReturn(Optional.of(championship));
+        when(ownedEvents.findByChampionshipIdOrderByCreatedAtAscIdAsc(15L))
+                .thenReturn(java.util.List.of(CommunityChampionshipEvent.builder().status("SCHEDULED").build()));
+        when(entityManager.createNativeQuery(anyString())).thenReturn(nativeQuery);
+        when(nativeQuery.setParameter("id", 15L)).thenReturn(nativeQuery);
+        when(nativeQuery.getSingleResult()).thenReturn(1L);
+        var error = assertThrows(ResponseStatusException.class,
+                () -> service.deleteUnplayed(7L, 15L, "organizer"));
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, error.getStatusCode());
+        verify(nativeQuery, never()).executeUpdate();
+    }
+
+    @Test
     void deletesUnplayedCompetitionFixturesAndTeamsInOneAuthorizedTransaction() {
         organizer();
         when(championships.findForClosing(15L, 7L)).thenReturn(Optional.of(championship));
