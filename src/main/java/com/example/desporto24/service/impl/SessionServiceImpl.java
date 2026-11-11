@@ -337,8 +337,13 @@ public class SessionServiceImpl implements SessionService {
         session.setGameDate(Date.from(gameDate));
         session.setCity(linkedVenue == null ? request.city() : linkedVenue.getCity());
         session.setAddress(linkedVenue == null ? request.address() : linkedVenue.getAddress());
-        session.setDescription(request.description() == null || request.description().isBlank()
-                ? null : request.description().trim());
+        String overview = request.description();
+        if (overview != null && (overview.length() > 1000
+                || overview.codePoints().anyMatch(cp -> Character.isISOControl(cp)
+                        && cp != '\n' && cp != '\r' && cp != '\t'))) {
+            throw new IllegalArgumentException("Descrição da sessão inválida");
+        }
+        session.setDescription(overview == null || overview.isBlank() ? null : overview.trim());
         String arrivalNote = request.meetingPointInstructions();
         session.setMeetingPointInstructions(arrivalNote == null || arrivalNote.isBlank()
                 ? null : arrivalNote.trim());
