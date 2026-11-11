@@ -31,6 +31,8 @@ public class CommunityChampionshipService {
     private final CommunityTournamentTeamRepository tournamentTeams;
     private final CommunityChampionshipTeamRepository championshipTeams;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
 
     public CommunityChampionshipResponse create(Long communityId, String username,
                                                   CreateCommunityChampionshipRequest request) {
@@ -53,6 +55,88 @@ public class CommunityChampionshipService {
                 .standingsMode(standingsMode)
                 .seasonLabel(season).createdAt(Instant.now()).build();
         return toResponse(championships.save(championship));
+    }
+
+    /**
+     * Remove a championship created by mistake, including unplayed internal
+     * schedules and team registrations. A season with results, player events,
+     * independent tournaments or archived honours is never silently deleted.
+     */
+    public void deleteUnplayed(Long communityId, Long championshipId, String username) {
+        requireOrganizer(communityId, username);
+        CommunityChampionship championship = championships.findForClosing(championshipId, communityId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Campeonato não encontrado"));
+        if (championship.getClosedAt() != null || !championship.getCompetitions().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "O campeonato tem histórico ou torneios associados e não pode ser apagado");
+        }
+        var events = ownedEvents.findByChampionshipIdOrderByCreatedAtAscIdAsc(championshipId);
+        if (events.stream().anyMatch(event -> !"DRAFT".equals(event.getStatus())
+                && !"SCHEDULED".equals(event.getStatus()))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Existem provas concluídas. O histórico deve ser preservado");
+        }
+
+        // Prevent any loss of recorded scores or individual match events.
+        String fixtureFilter = " FROM desporto24.community_championship_fixture f "
+                + "JOIN desporto24.community_championship_event e ON e.id = f.event_id "
+                + "WHERE e.championship_id = :id";
+        if (countForDelete("SELECT COUNT(*)" + fixtureFilter
+                + " AND (f.home_score IS NOT NULL OR f.away_score IS NOT NULL "
+                + "OR f.result_recorded_at IS NOT NULL)", championshipId) > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Há resultados registados. O campeonato não pode ser apagado");
+        }
+        for (String table : java.util.List.of(
+                "community_championship_goal",
+                "community_championship_disciplinary_card",
+                "community_championship_substitution",
+                "community_championship_lineup_player")) {
+            if (countForDelete("SELECT COUNT(*) FROM desporto24." + table
+                    + " a JOIN desporto24.community_championship_fixture f ON f.id = a.fixture_id "
+                    + "JOIN desporto24.community_championship_event e ON e.id = f.event_id "
+                    + "WHERE e.championship_id = :id", championshipId) > 0) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Existem acontecimentos registados nos jogos. O histórico deve ser preservado");
+            }
+        }
+        if (countForDelete("SELECT COUNT(*) FROM desporto24.community_tournament_team "
+                + "WHERE championship_team_id IN "
+                + "(SELECT id FROM desporto24.community_championship_team WHERE championship_id = :id)",
+                championshipId) > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Há equipas de torneios independentes associadas a este campeonato");
+        }
+
+        // All deletions share this transaction. A constraint error rolls back the lot.
+        executeChampionshipDelete("DELETE FROM desporto24.community_championship_cup_bye "
+                + "WHERE event_id IN (SELECT id FROM desporto24.community_championship_event "
+                + "WHERE championship_id = :id)", championshipId);
+        executeChampionshipDelete("DELETE FROM desporto24.community_championship_fixture "
+                + "WHERE event_id IN (SELECT id FROM desporto24.community_championship_event "
+                + "WHERE championship_id = :id)", championshipId);
+        executeChampionshipDelete("DELETE FROM desporto24.community_championship_event_team "
+                + "WHERE event_id IN (SELECT id FROM desporto24.community_championship_event "
+                + "WHERE championship_id = :id)", championshipId);
+        executeChampionshipDelete("DELETE FROM desporto24.community_championship_event "
+                + "WHERE championship_id = :id", championshipId);
+        executeChampionshipDelete("DELETE FROM desporto24.community_championship_team_invite "
+                + "WHERE championship_id = :id", championshipId);
+        executeChampionshipDelete("DELETE FROM desporto24.community_championship_team_player "
+                + "WHERE championship_id = :id", championshipId);
+        executeChampionshipDelete("DELETE FROM desporto24.community_championship_team "
+                + "WHERE championship_id = :id", championshipId);
+        executeChampionshipDelete("DELETE FROM desporto24.community_championship "
+                + "WHERE id = :id", championshipId);
+    }
+
+    private long countForDelete(String sql, Long championshipId) {
+        return ((Number) entityManager.createNativeQuery(sql)
+                .setParameter("id", championshipId).getSingleResult()).longValue();
+    }
+
+    private void executeChampionshipDelete(String sql, Long championshipId) {
+        entityManager.createNativeQuery(sql).setParameter("id", championshipId).executeUpdate();
     }
 
     @Transactional(readOnly = true)
