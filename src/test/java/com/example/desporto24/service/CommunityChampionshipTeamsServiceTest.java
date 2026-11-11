@@ -100,6 +100,37 @@ class CommunityChampionshipTeamsServiceTest {
     }
 
     @Test
+    void acceptedAdministratorCanAddToOwnRosterButNotAnotherTeam() {
+        var admin = new Profile();
+        admin.setId(44L);
+        when(profiles.findUserByUsername("manager")).thenReturn(Optional.of(admin));
+        when(members.findByCommunityIdAndProfileId(7L, 44L))
+                .thenReturn(Optional.of(CommunityMember.builder().role(CommunityRole.MEMBER).build()));
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(season));
+        when(seasonTeams.findById(99L)).thenReturn(Optional.of(canonical));
+        canonical.setAdminProfile(admin);
+        when(members.existsByCommunityIdAndProfileId(7L, 55L)).thenReturn(true);
+        var player = new Profile();
+        player.setId(55L);
+        player.setUsername("novo");
+        when(profiles.findById(55L)).thenReturn(Optional.of(player));
+        when(playerRegistrations.findByChampionshipIdAndProfileId(15L, 55L))
+                .thenReturn(Optional.empty());
+        // A roster read still requires community membership for the admin.
+        when(members.existsByCommunityIdAndProfileId(7L, 44L)).thenReturn(true);
+        when(playerRegistrations.findByTeamIdOrderByJoinedAtAscIdAsc(99L))
+                .thenReturn(List.of());
+        service.addPlayer(7L, 15L, 99L, 55L, "manager");
+        verify(playerRegistrations).saveAndFlush(org.mockito.ArgumentMatchers.any());
+
+        var otherTeam = CommunityChampionshipTeam.builder().id(100L).name("Rivais")
+                .championship(season).build();
+        when(seasonTeams.findById(100L)).thenReturn(Optional.of(otherTeam));
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> service.addPlayer(7L, 15L, 100L, 56L, "manager"));
+    }
+
+    @Test
     void unrelatedMemberCannotAcceptSomeoneElsesAdministratorInvitation() {
         var outsider = new Profile();
         outsider.setId(55L);
