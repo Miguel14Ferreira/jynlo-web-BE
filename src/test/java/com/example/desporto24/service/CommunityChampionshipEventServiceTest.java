@@ -472,6 +472,11 @@ class CommunityChampionshipEventServiceTest {
 
         assertThrows(ResponseStatusException.class, () -> service.addGoal(7L, 15L, 100L, 80L,
                 new CommunityChampionshipEventService.GoalInput(44L, 30L, 21, 44L), "member"));
+
+        when(roster.findByChampionshipIdAndProfileId(15L, 45L)).thenReturn(Optional.of(
+                CommunityChampionshipTeamPlayer.builder().team(away).profile(assister).build()));
+        assertThrows(ResponseStatusException.class, () -> service.addGoal(7L, 15L, 100L, 80L,
+                new CommunityChampionshipEventService.GoalInput(44L, 30L, 21, 45L), "member"));
     }
 
     @Test
