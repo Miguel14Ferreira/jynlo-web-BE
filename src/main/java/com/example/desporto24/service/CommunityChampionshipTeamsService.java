@@ -27,6 +27,8 @@ public class CommunityChampionshipTeamsService {
     private final CommunityMemberRepository members;
     private final CommunityChampionshipTeamPlayerRepository playerRegistrations;
     private final CommunityChampionshipTeamInviteRepository teamInvites;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private TeamInvitationNotificationService teamNotifications;
     private final CommunityChampionshipGoalRepository goals;
     private final CommunityChampionshipDisciplinaryCardRepository disciplinaryCards;
     private final CommunityChampionshipSubstitutionRepository substitutions;
@@ -119,6 +121,10 @@ public class CommunityChampionshipTeamsService {
         var player = profiles.findById(profileId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         teamInvites.saveAndFlush(CommunityChampionshipTeamInvite.builder()
                 .championship(championship).team(selected).profile(player).invitedAt(Instant.now()).build());
+        if (teamNotifications != null) {
+            var sender = profiles.findUserByUsername(username).orElse(null);
+            teamNotifications.memberInvitation(player, sender, communityId, selected.getName());
+        }
     }
 
     public List<TeamPlayer> respondPlayerInvite(Long communityId, Long championshipId, Long teamId,
@@ -143,6 +149,8 @@ public class CommunityChampionshipTeamsService {
                 team.setAdminProfile(current);
                 team.setPendingAdminProfile(null);
                 seasonTeams.saveAndFlush(team);
+                if (teamNotifications != null)
+                    teamNotifications.assigned(current, communityId, team.getName());
             }
         }
         teamInvites.delete(invite);
@@ -179,6 +187,8 @@ public class CommunityChampionshipTeamsService {
                     "Escolhe outro jogador confirmado nesta equipa");
         team.setPendingAdminProfile(existing.get().getProfile());
         seasonTeams.saveAndFlush(team);
+        if (teamNotifications != null)
+            teamNotifications.adminTransfer(existing.get().getProfile(), actor, communityId, team.getName());
         return administrator(communityId, championshipId, teamId, username);
     }
 
@@ -200,6 +210,8 @@ public class CommunityChampionshipTeamsService {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                         "Já não pertences a esta equipa");
             team.setAdminProfile(actor);
+            if (teamNotifications != null)
+                teamNotifications.assigned(actor, communityId, team.getName());
         }
         team.setPendingAdminProfile(null);
         seasonTeams.saveAndFlush(team);
