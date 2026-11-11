@@ -99,6 +99,7 @@ class CommunityChampionshipHonoursTest {
                         new com.example.desporto24.model.dto.community.CommunityChampionshipTrophySnapshot(
                                 null, "Taça", "KNOCKOUT", "TEAM", null, 30L, "Águias", 101L))));
         assertTrue(result.titles().isEmpty());
+        assertEquals(1, result.completedSeasons());
         assertEquals(2, result.competitionTitles().size());
         assertEquals(1, result.teamHonours().get(0).leagues());
         assertEquals(1, result.teamHonours().get(0).cups());
