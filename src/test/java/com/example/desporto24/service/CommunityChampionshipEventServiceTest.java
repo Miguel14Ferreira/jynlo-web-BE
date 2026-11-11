@@ -375,6 +375,72 @@ class CommunityChampionshipEventServiceTest {
     }
 
     @Test
+    void finalizesLeagueOnlyWithCompleteUnambiguousResults() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var event = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .name("Liga Principal").format("LEAGUE").status("SCHEDULED").createdAt(Instant.now()).build();
+        var home = CommunityChampionshipTeam.builder().id(30L).name("Águias")
+                .championship(championship).build();
+        var away = CommunityChampionshipTeam.builder().id(31L).name("Leões")
+                .championship(championship).build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(event));
+        when(eventTeams.findByEventIdOrderByIdAsc(100L)).thenReturn(List.of(
+                CommunityChampionshipEventTeam.builder().team(home).build(),
+                CommunityChampionshipEventTeam.builder().team(away).build()));
+        when(fixtures.findByEventIdOrderByRoundNumberAscMatchNumberAsc(100L)).thenReturn(List.of(
+                CommunityChampionshipFixture.builder().homeTeam(home).awayTeam(away)
+                        .homeScore(2).awayScore(1).build()));
+        when(championshipTeams.findById(30L)).thenReturn(Optional.of(home));
+        when(events.saveAndFlush(event)).thenReturn(event);
+
+        var result = service.finalizeLeague(7L, 15L, 100L, "member");
+        assertEquals("COMPLETED", result.status());
+        assertEquals(30L, result.winnerTeamId());
+        assertEquals("Águias", result.winnerTeamName());
+        assertNotNull(result.finalizedAt());
+    }
+
+    @Test
+    void cannotFinalizeLeagueWithUnplayedMatch() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var event = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("LEAGUE").status("SCHEDULED").build();
+        var home = CommunityChampionshipTeam.builder().id(30L).name("Águias").build();
+        var away = CommunityChampionshipTeam.builder().id(31L).name("Leões").build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(event));
+        when(eventTeams.findByEventIdOrderByIdAsc(100L)).thenReturn(List.of(
+                CommunityChampionshipEventTeam.builder().team(home).build(),
+                CommunityChampionshipEventTeam.builder().team(away).build()));
+        when(fixtures.findByEventIdOrderByRoundNumberAscMatchNumberAsc(100L)).thenReturn(List.of(
+                CommunityChampionshipFixture.builder().homeTeam(home).awayTeam(away).build()));
+        assertThrows(ResponseStatusException.class,
+                () -> service.finalizeLeague(7L, 15L, 100L, "member"));
+        verify(events, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void cannotFinalizeLeagueWithTiedFirstPlace() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var event = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("LEAGUE").status("SCHEDULED").build();
+        var home = CommunityChampionshipTeam.builder().id(30L).name("Águias").build();
+        var away = CommunityChampionshipTeam.builder().id(31L).name("Leões").build();
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(event));
+        when(eventTeams.findByEventIdOrderByIdAsc(100L)).thenReturn(List.of(
+                CommunityChampionshipEventTeam.builder().team(home).build(),
+                CommunityChampionshipEventTeam.builder().team(away).build()));
+        when(fixtures.findByEventIdOrderByRoundNumberAscMatchNumberAsc(100L)).thenReturn(List.of(
+                CommunityChampionshipFixture.builder().homeTeam(home).awayTeam(away)
+                        .homeScore(1).awayScore(1).build()));
+        assertThrows(ResponseStatusException.class,
+                () -> service.finalizeLeague(7L, 15L, 100L, "member"));
+        verify(events, never()).saveAndFlush(any());
+    }
+
+    @Test
     void organizerRecordsScoreForOwnScheduledLeagueFixture() {
         member(CommunityRole.OWNER);
         when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
