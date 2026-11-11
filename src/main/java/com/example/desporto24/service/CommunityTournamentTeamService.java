@@ -116,6 +116,13 @@ public class CommunityTournamentTeamService {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                         "Já pertences a outra equipa nesta competição");
             }
+            // Explicit acceptance by a previously pre-registered member also
+            // qualifies as the first accepted membership if no admin exists.
+            if (target.getAdminProfile() == null) {
+                target.setAdminProfile(player);
+                target.setPendingAdminProfile(null);
+                teamRepository.saveAndFlush(target);
+            }
             return toResponse(target, tournament.getPlayersPerTeam(),
                     playerRepository.findByTournamentIdOrderByTeamIdAscIdAsc(tournamentId)
                         .stream().filter(entry -> entry.getTeam().getId().equals(teamId)).toList());
