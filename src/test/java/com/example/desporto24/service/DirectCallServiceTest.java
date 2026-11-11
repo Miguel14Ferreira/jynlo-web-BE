@@ -122,6 +122,19 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void callerLosingSessionAccessBeforeAnswerCannotActivateCall() {
+        var outgoing = calls.start("ana", "bea", "voice");
+        doThrow(new org.springframework.security.access.AccessDeniedException("Caller no longer confirmed"))
+                .when(inbox).requireConversationAccess("ana", "direct", "bea");
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.accept(outgoing.callId(), "bea"));
+        verify(gateway, never()).publishDirectCallEvent(eq("ana"), eq("bea"),
+                eq(outgoing.callId().toString()), eq("voice"), eq("ACTIVE"), anyString(), any());
+        assertNull(calls.pendingFor("bea"), "A revoked caller must not keep a recoverable ring");
+    }
+
+    @Test
     void revokedSessionPermissionPreventsAcceptingAnAlreadyRingingCall() {
         var outgoing = calls.start("ana", "bea", "voice");
         doThrow(new org.springframework.security.access.AccessDeniedException("Session participation revoked"))
