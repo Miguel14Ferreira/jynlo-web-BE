@@ -62,6 +62,10 @@ public class ChatServiceImpl implements ChatService {
         // Session-only contacts are not friends: restrict bursts without
         // changing the established friendship chat experience.
         if (friend.getId() == null) {
+            // Hold the sender's database row lock until this transaction commits.
+            // Concurrent requests on different nodes then recount after the prior save.
+            profileRepository.lockForSessionChatQuota(chat.getUsername1())
+                    .orElseThrow(() -> new AccessDeniedException("Sender profile not found"));
             Date now = new Date();
             if (chatRepository.countRecentOutbound(chat.getUsername1(), chat.getUsername2(),
                     Date.from(now.toInstant().minusSeconds(60))) >= 10
