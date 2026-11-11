@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-11-team-notification-deep-links
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: notifications
+            columns:
+              - column: {name: competition_tournament_id, type: bigint}
+              - column: {name: competition_championship_id, type: bigint}
+              - column: {name: competition_team_id, type: bigint}
