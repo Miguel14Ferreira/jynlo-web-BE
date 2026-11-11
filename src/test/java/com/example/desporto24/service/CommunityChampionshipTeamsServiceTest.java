@@ -51,6 +51,7 @@ class CommunityChampionshipTeamsServiceTest {
         when(profiles.findUserByUsername("owner")).thenReturn(Optional.of(actor));
         when(members.findByCommunityIdAndProfileId(7L,33L))
                 .thenReturn(Optional.of(CommunityMember.builder().role(CommunityRole.OWNER).build()));
+        lenient().when(members.existsByCommunityIdAndProfileId(7L,33L)).thenReturn(true);
         when(championships.findByIdAndCommunityId(15L,7L)).thenReturn(Optional.of(season));
     }
 
