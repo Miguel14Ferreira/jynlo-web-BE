@@ -41,6 +41,26 @@ public class SocialStoryController {
         return stories.create(auth.getName(), communityId, caption, image, video);
     }
 
+    @PostMapping("/{id}/likes")
+    public StoryResponse like(@PathVariable Long id, Authentication auth) {
+        return stories.like(id, auth.getName());
+    }
+
+    @DeleteMapping("/{id}/likes")
+    public StoryResponse unlike(@PathVariable Long id, Authentication auth) {
+        return stories.unlike(id, auth.getName());
+    }
+
+    public record StoryReplyRequest(String content) {}
+
+    @PostMapping("/{id}/replies")
+    public ResponseEntity<Void> reply(@PathVariable Long id,
+                                      @RequestBody StoryReplyRequest request,
+                                      Authentication auth) {
+        stories.reply(id, auth.getName(), request == null ? null : request.content());
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id, Authentication auth) {
         stories.delete(id, auth.getName());
