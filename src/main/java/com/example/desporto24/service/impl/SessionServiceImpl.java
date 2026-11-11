@@ -905,7 +905,7 @@ public class SessionServiceImpl implements SessionService {
         }
         if (description != null && (description.length() > 1000
                 || description.codePoints().anyMatch(cp -> Character.isISOControl(cp)
-                        && cp != '\\n' && cp != '\\r' && cp != '\\t'))) {
+                        && cp != '\n' && cp != '\r' && cp != '\t'))) {
             throw new IllegalArgumentException("Descrição da sessão inválida");
         }
         if (meetingPointInstructions != null
