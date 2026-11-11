@@ -31,7 +31,15 @@ public interface SessionService {
     SessionDetailResponse updateCapacity(Long sessionId, int maxParticipants, String username);
     SessionDetailResponse updateDetails(Long sessionId, String sport, java.time.Instant gameDate, int maxParticipants,
             int minParticipants, java.math.BigDecimal priceAmount, String city, String address,
-            String meetingPointInstructions, String username);
+            String meetingPointInstructions, String description, String username);
+
+    /** Existing Java callers retain the former signature; preserve the current description. */
+    default SessionDetailResponse updateDetails(Long sessionId, String sport, java.time.Instant gameDate, int maxParticipants,
+            int minParticipants, java.math.BigDecimal priceAmount, String city, String address,
+            String meetingPointInstructions, String username) {
+        return updateDetails(sessionId, sport, gameDate, maxParticipants, minParticipants,
+                priceAmount, city, address, meetingPointInstructions, null, username);
+    }
 
     SessionDetailResponse updateMeetingPoint(Long sessionId, String instructions, String username);
     SessionDetailResponse updateExternalConfirmations(Long sessionId, int externalConfirmed, String username);
