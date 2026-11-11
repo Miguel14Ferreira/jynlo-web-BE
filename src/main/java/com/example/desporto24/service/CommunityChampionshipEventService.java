@@ -177,6 +177,27 @@ public class CommunityChampionshipEventService {
                 fixtures.findByEventIdOrderByRoundNumberAscMatchNumberAsc(eventId));
     }
 
+    /** Summary of recorded player events within this one league, readable by members. */
+    @Transactional(readOnly = true)
+    public List<ChampionshipPlayerEventStatistics.Row> ownedLeaguePlayerStats(
+            Long communityId, Long championshipId, Long eventId, String username) {
+        requireMember(communityId, username, false);
+        var championship = getChampionship(communityId, championshipId);
+        if (!Set.of("Futebol", "Futsal").contains(championship.getSport()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Estatísticas desta modalidade requerem um motor próprio");
+        var event = getOwnedEvent(championshipId, eventId);
+        if (!"LEAGUE".equals(event.getFormat()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A prova não é uma liga");
+        var recordedGoals = new java.util.ArrayList<CommunityChampionshipGoal>();
+        var recordedCards = new java.util.ArrayList<CommunityChampionshipDisciplinaryCard>();
+        for (var fixture : fixtures.findByEventIdOrderByRoundNumberAscMatchNumberAsc(eventId)) {
+            recordedGoals.addAll(goals.findByFixtureIdOrderByIdAsc(fixture.getId()));
+            recordedCards.addAll(disciplinaryCards.findByFixtureIdOrderByIdAsc(fixture.getId()));
+        }
+        return ChampionshipPlayerEventStatistics.calculate(recordedGoals, recordedCards);
+    }
+
     public record MatchScore(int homeScore, int awayScore) {}
 
     /** The scorer must be a community organizer; fixtures are scoped to the season and event. */
