@@ -91,7 +91,7 @@ class CreateSessionRequestValidationTest {
         CreateSessionRequest base = requestWithCity("Lisboa");
         assertTrue(validator.validate(withDescription(base, null)).isEmpty());
         assertTrue(validator.validate(withDescription(base,
-                "Jogo informal.\\nTrazer duas camisolas.")).isEmpty());
+                "Jogo informal.\nTrazer duas camisolas.")).isEmpty());
         assertFalse(validator.validate(withDescription(base, "x".repeat(1001))).isEmpty());
     }
 
