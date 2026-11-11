@@ -229,8 +229,10 @@ public class CommunityChampionshipService {
                     t.getStatus() != com.example.desporto24.enumeration.TournamentStatus.COMPLETED
                     || t.isChampionTied()
                     || (t.getChampionProfileId() == null && t.getChampionTeamId() == null)).count();
-            return new CommunityChampionshipStandingsResponse(championshipId,
-                    java.util.List.of(), 0, 0, Math.toIntExact(pending));
+            return ChampionshipOwnedEventAwards.merge(
+                    new CommunityChampionshipStandingsResponse(championshipId,
+                            java.util.List.of(), 0, 0, Math.toIntExact(pending)),
+                    ownedEvents.findByChampionshipIdOrderByCreatedAtAscIdAsc(championshipId), true);
         }
         java.util.Map<Long, java.util.List<CommunityTournamentStandingRowResponse>> accepted =
                 new java.util.HashMap<>();
@@ -322,8 +324,10 @@ public class CommunityChampionshipService {
             }
             if (consistent) teamPlacements.put(t.getId(), rows);
         }
-        return CommunityChampionshipStandingsCalculator.calculate(
-                championshipId, championship.getCompetitions(), accepted, teamIdentity, teamPlacements);
+        return ChampionshipOwnedEventAwards.merge(
+                CommunityChampionshipStandingsCalculator.calculate(
+                        championshipId, championship.getCompetitions(), accepted, teamIdentity, teamPlacements),
+                ownedEvents.findByChampionshipIdOrderByCreatedAtAscIdAsc(championshipId), false);
     }
 
     public CommunityChampionshipResponse close(Long communityId, Long championshipId, String username) {
@@ -331,14 +335,17 @@ public class CommunityChampionshipService {
         CommunityChampionship championship = championships.findForClosing(championshipId, communityId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Campeonato não encontrado"));
         ensureOpen(championship);
-        // Owned-event drafts have no fixtures or certified results yet.
-        // Never crown a champion while they are pending.
-        if (!ownedEvents.findByChampionshipIdOrderByCreatedAtAscIdAsc(championshipId).isEmpty())
+        var ownEvents = ownedEvents.findByChampionshipIdOrderByCreatedAtAscIdAsc(championshipId);
+        // The standings merge explicitly marks unverified events as pending.
+        // Do not finalize if any season-owned event has no certified winner.
+        if (ownEvents.stream().anyMatch(event -> !"COMPLETED".equals(event.getStatus())
+                || event.getWinnerTeam() == null || event.getFinalizedAt() == null))
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Existem provas próprias em rascunho; só é possível encerrar após implementar e validar os resultados");
+                    "Conclui as Ligas e Taças internas antes de encerrar o campeonato");
         CommunityChampionshipStandingsResponse result = standings(communityId, championshipId, username);
         if ("INDEPENDENT".equals(championship.getStandingsMode())) {
-            if (championship.getCompetitions().isEmpty() || result.pendingCompetitions() != 0)
+            if ((championship.getCompetitions().isEmpty() && ownEvents.isEmpty())
+                    || result.pendingCompetitions() != 0)
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                         "Conclui todas as provas e confirma os vencedores antes de encerrar");
             try {
