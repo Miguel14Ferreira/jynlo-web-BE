@@ -129,6 +129,13 @@ public class CommunityChampionshipController {
         return championshipTeams.respondAdministrator(communityId, championshipId, teamId, true, auth.getName());
     }
 
+    @PostMapping("/{championshipId}/teams/{teamId}/administrator/cancel")
+    public com.example.desporto24.service.CommunityChampionshipTeamsService.TeamAdminStatus cancelTeamAdminTransfer(
+            @PathVariable Long communityId, @PathVariable Long championshipId,
+            @PathVariable Long teamId, Authentication auth) {
+        return championshipTeams.cancelAdministratorTransfer(communityId, championshipId, teamId, auth.getName());
+    }
+
     @PostMapping("/{championshipId}/teams/{teamId}/administrator/decline")
     public com.example.desporto24.service.CommunityChampionshipTeamsService.TeamAdminStatus declineTeamAdministrator(
             @PathVariable Long communityId, @PathVariable Long championshipId,
