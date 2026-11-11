@@ -45,8 +45,24 @@ public class SessionPresetController {
             List<Long> communityShareIds, Long communityId, Boolean seasonGame,
             Long selectedVenueId, String locationMethod, Double latitude, Double longitude,
             String venueMapLink, String recurrence, Integer recurrenceOccurrences,
-            Integer weeklySessionsPerWeek, String registrationOpeningMode
-    ) {}
+            Integer weeklySessionsPerWeek, String registrationOpeningMode,
+            String description
+    ) {
+        /** Preserve Java callers using the previous preset settings shape. */
+        public Settings(String sport, String playFormat, String city, String address,
+                Integer maxParticipants, String creationMode, Integer confirmedPlayers,
+                Boolean hasPrice, BigDecimal priceAmount, Boolean privateGame,
+                List<Long> communityShareIds, Long communityId, Boolean seasonGame,
+                Long selectedVenueId, String locationMethod, Double latitude, Double longitude,
+                String venueMapLink, String recurrence, Integer recurrenceOccurrences,
+                Integer weeklySessionsPerWeek, String registrationOpeningMode) {
+            this(sport, playFormat, city, address, maxParticipants, creationMode,
+                    confirmedPlayers, hasPrice, priceAmount, privateGame,
+                    communityShareIds, communityId, seasonGame, selectedVenueId,
+                    locationMethod, latitude, longitude, venueMapLink, recurrence,
+                    recurrenceOccurrences, weeklySessionsPerWeek, registrationOpeningMode, null);
+        }
+    }
 
     public record SaveRequest(@NotBlank @Size(max = 70) String name,
                               @NotNull @Valid Settings settings) {}
@@ -66,6 +82,9 @@ public class SessionPresetController {
         if (s == null || s.sport() == null || s.sport().isBlank() || s.sport().length() > 100
                 || s.city() != null && s.city().length() > 120
                 || s.address() != null && s.address().length() > 350
+                || s.description() != null && (s.description().length() > 1000
+                   || s.description().codePoints().anyMatch(cp -> Character.isISOControl(cp)
+                      && cp != '\n' && cp != '\r' && cp != '\t'))
                 || s.maxParticipants() == null || s.maxParticipants() < 2 || s.maxParticipants() > 100
                 || s.confirmedPlayers() != null && (s.confirmedPlayers() < 1 || s.confirmedPlayers() > s.maxParticipants())
                 || s.priceAmount() != null && (s.priceAmount().signum() < 0 || s.priceAmount().compareTo(new BigDecimal("100000")) > 0)
