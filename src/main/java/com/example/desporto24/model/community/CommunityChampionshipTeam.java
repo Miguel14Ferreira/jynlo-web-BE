@@ -28,6 +28,15 @@ public class CommunityChampionshipTeam {
     @JoinColumn(name = "permanent_team_id")
     private CommunityPermanentTeam permanentTeam;
 
+    /** Accepted team administrator; an invitation alone grants no permissions. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "admin_profile_id")
+    private com.example.desporto24.model.Profile adminProfile;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pending_admin_profile_id")
+    private com.example.desporto24.model.Profile pendingAdminProfile;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 }
