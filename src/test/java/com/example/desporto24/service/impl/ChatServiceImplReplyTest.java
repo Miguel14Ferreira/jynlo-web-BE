@@ -8,6 +8,7 @@ import com.example.desporto24.repository.FriendRepository;
 import com.example.desporto24.repository.NotificationsRepository;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.service.UserBlockService;
+import com.example.desporto24.service.SessionContactAccessService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
@@ -31,6 +33,7 @@ class ChatServiceImplReplyTest {
     @Mock NotificationsRepository notifications;
     @Mock ApplicationEventPublisher events;
     @Mock UserBlockService blockService;
+    @Mock SessionContactAccessService sessionContacts;
     @InjectMocks ChatServiceImpl service;
 
     @BeforeEach
@@ -43,7 +46,9 @@ class ChatServiceImplReplyTest {
         bea.setUsername("bea");
         when(profiles.findUserByUsername("ana")).thenReturn(Optional.of(ana));
         when(profiles.findUserByUsername("bea")).thenReturn(Optional.of(bea));
-        when(friends.findConnection(1L, 2L)).thenReturn(Optional.of(new Friend()));
+        Friend friendship = new Friend();
+        friendship.setId(7L);
+        lenient().when(friends.findConnection(1L, 2L)).thenReturn(Optional.of(friendship));
     }
 
     private Chat message(String sender, String recipient, String text) {
@@ -97,8 +102,15 @@ class ChatServiceImplReplyTest {
         verify(notifications, never()).save(any());
     }
 
+    private void authorizeSessionOnlyContact() {
+        when(friends.findConnection(1L, 2L)).thenReturn(Optional.empty());
+        when(sessionContacts.mayContact("ana", "bea")).thenReturn(true);
+        ReflectionTestUtils.setField(service, "sessionContactAccess", sessionContacts);
+    }
+
     @Test
     void sessionOnlyContactIsRateLimitedBeforeSavingOrNotifying() {
+        authorizeSessionOnlyContact();
         when(chats.countRecentOutbound(eq("ana"), eq("bea"), any(java.util.Date.class)))
                 .thenReturn(10L);
         Chat message = message("ana", "bea", "repeated");
@@ -112,12 +124,21 @@ class ChatServiceImplReplyTest {
 
     @Test
     void sessionOnlyContactIsRateLimitedOverAnHour() {
+        authorizeSessionOnlyContact();
         when(chats.countRecentOutbound(eq("ana"), eq("bea"), any(java.util.Date.class)))
                 .thenReturn(0L, 60L);
         assertEquals(429, assertThrows(ResponseStatusException.class,
                 () -> service.sendMessage(message("ana", "bea", "repeated")))
                 .getStatusCode().value());
         verify(chats, never()).save(any());
+    }
+
+    @Test
+    void existingFriendsAreNotSubjectToSessionOnlyRateLimits() {
+        when(chats.save(any(Chat.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        service.sendMessage(message("ana", "bea", "hello"));
+        verify(chats, never()).countRecentOutbound(anyString(), anyString(), any(java.util.Date.class));
+        verify(chats).save(any(Chat.class));
     }
 
     @Test
