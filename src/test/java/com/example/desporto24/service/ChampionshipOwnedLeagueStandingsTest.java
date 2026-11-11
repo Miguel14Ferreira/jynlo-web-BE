@@ -31,7 +31,7 @@ class ChampionshipOwnedLeagueStandingsTest {
         assertEquals(3, table.totalMatches());
         assertEquals(2, table.playedMatches());
         assertFalse(table.completed());
-        assertEquals(List.of(4, 1, 1), table.standings().stream()
+        assertEquals(List.of(4, 1, 0), table.standings().stream()
                 .map(ChampionshipOwnedLeagueStandings.Row::points).toList());
         var leader = table.standings().get(0);
         assertEquals(2, leader.played());
