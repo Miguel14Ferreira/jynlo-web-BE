@@ -606,6 +606,35 @@ class CommunityChampionshipEventServiceTest {
     }
 
     @Test
+    void rejectsDuplicateSubstitutionAtSameMinute() {
+        member(CommunityRole.OWNER);
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        var league = CommunityChampionshipEvent.builder().id(100L).championship(championship)
+                .format("LEAGUE").status("SCHEDULED").build();
+        var home = CommunityChampionshipTeam.builder().id(30L).championship(championship).name("Águias").build();
+        var away = CommunityChampionshipTeam.builder().id(31L).championship(championship).name("Leões").build();
+        var fixture = CommunityChampionshipFixture.builder().id(80L).event(league)
+                .homeTeam(home).awayTeam(away).homeScore(1).awayScore(0).build();
+        var out = new Profile(); out.setId(41L);
+        var in = new Profile(); in.setId(42L);
+        when(events.lockForScheduling(100L, 15L)).thenReturn(Optional.of(league));
+        when(fixtures.findById(80L)).thenReturn(Optional.of(fixture));
+        when(roster.findByChampionshipIdAndProfileId(15L, 41L)).thenReturn(Optional.of(
+                CommunityChampionshipTeamPlayer.builder().team(home).profile(out).build()));
+        when(roster.findByChampionshipIdAndProfileId(15L, 42L)).thenReturn(Optional.of(
+                CommunityChampionshipTeamPlayer.builder().team(home).profile(in).build()));
+        var existing = CommunityChampionshipSubstitution.builder().id(10L).fixture(fixture)
+                .team(home).playerOut(out).playerIn(in).matchMinute(60).build();
+        when(substitutions.findByFixtureIdOrderByMatchMinuteAscIdAsc(80L))
+                .thenReturn(List.of(existing));
+        assertThrows(ResponseStatusException.class,
+                () -> service.addSubstitution(7L, 15L, 100L, 80L,
+                        new CommunityChampionshipEventService.SubstitutionInput(30L, 41L, 42L, 60),
+                        "member"));
+        verify(substitutions, never()).saveAndFlush(any());
+    }
+
+    @Test
     void ordinaryMemberCannotRecordSubstitution() {
         member(CommunityRole.MEMBER);
         assertThrows(AccessDeniedException.class, () -> service.addSubstitution(
