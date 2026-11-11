@@ -25,6 +25,11 @@ public class CommunityChampionshipGoal {
     @JoinColumn(name = "profile_id", nullable = false)
     private Profile scorer;
 
+    /** Optional teammate credited with the assist on this goal. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assist_profile_id")
+    private Profile assister;
+
     @Column(name = "match_minute")
     private Integer matchMinute;
 
