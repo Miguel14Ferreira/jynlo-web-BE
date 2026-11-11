@@ -37,6 +37,8 @@ class CommunityChampionshipServiceTest {
     @Mock CommunityTournamentTeamStandingsService teamLeagueStandings;
     @Mock CommunityTournamentTeamRepository tournamentTeams;
     @Mock CommunityChampionshipTeamRepository championshipTeams;
+    @Mock jakarta.persistence.EntityManager entityManager;
+    @Mock jakarta.persistence.Query nativeQuery;
     @org.mockito.Spy com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
     @InjectMocks CommunityChampionshipService service;
 
@@ -60,6 +62,52 @@ class CommunityChampionshipServiceTest {
         when(profiles.findUserByUsername("organizer")).thenReturn(Optional.of(actor));
         when(members.findByCommunityIdAndProfileId(7L, 33L))
                 .thenReturn(Optional.of(CommunityMember.builder().role(CommunityRole.OWNER).build()));
+    }
+
+    @Test
+    void refusesToDeleteAClosedChampionshipEvenWhenItHasNoTeams() {
+        organizer();
+        championship.setClosedAt(Instant.parse("2026-11-11T18:00:00Z"));
+        when(championships.findForClosing(15L, 7L)).thenReturn(Optional.of(championship));
+        var error = assertThrows(ResponseStatusException.class,
+                () -> service.deleteUnplayed(7L, 15L, "organizer"));
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, error.getStatusCode());
+        verifyNoInteractions(entityManager);
+    }
+
+    @Test
+    void refusesToDeleteAChampionshipWithIndependentTournaments() {
+        organizer();
+        championship.getCompetitions().add(CommunityTournament.builder().id(21L).build());
+        when(championships.findForClosing(15L, 7L)).thenReturn(Optional.of(championship));
+        assertThrows(ResponseStatusException.class,
+                () -> service.deleteUnplayed(7L, 15L, "organizer"));
+        verifyNoInteractions(entityManager);
+    }
+
+    @Test
+    void refusesToDeleteAChampionshipWithCompletedInternalEvents() {
+        organizer();
+        when(championships.findForClosing(15L, 7L)).thenReturn(Optional.of(championship));
+        when(ownedEvents.findByChampionshipIdOrderByCreatedAtAscIdAsc(15L))
+                .thenReturn(java.util.List.of(CommunityChampionshipEvent.builder().status("COMPLETED").build()));
+        assertThrows(ResponseStatusException.class,
+                () -> service.deleteUnplayed(7L, 15L, "organizer"));
+        verifyNoInteractions(entityManager);
+    }
+
+    @Test
+    void deletesUnplayedCompetitionFixturesAndTeamsInOneAuthorizedTransaction() {
+        organizer();
+        when(championships.findForClosing(15L, 7L)).thenReturn(Optional.of(championship));
+        when(ownedEvents.findByChampionshipIdOrderByCreatedAtAscIdAsc(15L))
+                .thenReturn(java.util.List.of(CommunityChampionshipEvent.builder().status("SCHEDULED").build()));
+        when(entityManager.createNativeQuery(anyString())).thenReturn(nativeQuery);
+        when(nativeQuery.setParameter("id", 15L)).thenReturn(nativeQuery);
+        when(nativeQuery.getSingleResult()).thenReturn(0L);
+        service.deleteUnplayed(7L, 15L, "organizer");
+        verify(entityManager).createNativeQuery("DELETE FROM desporto24.community_championship WHERE id = :id");
+        verify(nativeQuery, times(8)).executeUpdate();
     }
 
     @Test
