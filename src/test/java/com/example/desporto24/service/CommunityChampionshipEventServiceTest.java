@@ -239,6 +239,26 @@ class CommunityChampionshipEventServiceTest {
     }
 
     @Test
+    void unsupportedSportCannotScheduleOwnFootballLeague() {
+        member(CommunityRole.OWNER);
+        championship.setSport("Karaté");
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        assertThrows(ResponseStatusException.class, () ->
+                service.scheduleLeague(7L, 15L, 100L, 1, "member"));
+        verifyNoInteractions(fixtures, eventTeams);
+    }
+
+    @Test
+    void unsupportedSportCannotDrawOwnFootballCup() {
+        member(CommunityRole.OWNER);
+        championship.setSport("Karaté");
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
+        assertThrows(ResponseStatusException.class, () ->
+                service.drawCup(7L, 15L, 100L, "member"));
+        verifyNoInteractions(fixtures, cupByes);
+    }
+
+    @Test
     void openingCupDrawPersistsMatchesAndByesWithoutTouchingOtherTournaments() {
         member(CommunityRole.OWNER);
         when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(championship));
