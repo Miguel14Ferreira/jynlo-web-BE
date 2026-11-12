@@ -77,6 +77,63 @@ class DirectChatAttachmentServiceTest {
     }
 
     @Test
+    void batchCreatesOneMessageWithTwoPrivateAttachmentsAndNoStorageKeysInPublicMetadata() {
+        MultipartFile second = mock(MultipartFile.class);
+        when(chats.getChatInfo("ana", "bea")).thenReturn(new Friend());
+        when(files.store(file)).thenReturn(new PrivateChatFileStorage.StoredFile(
+                "private-chat/11111111-1111-1111-1111-111111111111.jpg", "jogo.jpg", "image/jpeg", 100L));
+        when(files.store(second)).thenReturn(new PrivateChatFileStorage.StoredFile(
+                "private-chat/22222222-2222-2222-2222-222222222222.mp4", "golo.mp4", "video/mp4", 200L));
+        when(chats.sendMessage(any(Chat.class))).thenAnswer(inv -> inv.getArgument(0));
+        Chat result = service.sendBatch("ana", "bea", java.util.List.of(file, second), "Foi golo?", null);
+        assertEquals("Foi golo?", result.getText());
+        assertEquals(1, result.getExtraAttachments().size());
+        assertEquals("golo.mp4", result.getExtraAttachments().getFirst().getFilename());
+        assertEquals(2, result.getAttachments().size());
+        assertEquals(1, result.getAttachments().get(1).get("index"));
+        assertFalse(result.getAttachments().get(1).containsKey("storageKey"));
+        verify(chats, times(1)).sendMessage(any(Chat.class));
+    }
+
+    @Test
+    void batchCleanupDeletesEveryStoredObjectWhenMessageFails() {
+        MultipartFile second = mock(MultipartFile.class);
+        when(chats.getChatInfo("ana", "bea")).thenReturn(new Friend());
+        when(files.store(file)).thenReturn(new PrivateChatFileStorage.StoredFile("first", "jogo.jpg", "image/jpeg", 100L));
+        when(files.store(second)).thenReturn(new PrivateChatFileStorage.StoredFile("second", "golo.jpg", "image/jpeg", 100L));
+        when(chats.sendMessage(any(Chat.class))).thenThrow(new IllegalStateException("DB failed"));
+        assertThrows(IllegalStateException.class,
+                () -> service.sendBatch("ana", "bea", java.util.List.of(file, second), "", null));
+        verify(files).delete("first");
+        verify(files).delete("second");
+    }
+
+    @Test
+    void indexedDownloadsRequireTheExactPrivateConversation() {
+        when(chats.getChatInfo("ana", "bea")).thenReturn(new Friend());
+        Chat message = new Chat();
+        message.setUsername1("ana");
+        message.setUsername2("carlos");
+        message.setAttachmentKey("first");
+        message.setExtraAttachments(new java.util.ArrayList<>(java.util.List.of(
+                new com.example.desporto24.model.chat.PrivateChatAttachment(
+                        "second", "golo.mp4", "video/mp4", 200L))));
+        when(messages.findById(5L)).thenReturn(Optional.of(message));
+        assertThrows(ResponseStatusException.class,
+                () -> service.downloadAt("ana", "bea", 5L, 1));
+        verify(files, never()).read(any());
+    }
+
+    @Test
+    void deniesOversizedOrTooManyFilesBeforeObjectStorage() {
+        when(chats.getChatInfo("ana", "bea")).thenReturn(new Friend());
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> service.sendBatch("ana", "bea", java.util.List.of(file, file, file, file, file),
+                        "", null)).getStatusCode().value());
+        verifyNoInteractions(files);
+    }
+
+    @Test
     void cannotReadFilesFromAnyOtherConversationEvenIfMessageIdIsKnown() {
         when(chats.getChatInfo("ana", "bea")).thenReturn(new Friend());
         Chat otherConversation = new Chat();
