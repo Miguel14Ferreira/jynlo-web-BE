@@ -89,6 +89,34 @@ class PrivateChatFileStorageTest {
     }
 
     @Test
+    void storesMp4VideoAndMp3AudioInPrivateStorage() throws Exception {
+        var storage = local(tmp.resolve("private").toString());
+        byte[] mp4 = new byte[] {
+                0,0,0,16,'f','t','y','p','i','s','o','m',0,0,0,0
+        };
+        var video = new MockMultipartFile("file", "jogo.mp4", "video/mp4", mp4);
+        var storedVideo = storage.store(video);
+        assertEquals("video/mp4", storedVideo.mime());
+        assertArrayEquals(mp4, storage.read(storedVideo.key()));
+        byte[] mp3 = new byte[] {'I','D','3',3,0,0,0,0,0,0,1,2,3};
+        var audio = new MockMultipartFile("file", "voz.mp3", "audio/mpeg", mp3);
+        var storedAudio = storage.store(audio);
+        assertEquals("audio/mpeg", storedAudio.mime());
+        assertArrayEquals(mp3, storage.read(storedAudio.key()));
+    }
+
+    @Test
+    void refusesFakeVideoAndAudioExecutables() {
+        var storage = local(tmp.resolve("private").toString());
+        var fakeVideo = new MockMultipartFile("file","video.mp4","video/mp4",
+                "<html>fake</html>".getBytes(StandardCharsets.UTF_8));
+        var fakeAudio = new MockMultipartFile("file","voice.mp3","audio/mpeg",
+                "MZ-not-an-audio-file".getBytes(StandardCharsets.UTF_8));
+        assertThrows(IllegalArgumentException.class, () -> storage.store(fakeVideo));
+        assertThrows(ResponseStatusException.class, () -> storage.store(fakeAudio));
+    }
+
+    @Test
     void rejectsAudioSpoofedAsHtmlOrVideoAndTraversalKeys() {
         var storage = local(tmp.resolve("private").toString());
         var html = new MockMultipartFile("file", "voice.webm", "audio/webm",
