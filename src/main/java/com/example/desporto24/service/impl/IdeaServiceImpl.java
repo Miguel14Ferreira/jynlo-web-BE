@@ -101,7 +101,7 @@ public class IdeaServiceImpl implements IdeaService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Formato de imagem inválido");
             }
             String filename = file.getOriginalFilename() == null ? "captura" + extension
-                    : file.getOriginalFilename().replace('\\\\', '/');
+                    : file.getOriginalFilename().replace((char) 92, '/');
             filename = filename.substring(filename.lastIndexOf('/') + 1).trim();
             filename = filename.replaceAll("[\\p{Cntrl}]", "");
             if (filename.isEmpty()) filename = "captura" + extension;
