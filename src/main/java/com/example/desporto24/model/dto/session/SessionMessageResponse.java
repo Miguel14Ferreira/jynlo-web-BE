@@ -16,8 +16,18 @@ public record SessionMessageResponse(
         Long attachmentSize,
         Instant editedAt,
         Instant deletedAt,
-        boolean senderGuest
+        boolean senderGuest,
+        java.util.List<com.example.desporto24.service.PrivateChatAttachmentBatch.PublicMetadata> attachments
 ) {
+    public SessionMessageResponse(
+            Long id, Long sessionId, String senderUsername, String body, Instant createdAt,
+            Long replyToMessageId, String replyToSender, String replyToText,
+            String attachmentName, String attachmentMimeType, Long attachmentSize,
+            Instant editedAt, Instant deletedAt, boolean senderGuest) {
+        this(id, sessionId, senderUsername, body, createdAt, replyToMessageId, replyToSender,
+                replyToText, attachmentName, attachmentMimeType, attachmentSize,
+                editedAt, deletedAt, senderGuest, java.util.List.of());
+    }
     /** Keep the existing registered-player response contract. */
     public SessionMessageResponse(
             Long id, Long sessionId, String senderUsername, String body, Instant createdAt,
