@@ -64,7 +64,6 @@ public class IdeaServiceImpl implements IdeaService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Máximo de 16 MB por mensagem");
         }
         ValidImage validated = validatedImages.isEmpty() ? null : validatedImages.get(0);
-        ValidImage validated = image == null ? null : validateImage(image);
         Ideas idea = new Ideas(
                 request.name().trim(),
                 request.email().trim(),
