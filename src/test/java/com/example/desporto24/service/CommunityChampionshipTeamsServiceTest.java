@@ -12,6 +12,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,6 +55,68 @@ class CommunityChampionshipTeamsServiceTest {
                 .thenReturn(Optional.of(CommunityMember.builder().role(CommunityRole.OWNER).build()));
         lenient().when(members.existsByCommunityIdAndProfileId(7L,33L)).thenReturn(true);
         when(championships.findByIdAndCommunityId(15L,7L)).thenReturn(Optional.of(season));
+    }
+
+    @Test
+    void organizerCanReviewPendingInvitesWithoutChangingMembership() {
+        organizer();
+        when(seasonTeams.findById(99L)).thenReturn(Optional.of(canonical));
+        var invitee = new Profile();
+        invitee.setId(44L);
+        invitee.setUsername("jogador");
+        invitee.setFullName("Jogador Exemplo");
+        var invite = CommunityChampionshipTeamInvite.builder()
+                .team(canonical).championship(season).profile(invitee)
+                .invitedAt(Instant.parse("2026-11-12T10:00:00Z")).build();
+        when(teamInvites.findByTeamIdOrderByInvitedAtAscIdAsc(99L)).thenReturn(List.of(invite));
+        var pending = service.pendingPlayerInvitations(7L, 15L, 99L, "owner");
+        assertEquals(1, pending.size());
+        assertEquals(44L, pending.get(0).profileId());
+        assertEquals("Jogador Exemplo", pending.get(0).displayName());
+        verifyNoInteractions(playerRegistrations);
+    }
+
+    @Test
+    void ordinaryMemberCannotSeePendingInvitations() {
+        var actor = new Profile();
+        actor.setId(55L);
+        when(profiles.findUserByUsername("ordinary")).thenReturn(Optional.of(actor));
+        when(members.findByCommunityIdAndProfileId(7L, 55L))
+                .thenReturn(Optional.of(CommunityMember.builder().role(CommunityRole.MEMBER).build()));
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(season));
+        when(seasonTeams.findById(99L)).thenReturn(Optional.of(canonical));
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> service.pendingPlayerInvitations(7L, 15L, 99L, "ordinary"));
+        verify(teamInvites, never()).findByTeamIdOrderByInvitedAtAscIdAsc(99L);
+    }
+
+    @Test
+    void organizerCanRevokeOnlyAnOutstandingInvite() {
+        organizer();
+        when(seasonTeams.findById(99L)).thenReturn(Optional.of(canonical));
+        var invite = CommunityChampionshipTeamInvite.builder().id(80L)
+                .team(canonical).championship(season).build();
+        when(teamInvites.findByTeamIdAndProfileId(99L, 44L)).thenReturn(Optional.of(invite));
+        service.revokePlayerInvitation(7L, 15L, 99L, 44L, "owner");
+        verify(teamInvites).delete(invite);
+        verifyNoInteractions(playerRegistrations);
+        assertEquals(HttpStatus.NOT_FOUND.value(), assertThrows(ResponseStatusException.class,
+                () -> service.revokePlayerInvitation(7L, 15L, 99L, 45L, "owner"))
+                .getStatusCode().value());
+    }
+
+    @Test
+    void ordinaryMemberCannotRevokeAnotherPersonsInvite() {
+        var actor = new Profile();
+        actor.setId(55L);
+        when(profiles.findUserByUsername("ordinary")).thenReturn(Optional.of(actor));
+        when(members.findByCommunityIdAndProfileId(7L, 55L))
+                .thenReturn(Optional.of(CommunityMember.builder().role(CommunityRole.MEMBER).build()));
+        when(championships.findByIdAndCommunityId(15L, 7L)).thenReturn(Optional.of(season));
+        when(seasonTeams.findById(99L)).thenReturn(Optional.of(canonical));
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> service.revokePlayerInvitation(7L, 15L, 99L, 44L, "ordinary"));
+        verify(teamInvites, never()).delete(any());
     }
 
     @Test
