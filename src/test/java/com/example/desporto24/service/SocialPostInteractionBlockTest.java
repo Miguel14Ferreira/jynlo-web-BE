@@ -36,6 +36,7 @@ class SocialPostInteractionBlockTest {
     @Mock private NotificationsRepository notifications;
     @Mock private NotificationPreferencesService preferences;
     @Mock private UserBlockService blocks;
+    @Mock private com.example.desporto24.websocket.ChatRealtimeGateway realtimeGateway;
     @InjectMocks private SocialPostInteractionService service;
 
     private Profile viewer;
@@ -171,5 +172,42 @@ class SocialPostInteractionBlockTest {
 
         assertTrue(service.likers(51L, "viewer").isEmpty());
         verify(blocks).ensureInteractionAllowed(viewer, author);
+    }
+
+    @Test
+    void committedLikeSignalsRealtimeOnlyAfterTransactionCommit() {
+        when(posts.findById(51L)).thenReturn(Optional.of(post));
+        when(profiles.findUserByUsernameIgnoreCase("viewer")).thenReturn(Optional.of(viewer));
+        when(likes.existsByPostIdAndProfileId(51L, 11L)).thenReturn(false, true);
+        when(likes.countByPostId(51L)).thenReturn(1L);
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.like(51L, "viewer");
+            verifyNoInteractions(realtimeGateway);
+            for (var sync : org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations()) {
+                sync.afterCommit();
+            }
+            verify(realtimeGateway).publishSocialFeedInvalidated();
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void rolledBackLikeNeverSignalsRealtime() {
+        when(posts.findById(51L)).thenReturn(Optional.of(post));
+        when(profiles.findUserByUsernameIgnoreCase("viewer")).thenReturn(Optional.of(viewer));
+        when(likes.existsByPostIdAndProfileId(51L, 11L)).thenReturn(false, true);
+        when(likes.countByPostId(51L)).thenReturn(1L);
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.like(51L, "viewer");
+            for (var sync : org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations()) {
+                sync.afterCompletion(org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK);
+            }
+            verifyNoInteractions(realtimeGateway);
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 }
