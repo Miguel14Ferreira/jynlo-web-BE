@@ -77,6 +77,56 @@ class CommunityTournamentTeamServiceTest {
     }
 
     @Test
+    void organizerCanReviewPendingTeamInvitationsWithoutRegisteringPlayers() {
+        manager();
+        when(tournamentRepository.findById(19L)).thenReturn(Optional.of(teamTournament));
+        var selected = team(10L, "Azul");
+        when(teamRepository.findById(10L)).thenReturn(Optional.of(selected));
+        var invite = CommunityTournamentTeamInvite.builder().team(selected)
+                .tournament(teamTournament).profile(player)
+                .invitedAt(Instant.parse("2026-11-12T10:00:00Z")).build();
+        when(inviteRepository.findByTeamIdOrderByInvitedAtAscIdAsc(10L))
+                .thenReturn(List.of(invite));
+        var pending = service.pendingInvitations(7L, 19L, 10L, "owner");
+        assertEquals(1, pending.size());
+        assertEquals(2L, pending.get(0).profileId());
+        assertEquals("ana", pending.get(0).displayName());
+        verifyNoInteractions(playerRepository);
+    }
+
+    @Test
+    void memberCannotInspectOrRevokeAnotherPlayersPendingInvitation() {
+        when(profileRepository.findUserByUsernameIgnoreCase("ana")).thenReturn(Optional.of(player));
+        when(memberRepository.findByCommunityIdAndProfileId(7L, 2L))
+                .thenReturn(Optional.of(CommunityMember.builder()
+                        .community(community).profile(player).role(CommunityRole.MEMBER).build()));
+        when(tournamentRepository.findById(19L)).thenReturn(Optional.of(teamTournament));
+        when(tournamentRepository.findByIdForUpdate(19L)).thenReturn(Optional.of(teamTournament));
+        var selected = team(10L, "Azul");
+        when(teamRepository.findById(10L)).thenReturn(Optional.of(selected));
+        assertThrows(AccessDeniedException.class,
+                () -> service.pendingInvitations(7L, 19L, 10L, "ana"));
+        assertThrows(AccessDeniedException.class,
+                () -> service.revokeInvitation(7L, 19L, 10L, 1L, "ana"));
+        verify(inviteRepository, never()).delete(any());
+        verify(inviteRepository, never()).findByTeamIdOrderByInvitedAtAscIdAsc(any());
+    }
+
+    @Test
+    void cancellingPendingTournamentInvitationDoesNotChangeConfirmedRoster() {
+        manager();
+        draft();
+        var selected = team(10L, "Azul");
+        when(teamRepository.findById(10L)).thenReturn(Optional.of(selected));
+        var pending = CommunityTournamentTeamInvite.builder()
+                .id(33L).team(selected).tournament(teamTournament).profile(player).build();
+        when(inviteRepository.findByTeamIdAndProfileId(10L, 2L)).thenReturn(Optional.of(pending));
+        service.revokeInvitation(7L, 19L, 10L, 2L, "owner");
+        verify(inviteRepository).delete(pending);
+        verifyNoInteractions(playerRepository);
+    }
+
+    @Test
     void deletingAnEmptyTeamAlsoCancelsOutstandingInvitations() {
         manager();
         draft();
