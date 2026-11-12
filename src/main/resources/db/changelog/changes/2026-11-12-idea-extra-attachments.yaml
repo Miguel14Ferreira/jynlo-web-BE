@@ -1,0 +1,39 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-12-idea-extra-attachments
+      author: jynlo
+      changes:
+        - createTable:
+            tableName: idea_extra_attachment
+            columns:
+              - column:
+                  name: idea_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_idea_extra_attachment
+                    foreignKeyName: fk_idea_extra_attachment_idea
+                    references: ideas(id)
+              - column:
+                  name: image_index
+                  type: integer
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_idea_extra_attachment
+              - column:
+                  name: filename
+                  type: varchar(160)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: mime_type
+                  type: varchar(40)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: content
+                  type: bytea
+                  constraints:
+                    nullable: false
