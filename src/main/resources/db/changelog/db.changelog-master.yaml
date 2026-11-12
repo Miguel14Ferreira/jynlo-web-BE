@@ -408,3 +408,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-12-idea-extra-attachments.yaml
   - include:
       file: db/changelog/changes/2026-11-12-public-feed-galleries.yaml
+  - include:
+      file: db/changelog/changes/2026-11-12-private-chat-multi-attachments.yaml
