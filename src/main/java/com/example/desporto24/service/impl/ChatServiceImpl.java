@@ -66,6 +66,13 @@ public class ChatServiceImpl implements ChatService {
             // Concurrent requests on different nodes then recount after the prior save.
             profileRepository.lockForSessionChatQuota(chat.getUsername1())
                     .orElseThrow(() -> new AccessDeniedException("Sender profile not found"));
+            // Recheck after acquiring the database lock: membership or block state
+            // may have changed while this request was waiting for the lock.
+            // Never persist a session-only message on a stale authorization.
+            Friend currentAccess = requireFriendship(chat.getUsername1(), chat.getUsername2());
+            if (currentAccess.isChatBlocked()) {
+                throw new ChatBlockedException(CHAT_BLOCKED);
+            }
             Date now = new Date();
             if (chatRepository.countRecentOutbound(chat.getUsername1(), chat.getUsername2(),
                     Date.from(now.toInstant().minusSeconds(60))) >= 10
