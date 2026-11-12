@@ -62,6 +62,13 @@ public class CommunityTimelineEntry {
     @Column(name = "attachment_size")
     private Long attachmentSize;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "community_chat_extra_attachment", joinColumns = @JoinColumn(name = "message_id"))
+    @OrderColumn(name = "position")
+    @Builder.Default
+    private java.util.List<com.example.desporto24.model.chat.PrivateChatAttachment> extraAttachments =
+            new java.util.ArrayList<>();
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
