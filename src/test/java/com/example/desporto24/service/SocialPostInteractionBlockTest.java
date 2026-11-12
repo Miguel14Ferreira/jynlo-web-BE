@@ -146,6 +146,21 @@ class SocialPostInteractionBlockTest {
     }
 
     @Test
+    void authorCanStillDeleteOwnCommentAfterBlockingPostOwner() {
+        SocialPostComment ownComment = SocialPostComment.builder()
+                .id(81L).post(post).author(viewer).content("Apagar")
+                .createdAt(Instant.now()).build();
+        when(profiles.findUserByUsernameIgnoreCase("viewer"))
+                .thenReturn(Optional.of(viewer));
+        when(comments.findById(81L)).thenReturn(Optional.of(ownComment));
+
+        service.deleteComment(51L, 81L, "viewer");
+
+        verify(comments).delete(ownComment);
+        verifyNoInteractions(blocks);
+    }
+
+    @Test
     void likerListExcludesProfilesBlockedByTheViewer() {
         // Identity filtering happens before profile information is mapped to responses.
         // The author relationship itself must be checked even when the list is empty.
