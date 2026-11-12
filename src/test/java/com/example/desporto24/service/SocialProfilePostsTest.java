@@ -83,6 +83,27 @@ class SocialProfilePostsTest {
     }
 
     @Test
+    void blockedPublicationDeepLinkIsNotFoundBeforeReadingInteractions() {
+        Profile author = new Profile();
+        author.setId(12L);
+        author.setUsername("ana");
+        Profile viewer = new Profile();
+        viewer.setId(15L);
+        viewer.setUsername("joao");
+        SocialPost post = SocialPost.builder()
+                .id(99L).author(author).content("Publicação")
+                .createdAt(Instant.now()).build();
+        when(profiles.findUserByUsernameIgnoreCase("joao")).thenReturn(Optional.of(viewer));
+        when(posts.findById(99L)).thenReturn(Optional.of(post));
+        when(blocks.isBlockedBetween(viewer, author)).thenReturn(true);
+
+        var exception = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> service.postById(99L, "joao"));
+        assertEquals(org.springframework.http.HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verifyNoInteractions(likes, comments);
+    }
+
+    @Test
     void profilePaginationRejectsNegativeAndExcessivePages() {
         assertThrows(IllegalArgumentException.class, () -> service.profilePosts("ana","joao",-1));
         assertThrows(IllegalArgumentException.class, () -> service.profilePosts("ana","joao",1001));
