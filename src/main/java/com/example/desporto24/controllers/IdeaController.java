@@ -14,6 +14,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 
 import static com.example.desporto24.constant.UserImplConstant.NEW_IDEA;
 
@@ -37,6 +39,15 @@ public class IdeaController {
     public ResponseEntity<HttpResponse> registerNewIdea(
             @RequestBody @Valid IdeaSubmissionRequest request) {
         ideaService.submitNewIdea(request);
+        return buildResponse();
+    }
+
+    /** Separate multipart endpoint preserves the legacy JSON submission contract. */
+    @PostMapping(value = "/submit-with-attachment", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<HttpResponse> submitWithAttachment(
+            @RequestPart("request") @Valid IdeaSubmissionRequest request,
+            @RequestPart("image") MultipartFile image) {
+        ideaService.submitNewIdeaWithAttachment(request, image);
         return buildResponse();
     }
 
