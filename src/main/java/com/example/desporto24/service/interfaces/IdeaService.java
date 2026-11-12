@@ -10,7 +10,11 @@ import org.springframework.web.multipart.MultipartFile;
 public interface IdeaService {
     void submitNewIdea(IdeaSubmissionRequest request);
     void submitNewIdeaWithAttachment(IdeaSubmissionRequest request, MultipartFile image);
+    void submitNewIdeaWithAttachments(IdeaSubmissionRequest request, List<MultipartFile> images);
     AttachmentDownload attachment(Long ideaId);
+    AttachmentDownload attachment(Long ideaId, int index);
+    List<AttachmentMetadata> attachments(Long ideaId);
+    record AttachmentMetadata(int index, String filename, String mimeType) {}
 
     record AttachmentDownload(String filename, String mimeType, byte[] content) {}
     List<AdminIdeaResponse> getAllIdeas();
