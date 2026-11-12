@@ -43,10 +43,12 @@ public class SocialPostInteractionService {
     private final SessionParticipantRepository participantRepository;
     private final NotificationsRepository notificationsRepository;
     private final NotificationPreferencesService notificationPreferencesService;
+    private final UserBlockService userBlockService;
 
     public PostLikeResponse like(Long postId, String username) {
         SocialPost post = post(postId);
         Profile actor = profile(username);
+        userBlockService.ensureInteractionAllowed(actor, post.getAuthor());
 
         if (!likeRepository.existsByPostIdAndProfileId(postId, actor.getId())) {
             likeRepository.save(SocialPostLike.builder()
@@ -69,8 +71,10 @@ public class SocialPostInteractionService {
     }
 
     @Transactional(readOnly = true)
-    public List<SocialCommentResponse> comments(Long postId) {
-        post(postId);
+    public List<SocialCommentResponse> comments(Long postId, String username) {
+        SocialPost target = post(postId);
+        Profile viewer = profile(username);
+        userBlockService.ensureInteractionAllowed(viewer, target.getAuthor());
         return commentRepository.findByPostIdOrderByCreatedAtAsc(postId)
                 .stream()
                 .map(this::toResponse)
@@ -83,6 +87,7 @@ public class SocialPostInteractionService {
             CreateSocialCommentRequest request) {
         SocialPost post = post(postId);
         Profile actor = profile(username);
+        userBlockService.ensureInteractionAllowed(actor, post.getAuthor());
 
         SocialPostComment comment = commentRepository.save(
                 SocialPostComment.builder()
@@ -100,11 +105,15 @@ public class SocialPostInteractionService {
     @Transactional(readOnly = true)
     public List<FollowProfileResponse> likers(Long postId, String viewerUsername) {
         SocialPost target = post(postId);
+        Profile viewer = profile(viewerUsername);
+        userBlockService.ensureInteractionAllowed(viewer, target.getAuthor());
         if (target.isHideLikers() && !target.getAuthor().getUsername().equalsIgnoreCase(viewerUsername)) {
             throw new AccessDeniedException("Lista de gostos oculta pelo autor");
         }
         return likeRepository.findLikers(postId, org.springframework.data.domain.PageRequest.of(0, 100))
-                .stream().map(like -> {
+                .stream()
+                .filter(like -> !userBlockService.isBlockedBetween(viewer, like.getProfile()))
+                .map(like -> {
                     Profile p = like.getProfile();
                     return new FollowProfileResponse(p.getUsername(), p.getFullName(), p.getNickname(), p.getProfilePicUrl());
                 }).toList();
