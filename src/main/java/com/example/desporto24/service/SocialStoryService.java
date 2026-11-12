@@ -190,7 +190,10 @@ public class SocialStoryService {
     public List<PrivateReply> myPrivateReplies(String username, int page) {
         if (page < 0 || page > 1000) throw new IllegalArgumentException("Página inválida");
         Profile recipient = actor(username);
-        return replies.findByRecipientIdOrderByCreatedAtDesc(recipient.getId(), PageRequest.of(page, 20))
+        Set<Long> blockedIds = new LinkedHashSet<>(userBlockService.blockedProfileIds(recipient));
+        // Never pass an empty collection to JPQL IN/NOT IN.
+        if (blockedIds.isEmpty()) blockedIds.add(-1L);
+        return replies.findVisibleReplies(recipient.getId(), blockedIds, PageRequest.of(page, 20))
                 .stream().map(reply -> new PrivateReply(reply.getId(), reply.getStoryId(),
                         reply.getSender().getUsername(), reply.getContent(),
                         reply.getCreatedAt())).toList();
