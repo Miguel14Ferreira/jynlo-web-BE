@@ -214,9 +214,13 @@ public class ChatRealtimeGateway extends TextWebSocketHandler {
         final String payload = "{\"type\":\"SOCIAL_FEED_INVALIDATED\"}";
         for (Set<WebSocketSession> sockets : sessionsByUsername.values()) {
             for (WebSocketSession socket : sockets) {
-                if (!socket.isOpen() || !isCurrentAuthenticatedSession(socket)) continue;
-                try { send(socket, payload); } catch (IOException ignored) {
-                    // The canonical REST feed remains available after reconnect.
+                try {
+                    if (socket.isOpen() && isCurrentAuthenticatedSession(socket)) {
+                        send(socket, payload);
+                    }
+                } catch (IOException | RuntimeException ignored) {
+                    // A stale socket or transient profile lookup must never
+                    // turn a committed like into an HTTP error.
                 }
             }
         }
