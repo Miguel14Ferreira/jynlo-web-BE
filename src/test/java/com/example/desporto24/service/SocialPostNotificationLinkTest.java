@@ -39,7 +39,7 @@ class SocialPostNotificationLinkTest {
         service = new SocialPostInteractionService(
                 posts, likes, mock(SocialPostCommentRepository.class), profiles,
                 mock(UserReportService.class), mock(SessionParticipantRepository.class),
-                notifications, preferences);
+                notifications, preferences, mock(UserBlockService.class));
     }
 
     private Profile profile(long id, String name) {
