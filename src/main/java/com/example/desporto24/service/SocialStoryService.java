@@ -8,6 +8,8 @@ import com.example.desporto24.model.community.CommunityMember;
 import com.example.desporto24.model.dto.social.StoryResponse;
 import com.example.desporto24.model.social.SocialStory;
 import com.example.desporto24.model.social.SocialStoryLike;
+import com.example.desporto24.model.social.SocialStoryReply;
+import com.example.desporto24.repository.social.SocialStoryReplyRepository;
 import com.example.desporto24.repository.social.SocialStoryLikeRepository;
 import com.example.desporto24.enumeration.NotificationType;
 import com.example.desporto24.register.Notifications.Notifications;
@@ -45,6 +47,7 @@ public class SocialStoryService {
     private static final int FEED_LIMIT = 100;
     private final SocialStoryRepository stories;
     private final SocialStoryLikeRepository likes;
+    private final SocialStoryReplyRepository replies;
     private final NotificationService notificationService;
     private final NotificationPreferencesService notificationPreferences;
     private final UserBlockService userBlockService;
@@ -175,8 +178,25 @@ public class SocialStoryService {
             throw new IllegalArgumentException("Não podes responder à tua própria Story.");
         }
         userBlockService.ensureInteractionAllowed(viewer, story.getAuthor());
+        // The private reply is durable even if notifications are disabled.
+        replies.save(SocialStoryReply.builder().storyId(story.getId()).sender(viewer)
+                .recipient(story.getAuthor()).content(content.trim())
+                .createdAt(Instant.now()).build());
         notifyAuthor(story, viewer, NotificationType.SOCIAL_STORY_REPLIED,
                 viewer.getUsername() + " respondeu à tua Story: " + content.trim());
+    }
+
+    public record PrivateReply(Long id, Long storyId, String senderUsername,
+                               String content, Instant createdAt) {}
+
+    @Transactional(readOnly = true)
+    public List<PrivateReply> myPrivateReplies(String username, int page) {
+        if (page < 0 || page > 1000) throw new IllegalArgumentException("Página inválida");
+        Profile recipient = actor(username);
+        return replies.findByRecipientIdOrderByCreatedAtDesc(recipient.getId(), PageRequest.of(page, 20))
+                .stream().map(reply -> new PrivateReply(reply.getId(), reply.getStoryId(),
+                        reply.getSender().getUsername(), reply.getContent(),
+                        reply.getCreatedAt())).toList();
     }
 
     private void notifyAuthor(SocialStory story, Profile viewer, NotificationType type, String message) {
