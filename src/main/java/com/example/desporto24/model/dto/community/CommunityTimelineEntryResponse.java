@@ -11,7 +11,17 @@ public record CommunityTimelineEntryResponse(
         Long replyToMessageId, String replyToSender, String replyToText,
         String imageUrl, String videoUrl,
         String attachmentName, String attachmentMimeType, Long attachmentSize,
-        Instant editedAt, Instant deletedAt) {
+        Instant editedAt, Instant deletedAt,
+        java.util.List<com.example.desporto24.model.dto.social.PublicPostMediaResponse> extraMedia) {
+    public CommunityTimelineEntryResponse(
+            Long id, Long communityId, String kind, String username, String body, Instant createdAt,
+            Long replyToMessageId, String replyToSender, String replyToText,
+            String imageUrl, String videoUrl, String attachmentName,
+            String attachmentMimeType, Long attachmentSize, Instant editedAt, Instant deletedAt) {
+        this(id, communityId, kind, username, body, createdAt, replyToMessageId, replyToSender,
+                replyToText, imageUrl, videoUrl, attachmentName, attachmentMimeType,
+                attachmentSize, editedAt, deletedAt, java.util.List.of());
+    }
     public CommunityTimelineEntryResponse(
             Long id, Long communityId, String kind, String username, String body, Instant createdAt,
             Long replyToMessageId, String replyToSender, String replyToText,
