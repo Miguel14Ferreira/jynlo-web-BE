@@ -214,7 +214,8 @@ public class SocialFeedService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação não encontrada"));
         // Activity interaction records can contain hidden attendance; they are
         // never individually exposed through a social notification deep link.
-        if (target.getActivityType() != null) {
+        if (target.getActivityType() != null
+                || userBlockService.isBlockedBetween(viewer, target.getAuthor())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação indisponível");
         }
         long likes = likeRepository.countByPostId(postId);
