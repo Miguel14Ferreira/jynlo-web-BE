@@ -77,6 +77,7 @@ public class SocialPostInteractionService {
         userBlockService.ensureInteractionAllowed(viewer, target.getAuthor());
         return commentRepository.findByPostIdOrderByCreatedAtAsc(postId)
                 .stream()
+                .filter(comment -> !userBlockService.isBlockedBetween(viewer, comment.getAuthor()))
                 .map(this::toResponse)
                 .toList();
     }
