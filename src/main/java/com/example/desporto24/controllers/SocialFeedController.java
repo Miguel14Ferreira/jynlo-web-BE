@@ -90,8 +90,9 @@ public class SocialFeedController {
     }
 
     @GetMapping("/posts/{postId}/comments")
-    public List<SocialCommentResponse> comments(@PathVariable Long postId) {
-        return interactionService.comments(postId);
+    public List<SocialCommentResponse> comments(@PathVariable Long postId,
+                                                Authentication authentication) {
+        return interactionService.comments(postId, authentication.getName());
     }
 
     @PostMapping("/posts/{postId}/comments")
