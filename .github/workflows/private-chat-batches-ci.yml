@@ -1,0 +1,40 @@
+name: Jynlo private chat multi-attachment CI
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/private-chat-batches-ci.yml'
+      - 'src/main/java/com/example/desporto24/service/PrivateChatAttachmentBatch.java'
+      - 'src/main/java/com/example/desporto24/service/DirectChatAttachmentService.java'
+      - 'src/main/java/com/example/desporto24/service/SessionChatService.java'
+      - 'src/main/java/com/example/desporto24/service/CommunityTimelineService.java'
+      - 'src/main/java/com/example/desporto24/model/chat/PrivateChatAttachment.java'
+      - 'src/main/java/com/example/desporto24/model/Chat.java'
+      - 'src/main/java/com/example/desporto24/model/session/SessionMessage.java'
+      - 'src/main/java/com/example/desporto24/model/community/CommunityTimelineEntry.java'
+      - 'src/main/java/com/example/desporto24/controllers/*AttachmentController.java'
+      - 'src/main/java/com/example/desporto24/model/dto/session/SessionMessageResponse.java'
+      - 'src/main/java/com/example/desporto24/model/dto/community/CommunityTimelineEntryResponse.java'
+      - 'src/main/resources/db/changelog/db.changelog-master.yaml'
+      - 'src/main/resources/db/changelog/changes/2026-11-12-private-chat-multi-attachments.yaml'
+      - 'src/test/java/com/example/desporto24/service/DirectChatAttachmentServiceTest.java'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  chat-batches:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Compile and test private multi-attachments
+        env:
+          AES_ENCRYPTION_KEY: ciKey1
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp -Dtest=DirectChatAttachmentServiceTest,SessionChatServiceTest,CommunityTimelineServiceTest,PrivateChatFileStorageTest test
