@@ -112,7 +112,7 @@ public class DirectCallService {
                     // recover an invitation from a caller who can no longer call.
                     inbox.requireConversationAccess(recipient, "direct", call.caller);
                     inbox.requireConversationAccess(call.caller, "direct", call.peer);
-                } catch (org.springframework.security.access.AccessDeniedException denied) {
+                } catch (org.springframework.security.access.AccessDeniedException | ResponseStatusException denied) {
                     // Revoked invitations must not hide other valid incoming calls.
                     continue;
                 }
@@ -127,7 +127,7 @@ public class DirectCallService {
                 try {
                     requireInviterOriginalAccess(call, guest.inviter());
                     inbox.requireConversationAccess(recipient, "direct", guest.inviter());
-                } catch (org.springframework.security.access.AccessDeniedException denied) {
+                } catch (org.springframework.security.access.AccessDeniedException | ResponseStatusException denied) {
                     // Skip stale group invitations without suppressing valid ones.
                     continue;
                 }
