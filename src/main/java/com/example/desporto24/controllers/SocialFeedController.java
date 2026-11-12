@@ -62,7 +62,14 @@ public class SocialFeedController {
             @RequestPart(value = "image", required = false) MultipartFile image,
             @RequestPart(value = "video", required = false) MultipartFile video,
             @RequestPart(value = "sessionId", required = false) Long sessionId,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
             Authentication authentication) {
+        if (files != null && !files.isEmpty()) {
+            if (image != null || video != null) {
+                throw new IllegalArgumentException("Usa apenas um formato de envio");
+            }
+            return feedService.createPostWithAlbum(authentication.getName(), content, files, sessionId);
+        }
         return feedService.createPostWithMedia(
                 authentication.getName(), content, image, video, sessionId);
     }
