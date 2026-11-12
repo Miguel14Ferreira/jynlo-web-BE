@@ -6,6 +6,11 @@ import com.example.desporto24.service.interfaces.IdeaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import java.nio.charset.StandardCharsets;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,6 +27,19 @@ public class AdminIdeaController {
     @GetMapping
     public ResponseEntity<List<AdminIdeaResponse>> list() {
         return ResponseEntity.ok(ideaService.getAllIdeas());
+    }
+
+    /** Private, authenticated download only; never publish feedback images to /media. */
+    @GetMapping("/{id}/attachment")
+    public ResponseEntity<byte[]> attachment(@PathVariable Long id) {
+        var file = ideaService.attachment(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(file.mimeType()))
+                .cacheControl(CacheControl.noStore())
+                .header("X-Content-Type-Options", "nosniff")
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(file.filename(), StandardCharsets.UTF_8).build().toString())
+                .body(file.content());
     }
 
     public record ReplyRequest(@jakarta.validation.constraints.NotBlank
