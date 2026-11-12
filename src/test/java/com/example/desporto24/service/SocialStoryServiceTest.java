@@ -198,7 +198,7 @@ class SocialStoryServiceTest {
         owner.setUsername("maria");
         SocialStory story = SocialStory.builder().id(7L).author(owner)
                 .createdAt(Instant.now()).expiresAt(Instant.now().plusSeconds(3600)).build();
-        when(stories.findById(7L)).thenReturn(Optional.of(story));
+        when(stories.findByIdForInteraction(7L)).thenReturn(Optional.of(story));
         when(likes.existsByStoryIdAndProfileId(7L, 19L)).thenReturn(false, true, true);
         when(likes.countByStoryId(7L)).thenReturn(1L);
         StoryResponse first = service.like(7L, "joao");
@@ -212,6 +212,22 @@ class SocialStoryServiceTest {
                 && n.type() == com.example.desporto24.enumeration.NotificationType.SOCIAL_STORY_LIKED));
         service.unlike(7L, "joao");
         verify(likes).deleteByStoryIdAndProfileId(7L, 19L);
+        verify(stories, times(3)).findByIdForInteraction(7L);
+    }
+
+    @Test
+    void interactionLockRechecksStoryExpiryBeforeCreatingLike() {
+        Profile owner = new Profile();
+        owner.setId(20L);
+        owner.setUsername("maria");
+        SocialStory expired = SocialStory.builder().id(77L).author(owner)
+                .createdAt(Instant.now().minus(25, ChronoUnit.HOURS))
+                .expiresAt(Instant.now().minusSeconds(1)).build();
+        when(stories.findByIdForInteraction(77L)).thenReturn(Optional.of(expired));
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> service.like(77L, "joao"));
+        assertEquals(HttpStatus.NOT_FOUND, error.getStatusCode());
+        verifyNoInteractions(likes, events);
     }
 
     @Test
