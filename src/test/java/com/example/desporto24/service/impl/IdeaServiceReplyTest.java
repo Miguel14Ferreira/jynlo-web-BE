@@ -36,8 +36,9 @@ class IdeaServiceReplyTest {
 
     @Test
     void officialReplyEmailsSubmitterAndStoresSenderWithoutHtmlInjection() {
+        Profile moderator = actor("ROLE_ADMIN");
         when(profiles.findUserByUsernameIgnoreCase("moderador"))
-                .thenReturn(Optional.of(actor("ROLE_ADMIN")));
+                .thenReturn(Optional.of(moderator));
         var idea = new Ideas("Emanuel", "emanuel@example.com", "Lisboa", "", "Outro", "Parabéns");
         idea.setId(8L);
         when(ideas.findForReply(8L)).thenReturn(Optional.of(idea));
@@ -55,8 +56,9 @@ class IdeaServiceReplyTest {
 
     @Test
     void aDemotedAdminCannotReplyUsingAnOldAuthenticatedIdentity() {
+        Profile moderator = actor("ROLE_USER");
         when(profiles.findUserByUsernameIgnoreCase("moderador"))
-                .thenReturn(Optional.of(actor("ROLE_USER")));
+                .thenReturn(Optional.of(moderator));
         assertEquals(403, assertThrows(ResponseStatusException.class,
                 () -> service.reply(8L, "Obrigado!", "moderador")).getStatusCode().value());
         verifyNoInteractions(ideas, email);
@@ -64,8 +66,9 @@ class IdeaServiceReplyTest {
 
     @Test
     void cannotSendTwoRepliesToOneSuggestion() {
+        Profile moderator = actor("ROLE_ADMIN");
         when(profiles.findUserByUsernameIgnoreCase("moderador"))
-                .thenReturn(Optional.of(actor("ROLE_ADMIN")));
+                .thenReturn(Optional.of(moderator));
         var idea = new Ideas("Emanuel", "emanuel@example.com", "", "", "Outro", "Parabéns");
         idea.setAdminRepliedAt(java.time.Instant.now());
         when(ideas.findForReply(8L)).thenReturn(Optional.of(idea));
@@ -76,8 +79,9 @@ class IdeaServiceReplyTest {
 
     @Test
     void failedEmailDoesNotMarkIdeaAsAnswered() {
+        Profile moderator = actor("ROLE_ADMIN");
         when(profiles.findUserByUsernameIgnoreCase("moderador"))
-                .thenReturn(Optional.of(actor("ROLE_ADMIN")));
+                .thenReturn(Optional.of(moderator));
         var idea = new Ideas("Emanuel", "emanuel@example.com", "", "", "Outro", "Parabéns");
         when(ideas.findForReply(8L)).thenReturn(Optional.of(idea));
         doThrow(new IllegalStateException("email unavailable")).when(email)
