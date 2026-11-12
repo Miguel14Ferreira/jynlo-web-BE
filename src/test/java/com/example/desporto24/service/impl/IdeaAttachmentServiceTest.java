@@ -4,6 +4,7 @@ import com.example.desporto24.model.IdeaAttachment;
 import com.example.desporto24.model.Ideas;
 import com.example.desporto24.model.dto.idea.IdeaSubmissionRequest;
 import com.example.desporto24.repository.IdeaAttachmentRepository;
+import com.example.desporto24.repository.IdeaExtraAttachmentRepository;
 import com.example.desporto24.repository.IdeasRepository;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.service.EmailService;
@@ -25,6 +26,7 @@ import static org.mockito.Mockito.*;
 class IdeaAttachmentServiceTest {
     @Mock IdeasRepository ideas;
     @Mock IdeaAttachmentRepository attachments;
+    @Mock IdeaExtraAttachmentRepository extraAttachments;
     @Mock ProfileRepository profiles;
     @Mock EmailService email;
     @InjectMocks IdeaServiceImpl service;
@@ -74,6 +76,31 @@ class IdeaAttachmentServiceTest {
         assertEquals(400, assertThrows(ResponseStatusException.class,
                 () -> service.submitNewIdeaWithAttachment(request(), huge)).getStatusCode().value());
         verifyNoInteractions(ideas, attachments, email);
+    }
+
+    @Test
+    void acceptsPdfEvidenceAndKeepsItPrivate() {
+        when(ideas.save(any(Ideas.class))).thenAnswer(call -> {
+            Ideas item = call.getArgument(0);
+            item.setId(11L);
+            return item;
+        });
+        var pdf = new MockMultipartFile("images", "evidence.pdf", "application/pdf",
+                "%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF"
+                    .getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        service.submitNewIdeaWithAttachments(request(), java.util.List.of(pdf));
+        verify(attachments).save(any(IdeaAttachment.class));
+        verify(extraAttachments, never()).save(any());
+    }
+
+    @Test
+    void rejectsSpoofedVideoAndExecutablePayloads() {
+        var fake = new MockMultipartFile("images", "video.mp4", "video/mp4",
+                "<html><script>bad()</script></html>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> service.submitNewIdeaWithAttachments(request(), java.util.List.of(fake)))
+                .getStatusCode().value());
+        verifyNoInteractions(ideas, attachments, extraAttachments, email);
     }
 
     @Test
