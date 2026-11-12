@@ -25,33 +25,34 @@ public class DirectChatAttachmentService {
 
     public Chat send(String actor, String peer, MultipartFile file,
                      String caption, Long replyToMessageId) {
+        return sendBatch(actor, peer, java.util.List.of(file), caption, replyToMessageId);
+    }
+
+    public Chat sendBatch(String actor, String peer, java.util.List<MultipartFile> uploads,
+                          String caption, Long replyToMessageId) {
         var friendship = chats.getChatInfo(actor, peer);
-        if (friendship.isChatBlocked()) {
-            throw new AccessDeniedException("Chat is blocked");
-        }
+        if (friendship.isChatBlocked()) throw new AccessDeniedException("Chat is blocked");
         String text = caption == null ? "" : caption.trim();
         if (text.length() > 2000 || replyToMessageId != null && replyToMessageId <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid attachment message");
         }
-        PrivateChatFileStorage.StoredFile stored = files.store(file);
+        var batch = PrivateChatAttachmentBatch.store(files, uploads);
+        var first = batch.first();
         Chat msg = new Chat();
         msg.setUsername1(actor);
         msg.setUsername2(peer);
-        msg.setText(text.isEmpty() ? "📎 " + stored.name() : text);
+        msg.setText(text.isEmpty() ? "📎 " + first.name() : text);
         msg.setReplyToMessageId(replyToMessageId);
-        msg.setAttachmentKey(stored.key());
-        msg.setAttachmentName(stored.name());
-        msg.setAttachmentMimeType(stored.mime());
-        msg.setAttachmentSize(stored.size());
+        msg.setAttachmentKey(first.key());
+        msg.setAttachmentName(first.name());
+        msg.setAttachmentMimeType(first.mime());
+        msg.setAttachmentSize(first.size());
+        msg.setExtraAttachments(new java.util.ArrayList<>(batch.extras()));
         try {
             return chats.sendMessage(msg);
-        } catch (RuntimeException ex) {
-            try {
-                files.delete(stored.key());
-            } catch (RuntimeException cleanup) {
-                ex.addSuppressed(cleanup);
-            }
-            throw ex;
+        } catch (RuntimeException failure) {
+            PrivateChatAttachmentBatch.cleanup(files, batch.files(), failure);
+            throw failure;
         }
     }
 
@@ -77,6 +78,26 @@ public class DirectChatAttachmentService {
         }
         return new AttachmentContent(files.read(msg.getAttachmentKey()),
                 msg.getAttachmentMimeType(), msg.getAttachmentName());
+    }
+
+    public AttachmentContent downloadAt(String actor, String peer, Long messageId, int index) {
+        if (index == 0) return download(actor, peer, messageId);
+        if (index < 1 || index >= PrivateChatAttachmentBatch.MAX_FILES) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found");
+        }
+        chats.getChatInfo(actor, peer);
+        Chat msg = messages.findById(messageId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found"));
+        boolean direct = (msg.getUsername1().equalsIgnoreCase(actor)
+                && msg.getUsername2().equalsIgnoreCase(peer))
+                || (msg.getUsername1().equalsIgnoreCase(peer)
+                && msg.getUsername2().equalsIgnoreCase(actor));
+        if (!direct || msg.getDeletedAt() != null || msg.getAttachmentKey() == null
+                || msg.getExtraAttachments() == null || index > msg.getExtraAttachments().size()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found");
+        }
+        var extra = msg.getExtraAttachments().get(index - 1);
+        return new AttachmentContent(files.read(extra.getStorageKey()), extra.getMimeType(), extra.getFilename());
     }
 
     public record AttachmentContent(byte[] content, String mimeType, String filename) {}
