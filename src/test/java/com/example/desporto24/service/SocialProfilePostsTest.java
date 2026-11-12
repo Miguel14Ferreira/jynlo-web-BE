@@ -45,10 +45,21 @@ class SocialProfilePostsTest {
                 .createdAt(Instant.now()).build();
         when(posts.findByAuthorIdAndActivityTypeIsNullOrderByCreatedAtDesc(eq(12L),any(Pageable.class)))
                 .thenReturn(List.of(post));
+        when(likes.countByPostIds(anySet())).thenReturn(List.of(new Object[] {99L, 4L}));
+        when(comments.countByPostIds(anySet())).thenReturn(List.of(new Object[] {99L, 2L}));
+        when(likes.findLikedPostIds(anySet(), eq(15L))).thenReturn(java.util.Set.of(99L));
 
         var page = service.profilePosts("ana", "joao", 2);
         assertEquals(1, page.size());
         assertEquals(99L, page.get(0).postId());
+        assertEquals(4L, page.get(0).likeCount());
+        assertEquals(2L, page.get(0).commentCount());
+        assertTrue(page.get(0).likedByMe());
+        verify(likes).countByPostIds(java.util.Set.of(99L));
+        verify(comments).countByPostIds(java.util.Set.of(99L));
+        verify(likes).findLikedPostIds(java.util.Set.of(99L), 15L);
+        verify(likes, never()).countByPostId(anyLong());
+        verify(comments, never()).countByPostId(anyLong());
         verify(posts).findByAuthorIdAndActivityTypeIsNullOrderByCreatedAtDesc(
                 eq(12L),argThat(p -> p.getPageNumber()==2 && p.getPageSize()==20));
     }
