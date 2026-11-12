@@ -1,0 +1,30 @@
+name: Jynlo private chat rich media CI
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/chat-private-rich-media-ci.yml'
+      - 'src/main/java/com/example/desporto24/storage/PrivateChatFileStorage.java'
+      - 'src/main/java/com/example/desporto24/storage/MediaStorageSupport.java'
+      - 'src/main/resources/application.properties'
+      - 'src/test/java/com/example/desporto24/storage/PrivateChatFileStorageTest.java'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rich-media:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Compile and validate secure video audio and document uploads
+        env:
+          AES_ENCRYPTION_KEY: ciKey1
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp -Dtest=PrivateChatFileStorageTest,DirectChatAttachmentServiceTest test
