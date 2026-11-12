@@ -11,6 +11,7 @@ on:
       - 'src/test/java/com/example/desporto24/service/SessionContactAccessServiceTest.java'
       - 'src/test/java/com/example/desporto24/service/DirectCallServiceTest.java'
       - 'src/test/java/com/example/desporto24/service/SessionContactChatAuthorizationTest.java'
+      - 'src/test/java/com/example/desporto24/service/impl/ChatServiceImplSessionContactRaceTest.java'
       - '.github/workflows/session-participant-contact-ci.yml'
   workflow_dispatch:
 permissions:
@@ -31,4 +32,4 @@ jobs:
           AES_ENCRYPTION_KEY: ciKey1
         run: |
           chmod +x mvnw
-          ./mvnw -B -ntp -Dtest=SessionContactAccessServiceTest,SessionContactChatAuthorizationTest,DirectCallServiceTest test
+          ./mvnw -B -ntp -Dtest=SessionContactAccessServiceTest,SessionContactChatAuthorizationTest,DirectCallServiceTest,ChatServiceImplSessionContactRaceTest test
