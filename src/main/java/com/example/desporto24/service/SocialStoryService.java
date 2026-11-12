@@ -142,8 +142,7 @@ public class SocialStoryService {
     @Transactional
     public StoryResponse like(Long id, String username) {
         Profile viewer = actor(username);
-        SocialStory story = visibleStory(id, viewer);
-        userBlockService.ensureInteractionAllowed(viewer, story.getAuthor());
+        SocialStory story = visibleStoryForInteraction(id, viewer);
         if (!likes.existsByStoryIdAndProfileId(id, viewer.getId())) {
             likes.save(SocialStoryLike.builder().story(story).profile(viewer)
                     .createdAt(Instant.now()).build());
@@ -156,7 +155,7 @@ public class SocialStoryService {
     @Transactional
     public StoryResponse unlike(Long id, String username) {
         Profile viewer = actor(username);
-        SocialStory story = visibleStory(id, viewer);
+        SocialStory story = visibleStoryForInteraction(id, viewer);
         likes.deleteByStoryIdAndProfileId(id, viewer.getId());
         return response(story, viewer);
     }
@@ -205,8 +204,20 @@ public class SocialStoryService {
                 viewer.getUsername(), type, message));
     }
 
+    private SocialStory visibleStoryForInteraction(Long id, Profile viewer) {
+        SocialStory story = stories.findByIdForInteraction(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Story not found"));
+        return validateStoryVisibility(story, viewer);
+    }
+
     private SocialStory visibleStory(Long id, Profile viewer) {
-        SocialStory story = activeStory(id);
+        return validateStoryVisibility(activeStory(id), viewer);
+    }
+
+    private SocialStory validateStoryVisibility(SocialStory story, Profile viewer) {
+        if (!story.getExpiresAt().isAfter(Instant.now())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Story expired");
+        }
         // Deep links must not expose Stories from profiles blocked in either direction.
         if (userBlockService.isBlockedBetween(viewer, story.getAuthor())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Story not found");
