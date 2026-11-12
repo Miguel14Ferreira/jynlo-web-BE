@@ -245,6 +245,12 @@ public class SessionChatService {
     @Transactional
     public SessionMessageResponse postAttachment(Long sessionId, MultipartFile file,
             String caption, String username, Long replyToMessageId) {
+        return postAttachments(sessionId, List.of(file), caption, username, replyToMessageId);
+    }
+
+    @Transactional
+    public SessionMessageResponse postAttachments(Long sessionId, List<MultipartFile> uploads,
+            String caption, String username, Long replyToMessageId) {
         Session session = sessionRepository.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new SessionNotFound("Session not found"));
         Profile actor = profileRepository.findUserByUsername(username)
@@ -254,37 +260,35 @@ public class SessionChatService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Session chat is available only before the game");
         }
-        if (privateChatStorage == null) {
+        if (privateChatStorage == null)
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "Private chat attachment storage is unavailable");
-        }
         String body = caption == null ? "" : caption.trim();
-        if (body.length() > 2000 || replyToMessageId != null && replyToMessageId <= 0) {
+        if (body.length() > 2000 || replyToMessageId != null && replyToMessageId <= 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid attachment message");
-        }
         SessionMessage quoted = null;
         if (replyToMessageId != null) {
             quoted = messageRepository.findById(replyToMessageId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                             "Invalid reply message"));
-            if (!sessionId.equals(quoted.getSession().getId())) {
+            if (!sessionId.equals(quoted.getSession().getId()))
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid reply message");
-            }
         }
-        var stored = privateChatStorage.store(file);
+        var batch = PrivateChatAttachmentBatch.store(privateChatStorage, uploads);
+        var first = batch.first();
         try {
-            if (!isChatOpen(session, Instant.now())) {
+            if (!isChatOpen(session, Instant.now()))
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                         "Session chat closed while uploading attachment");
-            }
             SessionMessage saved = messageRepository.save(SessionMessage.builder()
                     .session(session).senderProfile(actor)
-                    .body(body.isEmpty() ? "📎 " + stored.name() : body)
+                    .body(body.isEmpty() ? "📎 " + first.name() : body)
                     .replyToMessageId(quoted == null ? null : quoted.getId())
                     .replyToSender(quoted == null ? null : senderName(quoted))
                     .replyToText(quoted == null ? null : quoted.getBody())
-                    .attachmentKey(stored.key()).attachmentName(stored.name())
-                    .attachmentMimeType(stored.mime()).attachmentSize(stored.size())
+                    .attachmentKey(first.key()).attachmentName(first.name())
+                    .attachmentMimeType(first.mime()).attachmentSize(first.size())
+                    .extraAttachments(new java.util.ArrayList<>(batch.extras()))
                     .createdAt(Instant.now()).build());
             messageRepository.flush();
             SessionMessageResponse response = toResponse(saved);
@@ -292,8 +296,7 @@ public class SessionChatService {
                     response, realtimeRecipients(session)));
             return response;
         } catch (RuntimeException failure) {
-            try { privateChatStorage.delete(stored.key()); }
-            catch (RuntimeException cleanup) { failure.addSuppressed(cleanup); }
+            PrivateChatAttachmentBatch.cleanup(privateChatStorage, batch.files(), failure);
             throw failure;
         }
     }
@@ -324,6 +327,30 @@ public class SessionChatService {
         }
         return new ChatAttachmentContent(privateChatStorage.read(message.getAttachmentKey()),
                 message.getAttachmentMimeType(), message.getAttachmentName());
+    }
+
+    @Transactional(readOnly = true)
+    public ChatAttachmentContent downloadAttachmentAt(Long sessionId, Long messageId,
+            int index, String username) {
+        if (index == 0) return downloadAttachment(sessionId, messageId, username);
+        if (index < 1 || index >= PrivateChatAttachmentBatch.MAX_FILES)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat attachment not found");
+        Session session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new SessionNotFound("Session not found"));
+        Profile actor = profileRepository.findUserByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException(NO_USER_FOUND_BY_USERNAME));
+        requireChatAccess(session, actor);
+        if (!isChatOpen(session, Instant.now()))
+            throw new AccessDeniedException("Session chat is available only before the game");
+        SessionMessage entry = messageRepository.findById(messageId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat attachment not found"));
+        if (!sessionId.equals(entry.getSession().getId()) || entry.getDeletedAt() != null
+                || entry.getAttachmentKey() == null || entry.getExtraAttachments() == null
+                || index > entry.getExtraAttachments().size())
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat attachment not found");
+        var item = entry.getExtraAttachments().get(index - 1);
+        return new ChatAttachmentContent(privateChatStorage.read(item.getStorageKey()),
+                item.getMimeType(), item.getFilename());
     }
 
     public record ChatAttachmentContent(byte[] content, String mimeType, String filename) {}
