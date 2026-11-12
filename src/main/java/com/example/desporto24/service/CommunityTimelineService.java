@@ -267,6 +267,59 @@ public class CommunityTimelineService {
         }
     }
 
+    /** A gallery is one community post and inherits all community membership checks. */
+    @Transactional
+    public CommunityTimelineEntryResponse postWithAlbum(Long communityId, String body,
+            java.util.List<MultipartFile> files, String username) {
+        Access access = requireMember(communityId, username);
+        if (files == null || files.isEmpty() || files.size() > 6) {
+            throw new IllegalArgumentException("Escolhe entre 1 e 6 fotografias ou vídeos");
+        }
+        long total = files.stream().mapToLong(file -> file == null ? 0 : file.getSize()).sum();
+        if (total > 60L * 1024 * 1024 || files.stream().anyMatch(file ->
+                file == null || file.isEmpty() || file.getSize() > 20L * 1024 * 1024)) {
+            throw new IllegalArgumentException("Ficheiros demasiado grandes");
+        }
+        String normalized = body == null ? "" : body.trim();
+        if (normalized.length() > 1000) throw new IllegalArgumentException("Publicação demasiado longa");
+        if (mediaStorage == null) throw new IllegalStateException("Media storage is not configured");
+
+        java.util.List<com.example.desporto24.model.social.PublicPostMedia> stored = new java.util.ArrayList<>();
+        try {
+            for (MultipartFile file : files) {
+                String mime = file.getContentType() == null ? "" : file.getContentType().toLowerCase(java.util.Locale.ROOT);
+                String base = "community-posts/" + communityId + "/" + UUID.randomUUID();
+                URI uri = switch (mime) {
+                    case "image/jpeg", "image/png", "image/webp" -> mediaStorage.store(base, file);
+                    case "video/mp4", "video/webm" -> mediaStorage.storeVideo(base, file);
+                    default -> throw new IllegalArgumentException("Formato de media não suportado");
+                };
+                stored.add(new com.example.desporto24.model.social.PublicPostMedia(
+                        uri.toString(), mediaKey(uri), mime));
+            }
+            var first = stored.get(0);
+            CommunityTimelineEntry entry = timelineRepository.save(CommunityTimelineEntry.builder()
+                    .community(access.community())
+                    .author(access.actor())
+                    .kind(CommunityTimelineEntry.Kind.POST)
+                    .body(normalized)
+                    .imageUrl(first.getMimeType().startsWith("image/") ? first.getUrl() : null)
+                    .imageStorageKey(first.getMimeType().startsWith("image/") ? first.getStorageKey() : null)
+                    .videoUrl(first.getMimeType().startsWith("video/") ? first.getUrl() : null)
+                    .videoStorageKey(first.getMimeType().startsWith("video/") ? first.getStorageKey() : null)
+                    .extraMedia(new java.util.ArrayList<>(stored.subList(1, stored.size())))
+                    .createdAt(Instant.now())
+                    .build());
+            return toResponse(entry);
+        } catch (RuntimeException failure) {
+            for (var media : stored) {
+                try { if (media.getStorageKey() != null) mediaStorage.delete(media.getStorageKey()); }
+                catch (RuntimeException ignored) { failure.addSuppressed(ignored); }
+            }
+            throw failure;
+        }
+    }
+
     private String mediaKey(URI uri) {
         String path = uri.getPath();
         if (path == null) return null;
@@ -338,6 +391,11 @@ public class CommunityTimelineService {
         if (kind == CommunityTimelineEntry.Kind.POST && mediaStorage != null) {
             if (entry.getImageStorageKey() != null) mediaStorage.delete(entry.getImageStorageKey());
             if (entry.getVideoStorageKey() != null) mediaStorage.delete(entry.getVideoStorageKey());
+            if (entry.getExtraMedia() != null) {
+                for (var asset : entry.getExtraMedia()) {
+                    if (asset.getStorageKey() != null) mediaStorage.delete(asset.getStorageKey());
+                }
+            }
         }
         if (kind == CommunityTimelineEntry.Kind.CHAT
                 && entry.getAttachmentKey() != null && privateChatStorage != null) {
@@ -364,7 +422,10 @@ public class CommunityTimelineService {
                 entry.getReplyToMessageId(), entry.getReplyToSender(), entry.getReplyToText(),
                 entry.getImageUrl(), entry.getVideoUrl(),
                 entry.getAttachmentName(), entry.getAttachmentMimeType(), entry.getAttachmentSize(),
-                entry.getEditedAt(), entry.getDeletedAt());
+                entry.getEditedAt(), entry.getDeletedAt(),
+                entry.getExtraMedia() == null ? java.util.List.of() : entry.getExtraMedia().stream()
+                    .map(asset -> new com.example.desporto24.model.dto.social.PublicPostMediaResponse(
+                            asset.getUrl(), asset.getMimeType())).toList());
     }
 
     private record Access(Community community, Profile actor) {}
