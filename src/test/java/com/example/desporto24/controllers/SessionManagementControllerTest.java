@@ -49,7 +49,7 @@ class SessionManagementControllerTest {
                 new java.math.BigDecimal("5.00"), "Lisboa", "Rua A", "Portão B");
         controller.updateDetails(10L, request, authentication);
         verify(sessionService).updateDetails(10L, "Futebol", request.gameDate(), 10, 6,
-                request.priceAmount(), "Lisboa", "Rua A", "Portão B", "miguel");
+                request.priceAmount(), "Lisboa", "Rua A", "Portão B", null, "miguel");
     }
 
     @Test
