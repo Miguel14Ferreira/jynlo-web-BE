@@ -82,6 +82,21 @@ public class CommunityChampionshipController {
         championshipTeams.invitePlayer(communityId, championshipId, teamId, request.profileId(), auth.getName());
     }
 
+    @GetMapping("/{championshipId}/teams/{teamId}/invitations/pending")
+    public List<com.example.desporto24.service.CommunityChampionshipTeamsService.PendingTeamInvite>
+            pendingSeasonTeamInvitations(@PathVariable Long communityId, @PathVariable Long championshipId,
+                                         @PathVariable Long teamId, Authentication auth) {
+        return championshipTeams.pendingPlayerInvitations(communityId, championshipId, teamId, auth.getName());
+    }
+
+    @DeleteMapping("/{championshipId}/teams/{teamId}/invitations/{profileId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revokeSeasonTeamInvitation(@PathVariable Long communityId, @PathVariable Long championshipId,
+                                            @PathVariable Long teamId, @PathVariable Long profileId,
+                                            Authentication auth) {
+        championshipTeams.revokePlayerInvitation(communityId, championshipId, teamId, profileId, auth.getName());
+    }
+
     @GetMapping("/{championshipId}/teams/{teamId}/invitations/mine")
     public java.util.Map<String, Boolean> mySeasonTeamInvitation(
             @PathVariable Long communityId, @PathVariable Long championshipId,
