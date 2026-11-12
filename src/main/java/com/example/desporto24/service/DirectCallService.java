@@ -320,8 +320,11 @@ public class DirectCallService {
             // Checking only the guest/inviter pair would let a removed participant extend a room.
             requireInviterOriginalAccess(call, guest.inviter());
             inbox.requireConversationAccess(actor, "direct", guest.inviter());
-            guests.get(id).put(key(actor), new Guest(guest.username(), guest.inviter(), guest.expiresAt(), true));
+            // Mint the join credential before committing acceptance. If token creation
+            // fails, leave the invitation pending rather than admitting a guest
+            // who never received a usable credential.
             CallSession accepted = access(call, actor);
+            guests.get(id).put(key(actor), new Guest(guest.username(), guest.inviter(), guest.expiresAt(), true));
             notifyParticipantsChanged(call, actor);
             return accepted;
         }
