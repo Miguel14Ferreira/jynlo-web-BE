@@ -451,6 +451,11 @@ public class DirectCallService {
                 || recipient.equalsIgnoreCase(actor) || isParticipant(call, recipient)
                 || guestFor(id, recipient) != null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid invitee");
+        // The same LiveKit identity cannot be safely invited back to the same
+        // room while an earlier token is awaiting server-side eviction: the
+        // provider would disconnect the newly joined participant as well.
+        if (pendingGuestEvictions.containsKey(id + ":" + key(recipient)))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Previous call exit is pending");
         // A previously accepted caller may have lost session membership or become blocked.
         // Recheck their original call access before allowing further invitations.
         requireInviterOriginalAccess(call, actor);
