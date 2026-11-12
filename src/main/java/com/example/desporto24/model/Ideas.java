@@ -47,6 +47,12 @@ public class Ideas {
     @Column(name = "created_at")
     private Instant createdAt = Instant.now();
 
+    @Column(name = "attachment_name", length = 160)
+    private String attachmentName;
+
+    @Column(name = "attachment_mime_type", length = 40)
+    private String attachmentMimeType;
+
     @Column(name = "admin_reply", columnDefinition = "text")
     private String adminReply;
 
