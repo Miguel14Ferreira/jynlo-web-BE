@@ -37,6 +37,32 @@ public class DirectChatAttachmentController {
         return attachments.send(authentication.getName(), peer, file, caption, replyToMessageId);
     }
 
+    @PostMapping(value = "/batch", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Chat sendBatch(@PathVariable String peer,
+            @RequestPart("files") java.util.List<MultipartFile> files,
+            @RequestParam(value = "caption", required = false) String caption,
+            @RequestParam(value = "replyToMessageId", required = false) Long replyToMessageId,
+            Authentication authentication) {
+        return attachments.sendBatch(authentication.getName(), peer, files, caption, replyToMessageId);
+    }
+
+    @GetMapping("/{messageId}/{index}")
+    public ResponseEntity<byte[]> downloadAt(@PathVariable String peer,
+            @PathVariable Long messageId, @PathVariable int index,
+            Authentication authentication) {
+        return privateResponse(attachments.downloadAt(authentication.getName(), peer, messageId, index));
+    }
+
+    private ResponseEntity<byte[]> privateResponse(DirectChatAttachmentService.AttachmentContent file) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(file.mimeType()))
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(file.filename(), StandardCharsets.UTF_8).build().toString())
+                .header("X-Content-Type-Options", "nosniff")
+                .body(file.content());
+    }
+
     @GetMapping("/{messageId}")
     public ResponseEntity<byte[]> download(@PathVariable String peer,
                                            @PathVariable Long messageId,
