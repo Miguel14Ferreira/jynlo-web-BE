@@ -38,7 +38,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 public class PrivateChatFileStorage {
-    public static final long MAX_BYTES = 5L * 1024L * 1024L;
+    public static final long MAX_BYTES = 20L * 1024L * 1024L;
+    private static final long MAX_SMALL_BYTES = 5L * 1024L * 1024L;
+    private static final long MAX_AUDIO_BYTES = 12L * 1024L * 1024L;
     private static final String PREFIX = "private-chat/";
     private final MediaStorageProperties settings;
     private volatile S3Client s3Client;
@@ -259,7 +261,7 @@ public class PrivateChatFileStorage {
     private static ValidFile validate(MultipartFile file) {
         if (file == null || file.isEmpty() || file.getSize() > MAX_BYTES) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Attachment must be non-empty and at most 5 MB");
+                    "Attachment must be non-empty and at most 20 MB");
         }
         String name = file.getOriginalFilename() == null ? "anexo" : file.getOriginalFilename()
                 .replace('\\', '/').replaceAll("[\\p{Cntrl}]", "");
@@ -272,7 +274,28 @@ public class PrivateChatFileStorage {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid attachment size");
             }
             String detected = new Tika().detect(bytes);
+            String declaredType = file.getContentType() == null ? ""
+                    : file.getContentType().split(";")[0].trim().toLowerCase(Locale.ROOT);
+            if ("video/mp4".equals(declaredType) || "video/webm".equals(declaredType)) {
+                MediaStorageSupport.ValidatedMedia media = MediaStorageSupport.validateVideo(file);
+                return new ValidFile(media.bytes(), name, media.mimeType(), media.extension());
+            }
+            if ("audio/mpeg".equals(declaredType)) {
+                if (bytes.length > MAX_AUDIO_BYTES || !isMp3(bytes)) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid MP3 audio");
+                }
+                return new ValidFile(bytes, name, "audio/mpeg", ".mp3");
+            }
+            if ("audio/mp4".equals(declaredType) || "audio/x-m4a".equals(declaredType)) {
+                if (bytes.length > MAX_AUDIO_BYTES || !isM4a(bytes)) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid M4A audio");
+                }
+                return new ValidFile(bytes, name, "audio/mp4", ".m4a");
+            }
             if ("application/pdf".equals(detected)) {
+                if (bytes.length > MAX_SMALL_BYTES) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "PDF exceeds 5 MB");
+                }
                 String declared = file.getContentType();
                 if (bytes.length < 5 || bytes[0] != '%' || bytes[1] != 'P'
                         || bytes[2] != 'D' || bytes[3] != 'F' || bytes[4] != '-') {
@@ -290,13 +313,13 @@ public class PrivateChatFileStorage {
             String declared = file.getContentType() == null ? ""
                     : file.getContentType().split(";")[0].trim().toLowerCase(Locale.ROOT);
             if ("audio/webm".equals(declared)) {
-                if (!isOpusWebm(bytes)) {
+                if (bytes.length > MAX_AUDIO_BYTES || !isOpusWebm(bytes)) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid WebM/Opus audio");
                 }
                 return new ValidFile(bytes, name, "audio/webm", ".webm");
             }
             if ("audio/ogg".equals(declared)) {
-                if (!isOpusOgg(bytes)) {
+                if (bytes.length > MAX_AUDIO_BYTES || !isOpusOgg(bytes)) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid Ogg/Opus audio");
                 }
                 return new ValidFile(bytes, name, "audio/ogg", ".ogg");
@@ -308,6 +331,22 @@ public class PrivateChatFileStorage {
         } catch (IOException | IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or unsupported attachment", ex);
         }
+    }
+
+    private static boolean isMp3(byte[] data) {
+        if (data.length < 6) return false;
+        if (data[0] == 'I' && data[1] == 'D' && data[2] == '3'
+                && (data[3] & 0xff) <= 4 && (data[4] & 0xff) < 0x80
+                && (data[5] & 0xff) < 0x80) return true;
+        return (data[0] & 0xff) == 0xff && (data[1] & 0xe0) == 0xe0
+                && ((data[1] >> 1) & 0x03) != 0 && ((data[2] >> 4) & 0x03) != 3;
+    }
+
+    private static boolean isM4a(byte[] data) {
+        if (data.length < 16 || data[4] != 'f' || data[5] != 't'
+                || data[6] != 'y' || data[7] != 'p') return false;
+        String brand = new String(data, 8, 4, StandardCharsets.US_ASCII);
+        return "M4A ".equals(brand) || "M4B ".equals(brand);
     }
 
     private static boolean isOpusWebm(byte[] data) {
@@ -353,7 +392,7 @@ public class PrivateChatFileStorage {
     }
 
     private static void validKey(String key) {
-        if (key == null || !key.matches("private-chat/[a-f0-9-]{36}\\.(jpg|png|webp|gif|pdf|webm|ogg)")) {
+        if (key == null || !key.matches("private-chat/[a-f0-9-]{36}\\.(jpg|png|webp|gif|pdf|webm|ogg|mp4|mp3|m4a)")) {
             throw new IllegalArgumentException("Invalid private attachment key");
         }
     }
