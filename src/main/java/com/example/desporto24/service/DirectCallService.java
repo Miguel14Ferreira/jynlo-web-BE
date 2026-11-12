@@ -396,6 +396,10 @@ public class DirectCallService {
         }
         calls.remove(id);
         guests.remove(id);
+        // The caller may already have connected using the ringing token.
+        // Revoking the invitation alone does not disconnect that LiveKit room.
+        // Reuse the same retryable room cleanup as an ended active call.
+        roomsPendingDeletion.put(id, call.room());
         gateway.publishDirectCallEvent(call.caller, call.peer, id.toString(), call.media,
                 "DECLINED", actor, Instant.now());
     }
