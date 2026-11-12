@@ -15,6 +15,8 @@ public record AdminIdeaResponse(
         Instant createdAt,
         String adminReply,
         Instant adminRepliedAt,
-        String adminRepliedBy
+        String adminRepliedBy,
+        String attachmentName,
+        String attachmentMimeType
 ) {
 }
