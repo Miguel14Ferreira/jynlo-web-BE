@@ -205,6 +205,23 @@ public class ChatRealtimeGateway extends TextWebSocketHandler {
         }
     }
 
+    /**
+     * Content-free feed invalidation. Never broadcast post IDs, actors,
+     * like totals or private activity to other authenticated accounts.
+     * Clients refresh only data they are authorized to read over HTTP.
+     */
+    public void publishSocialFeedInvalidated() {
+        final String payload = "{\"type\":\"SOCIAL_FEED_INVALIDATED\"}";
+        for (Set<WebSocketSession> sockets : sessionsByUsername.values()) {
+            for (WebSocketSession socket : sockets) {
+                if (!socket.isOpen() || !isCurrentAuthenticatedSession(socket)) continue;
+                try { send(socket, payload); } catch (IOException ignored) {
+                    // The canonical REST feed remains available after reconnect.
+                }
+            }
+        }
+    }
+
     public void publishChatMessage(String username, Chat chat) {
         Set<WebSocketSession> sessions = sessionsByUsername.get(username);
         if (sessions == null || sessions.isEmpty()) {
