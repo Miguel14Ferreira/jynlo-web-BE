@@ -157,6 +157,59 @@ public class SocialFeedService {
         return postItem(post, author);
     }
 
+    /** One publication with an ordered gallery; storage is cleaned on upload or DB failure. */
+    public FeedItemResponse createPostWithAlbum(String username, String content,
+            java.util.List<MultipartFile> files, Long sessionId) {
+        if (files == null || files.isEmpty() || files.size() > 6) {
+            throw new IllegalArgumentException("Escolhe entre 1 e 6 fotografias ou vídeos");
+        }
+        long total = files.stream().mapToLong(file -> file == null ? 0 : file.getSize()).sum();
+        if (total > 60L * 1024 * 1024 || files.stream().anyMatch(file ->
+                file == null || file.isEmpty() || file.getSize() > 20L * 1024 * 1024)) {
+            throw new IllegalArgumentException("Os ficheiros não podem exceder 60 MB no total");
+        }
+        String normalized = content == null ? "" : content.trim();
+        if (normalized.isBlank() || normalized.length() > 1000) {
+            throw new IllegalArgumentException("A publicação deve ter entre 1 e 1000 caracteres");
+        }
+        if (mediaStorage == null) throw new IllegalStateException("Media storage is not configured");
+        Profile author = profile(username);
+        Session linkedSession = resolvePublicSession(sessionId);
+        java.util.List<com.example.desporto24.model.social.PublicPostMedia> stored = new java.util.ArrayList<>();
+        try {
+            for (MultipartFile file : files) {
+                String mime = file.getContentType() == null ? "" : file.getContentType().toLowerCase(java.util.Locale.ROOT);
+                String base = "posts/" + author.getId() + "/" + UUID.randomUUID();
+                URI uri = switch (mime) {
+                    case "image/jpeg", "image/png", "image/webp" -> mediaStorage.store(base, file);
+                    case "video/mp4", "video/webm" -> mediaStorage.storeVideo(base, file);
+                    default -> throw new IllegalArgumentException("Formato de media não suportado");
+                };
+                stored.add(new com.example.desporto24.model.social.PublicPostMedia(
+                        uri.toString(), storageKey(uri), mime));
+            }
+            var first = stored.get(0);
+            SocialPost post = postRepository.save(SocialPost.builder()
+                    .author(author)
+                    .session(linkedSession)
+                    .content(normalized)
+                    .imageUrl(first.getMimeType().startsWith("image/") ? first.getUrl() : null)
+                    .imageStorageKey(first.getMimeType().startsWith("image/") ? first.getStorageKey() : null)
+                    .videoUrl(first.getMimeType().startsWith("video/") ? first.getUrl() : null)
+                    .videoStorageKey(first.getMimeType().startsWith("video/") ? first.getStorageKey() : null)
+                    .extraMedia(new java.util.ArrayList<>(stored.subList(1, stored.size())))
+                    .createdAt(Instant.now())
+                    .build());
+            return postItem(post, author);
+        } catch (RuntimeException failure) {
+            for (var asset : stored) {
+                try { if (asset.getStorageKey() != null) mediaStorage.delete(asset.getStorageKey()); }
+                catch (RuntimeException ignored) { failure.addSuppressed(ignored); }
+            }
+            throw failure;
+        }
+    }
+
     public void deletePost(Long postId, String username) {
         Profile actor = profile(username);
         SocialPost post = postRepository.findById(postId)
@@ -184,6 +237,11 @@ public class SocialFeedService {
         if (mediaStorage != null && post.getVideoStorageKey() != null
                 && !post.getVideoStorageKey().isBlank()) {
             mediaStorage.delete(post.getVideoStorageKey());
+        }
+        if (mediaStorage != null && post.getExtraMedia() != null) {
+            for (var asset : post.getExtraMedia()) {
+                if (asset.getStorageKey() != null) mediaStorage.delete(asset.getStorageKey());
+            }
         }
     }
 
@@ -367,7 +425,10 @@ public class SocialFeedService {
                 commentCounts.getOrDefault(post.getId(), 0L),
                 publicSessionImage(linkedSession),
                 post.getVideoUrl(),
-                post.isHideLikers()
+                post.isHideLikers(),
+                post.getExtraMedia() == null ? java.util.List.of() : post.getExtraMedia().stream()
+                    .map(asset -> new com.example.desporto24.model.dto.social.PublicPostMediaResponse(
+                            asset.getUrl(), asset.getMimeType())).toList()
         );
     }
 
