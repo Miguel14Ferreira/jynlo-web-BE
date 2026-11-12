@@ -310,6 +310,42 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void acceptedGuestLeavingQueuesProviderEvictionAndRetriesTransientFailure() throws Exception {
+        Profile carlos = mock(Profile.class);
+        lenient().when(carlos.getId()).thenReturn(14L);
+        lenient().when(profiles.findUserByUsernameIgnoreCase("carlos"))
+                .thenReturn(Optional.of(carlos));
+
+        var call = calls.start("ana", "bea", "voice");
+        calls.accept(call.callId(), "bea");
+        calls.invite(call.callId(), "ana", "carlos");
+        calls.accept(call.callId(), "carlos");
+        assertEquals(3, calls.members(call.callId(), "ana").participants().size());
+        calls.end(call.callId(), "carlos");
+
+        assertEquals(2, calls.members(call.callId(), "ana").participants().size());
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
+                () -> calls.members(call.callId(), "carlos")).getStatusCode());
+
+        @SuppressWarnings("unchecked")
+        var queued = (java.util.concurrent.ConcurrentHashMap<String, ?>)
+                ReflectionTestUtils.getField(calls, "pendingGuestEvictions");
+        assertEquals(1, queued.size(), "Provider removal must survive a transient outage");
+
+        DirectCallService retrying = spy(calls);
+        doReturn(false).when(retrying).removeFromLiveKit(
+                "jynlo-" + call.callId(), "jynlo-user-14");
+        retrying.revokeDisconnectedGuests();
+        assertEquals(1, queued.size());
+        doReturn(true).when(retrying).removeFromLiveKit(
+                "jynlo-" + call.callId(), "jynlo-user-14");
+        retrying.revokeDisconnectedGuests();
+        assertTrue(queued.isEmpty());
+        verify(retrying, times(2)).removeFromLiveKit(
+                "jynlo-" + call.callId(), "jynlo-user-14");
+    }
+
+    @Test
     void repeatedGroupRingingToSamePlayerIsRateLimitedAfterThreeInvites() {
         var call = calls.start("ana", "bea", "voice");
         calls.accept(call.callId(), "bea");
