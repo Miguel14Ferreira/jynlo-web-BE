@@ -1,0 +1,30 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-12-idea-private-attachments
+      author: jynlo
+      changes:
+        - addColumn:
+            tableName: ideas
+            columns:
+              - column:
+                  name: attachment_name
+                  type: varchar(160)
+              - column:
+                  name: attachment_mime_type
+                  type: varchar(40)
+        - createTable:
+            tableName: idea_attachment
+            columns:
+              - column:
+                  name: idea_id
+                  type: bigint
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+                    foreignKeyName: fk_idea_attachment_idea
+                    references: ideas(id)
+              - column:
+                  name: content
+                  type: bytea
+                  constraints:
+                    nullable: false
