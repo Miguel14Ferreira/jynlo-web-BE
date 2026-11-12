@@ -45,6 +45,27 @@ public class Chat {
     @Column(name = "attachment_size")
     private Long attachmentSize;
 
+    @JsonIgnore
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "chat_extra_attachment", joinColumns = @JoinColumn(name = "message_id"))
+    @OrderColumn(name = "position")
+    private java.util.List<com.example.desporto24.model.chat.PrivateChatAttachment> extraAttachments =
+            new java.util.ArrayList<>();
+
+    @com.fasterxml.jackson.annotation.JsonProperty("attachments")
+    public java.util.List<java.util.Map<String, Object>> getAttachments() {
+        if (deletedAt != null) return java.util.List.of();
+        var items = new java.util.ArrayList<java.util.Map<String, Object>>();
+        if (attachmentName != null) items.add(java.util.Map.of("index", 0, "filename", attachmentName,
+                "mimeType", attachmentMimeType, "size", attachmentSize == null ? 0L : attachmentSize));
+        for (int i = 0; i < extraAttachments.size(); i++) {
+            var item = extraAttachments.get(i);
+            items.add(java.util.Map.of("index", i + 1, "filename", item.getFilename(),
+                    "mimeType", item.getMimeType(), "size", item.getSize()));
+        }
+        return items;
+    }
+
     @Column(name = "edited_at")
     private java.time.Instant editedAt;
     @Column(name = "deleted_at")
