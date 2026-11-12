@@ -237,14 +237,13 @@ public class SocialFeedService {
         }
         List<SocialPost> posts = postRepository.findByAuthorIdAndActivityTypeIsNullOrderByCreatedAtDesc(
                 author.getId(), PageRequest.of(page, 20));
-        return posts.stream().map(post -> {
-            Long id = post.getId();
-            return postItem(post,
-                    Map.of(id, likeRepository.countByPostId(id)),
-                    Map.of(id, commentRepository.countByPostId(id)),
-                    likeRepository.existsByPostIdAndProfileId(id, viewer.getId())
-                            ? Set.of(id) : Set.of());
-        }).toList();
+        if (posts.isEmpty()) return List.of();
+        Set<Long> ids = posts.stream().map(SocialPost::getId).collect(Collectors.toSet());
+        Map<Long, Long> likeCounts = countsByPostId(likeRepository.countByPostIds(ids));
+        Map<Long, Long> commentCounts = countsByPostId(commentRepository.countByPostIds(ids));
+        Set<Long> likedPostIds = likeRepository.findLikedPostIds(ids, viewer.getId());
+        return posts.stream().map(post ->
+                postItem(post, likeCounts, commentCounts, likedPostIds)).toList();
     }
 
     @Transactional(readOnly = true)
