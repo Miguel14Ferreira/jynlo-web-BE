@@ -135,47 +135,51 @@ public class CommunityTimelineService {
     @Transactional
     public CommunityTimelineEntryResponse postChatAttachment(
             Long communityId, MultipartFile file, String caption, String username, Long replyToMessageId) {
+        return postChatAttachments(communityId, java.util.List.of(file), caption, username, replyToMessageId);
+    }
+
+    @Transactional
+    public CommunityTimelineEntryResponse postChatAttachments(Long communityId,
+            List<MultipartFile> uploads, String caption, String username, Long replyToMessageId) {
         Access access = requireMember(communityId, username);
-        if (privateChatStorage == null) {
+        if (privateChatStorage == null)
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "Private chat attachment storage is unavailable");
-        }
         String body = caption == null ? "" : caption.trim();
-        if (body.length() > 2000 || (replyToMessageId != null && replyToMessageId <= 0)) {
+        if (body.length() > 2000 || (replyToMessageId != null && replyToMessageId <= 0))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid attachment message");
-        }
         CommunityTimelineEntry quoted = null;
         if (replyToMessageId != null) {
             quoted = timelineRepository.findById(replyToMessageId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                             "Invalid reply message"));
             if (!communityId.equals(quoted.getCommunity().getId())
-                    || quoted.getKind() != CommunityTimelineEntry.Kind.CHAT) {
+                    || quoted.getKind() != CommunityTimelineEntry.Kind.CHAT)
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid reply message");
-            }
         }
-        var stored = privateChatStorage.store(file);
+        var batch = PrivateChatAttachmentBatch.store(privateChatStorage, uploads);
+        var first = batch.first();
         try {
             CommunityTimelineEntry saved = timelineRepository.save(
                     CommunityTimelineEntry.builder()
                             .community(access.community()).author(access.actor())
                             .kind(CommunityTimelineEntry.Kind.CHAT)
-                            .body(body.isEmpty() ? "📎 " + stored.name() : body)
+                            .body(body.isEmpty() ? "📎 " + first.name() : body)
                             .replyToMessageId(quoted == null ? null : quoted.getId())
                             .replyToSender(quoted == null ? null : quoted.getAuthor().getUsername())
                             .replyToText(quoted == null ? null : quoted.getBody())
-                            .attachmentKey(stored.key())
-                            .attachmentName(stored.name())
-                            .attachmentMimeType(stored.mime())
-                            .attachmentSize(stored.size())
+                            .attachmentKey(first.key())
+                            .attachmentName(first.name())
+                            .attachmentMimeType(first.mime())
+                            .attachmentSize(first.size())
+                            .extraAttachments(new java.util.ArrayList<>(batch.extras()))
                             .createdAt(Instant.now()).build());
             timelineRepository.flush();
             CommunityTimelineEntryResponse response = toResponse(saved);
             publishChatEvent(access, communityId, response);
             return response;
         } catch (RuntimeException failure) {
-            try { privateChatStorage.delete(stored.key()); }
-            catch (RuntimeException cleanup) { failure.addSuppressed(cleanup); }
+            PrivateChatAttachmentBatch.cleanup(privateChatStorage, batch.files(), failure);
             throw failure;
         }
     }
@@ -201,6 +205,25 @@ public class CommunityTimelineService {
         }
         return new ChatAttachmentContent(privateChatStorage.read(entry.getAttachmentKey()),
                 entry.getAttachmentMimeType(), entry.getAttachmentName());
+    }
+
+    @Transactional(readOnly = true)
+    public ChatAttachmentContent downloadChatAttachmentAt(Long communityId, Long messageId,
+            int index, String username) {
+        if (index == 0) return downloadChatAttachment(communityId, messageId, username);
+        if (index < 1 || index >= PrivateChatAttachmentBatch.MAX_FILES)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat attachment not found");
+        requireMember(communityId, username);
+        CommunityTimelineEntry entry = timelineRepository.findById(messageId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat attachment not found"));
+        if (!communityId.equals(entry.getCommunity().getId())
+                || entry.getKind() != CommunityTimelineEntry.Kind.CHAT
+                || entry.getDeletedAt() != null || entry.getAttachmentKey() == null
+                || entry.getExtraAttachments() == null || index > entry.getExtraAttachments().size())
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat attachment not found");
+        var item = entry.getExtraAttachments().get(index - 1);
+        return new ChatAttachmentContent(privateChatStorage.read(item.getStorageKey()),
+                item.getMimeType(), item.getFilename());
     }
 
     public record ChatAttachmentContent(byte[] content, String mimeType, String filename) {}
