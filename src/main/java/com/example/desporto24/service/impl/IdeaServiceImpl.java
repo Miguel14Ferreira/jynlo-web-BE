@@ -2,9 +2,11 @@ package com.example.desporto24.service.impl;
 
 import com.example.desporto24.enumeration.IdeaStatus;
 import com.example.desporto24.model.Ideas;
+import com.example.desporto24.model.IdeaAttachment;
 import com.example.desporto24.model.dto.idea.AdminIdeaResponse;
 import com.example.desporto24.model.dto.idea.IdeaSubmissionRequest;
 import com.example.desporto24.repository.IdeasRepository;
+import com.example.desporto24.repository.IdeaAttachmentRepository;
 import com.example.desporto24.repository.ProfileRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -14,6 +16,10 @@ import com.example.desporto24.service.interfaces.IdeaService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import org.apache.tika.Tika;
+import java.io.IOException;
+import java.util.Map;
 
 import java.time.Instant;
 import java.util.Comparator;
@@ -27,11 +33,19 @@ public class IdeaServiceImpl implements IdeaService {
     private static final String MANAGEMENT_EMAIL = "desporto24app@gmail.com";
 
     private final IdeasRepository ideasRepository;
+    private final IdeaAttachmentRepository ideaAttachments;
     private final EmailService emailService;
     private final ProfileRepository profiles;
 
     @Override
     public void submitNewIdea(IdeaSubmissionRequest request) {
+        submitNewIdeaWithAttachment(request, null);
+    }
+
+    @Override
+    @Transactional
+    public void submitNewIdeaWithAttachment(IdeaSubmissionRequest request, MultipartFile image) {
+        ValidImage validated = image == null ? null : validateImage(image);
         Ideas idea = new Ideas(
                 request.name().trim(),
                 request.email().trim(),
@@ -41,7 +55,14 @@ public class IdeaServiceImpl implements IdeaService {
                 request.problem().trim()
         );
 
+        if (validated != null) {
+            idea.setAttachmentName(validated.filename());
+            idea.setAttachmentMimeType(validated.mimeType());
+        }
         Ideas saved = ideasRepository.save(idea);
+        if (validated != null) {
+            ideaAttachments.save(new IdeaAttachment(saved.getId(), validated.bytes()));
+        }
 
         try {
             emailService.send(request.email().trim(), buildConfirmationEmail());
@@ -54,6 +75,55 @@ public class IdeaServiceImpl implements IdeaService {
         } catch (RuntimeException exception) {
             log.warn("Idea {} was saved but management notification email could not be sent", saved.getId(), exception);
         }
+    }
+
+
+    /** Only metadata is added to the admin listing; the binary image is never serialized. */
+    private record ValidImage(String filename, String mimeType, byte[] bytes) {}
+    private static final long MAX_IMAGE_SIZE = 3L * 1024L * 1024L;
+    private static final Map<String, String> IMAGE_EXTENSIONS = Map.of(
+            "image/jpeg", ".jpg", "image/png", ".png",
+            "image/webp", ".webp", "image/gif", ".gif");
+
+    private ValidImage validateImage(MultipartFile file) {
+        if (file.isEmpty() || file.getSize() > MAX_IMAGE_SIZE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Imagem inválida: máximo 3 MB");
+        }
+        try {
+            byte[] bytes = file.getBytes();
+            if (bytes.length == 0 || bytes.length > MAX_IMAGE_SIZE) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Imagem inválida: máximo 3 MB");
+            }
+            String mime = new Tika().detect(bytes);
+            String extension = IMAGE_EXTENSIONS.get(mime);
+            String declared = file.getContentType();
+            if (extension == null || declared == null || !mime.equalsIgnoreCase(declared)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Formato de imagem inválido");
+            }
+            String filename = file.getOriginalFilename() == null ? "captura" + extension
+                    : file.getOriginalFilename().replace('\\\\', '/');
+            filename = filename.substring(filename.lastIndexOf('/') + 1).trim();
+            filename = filename.replaceAll("[\\p{Cntrl}]", "");
+            if (filename.isEmpty()) filename = "captura" + extension;
+            if (filename.length() > 150) filename = filename.substring(0, 150);
+            return new ValidImage(filename, mime, bytes);
+        } catch (IOException failure) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Não foi possível ler a imagem");
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AttachmentDownload attachment(Long ideaId) {
+        Ideas idea = ideasRepository.findById(ideaId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mensagem não encontrada"));
+        if (idea.getAttachmentMimeType() == null || idea.getAttachmentName() == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Anexo não encontrado");
+        }
+        IdeaAttachment stored = ideaAttachments.findById(ideaId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Anexo não encontrado"));
+        return new AttachmentDownload(idea.getAttachmentName(),
+                idea.getAttachmentMimeType(), stored.getContent());
     }
 
     @Override
@@ -126,7 +196,9 @@ public class IdeaServiceImpl implements IdeaService {
                 idea.getCreatedAt(),
                 idea.getAdminReply(),
                 idea.getAdminRepliedAt(),
-                idea.getAdminRepliedBy()
+                idea.getAdminRepliedBy(),
+                idea.getAttachmentName(),
+                idea.getAttachmentMimeType()
         );
     }
 
