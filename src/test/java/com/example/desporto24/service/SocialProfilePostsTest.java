@@ -3,6 +3,9 @@ package com.example.desporto24.service;
 import com.example.desporto24.model.Profile;
 import com.example.desporto24.model.social.SocialPost;
 import com.example.desporto24.repository.ProfileRepository;
+import com.example.desporto24.repository.SessionRepository;
+import com.example.desporto24.repository.session.SessionParticipantRepository;
+import com.example.desporto24.repository.social.ProfileFollowRepository;
 import com.example.desporto24.repository.social.SocialPostRepository;
 import com.example.desporto24.repository.social.SocialPostLikeRepository;
 import com.example.desporto24.repository.social.SocialPostCommentRepository;
@@ -28,6 +31,9 @@ class SocialProfilePostsTest {
     @Mock private SocialPostCommentRepository comments;
     @Mock private ProfileRepository profiles;
     @Mock private UserBlockService blocks;
+    @Mock private ProfileFollowRepository follows;
+    @Mock private SessionRepository sessions;
+    @Mock private SessionParticipantRepository participants;
     @InjectMocks private SocialFeedService service;
 
     @Test
@@ -100,6 +106,30 @@ class SocialProfilePostsTest {
         var exception = assertThrows(org.springframework.web.server.ResponseStatusException.class,
                 () -> service.postById(99L, "joao"));
         assertEquals(org.springframework.http.HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verifyNoInteractions(likes, comments);
+    }
+
+    @Test
+    void feedExcludesBlockedPostAuthorsBeforeReadingLikesOrComments() {
+        Profile viewer = new Profile();
+        viewer.setId(15L);
+        viewer.setUsername("joao");
+        Profile blockedAuthor = new Profile();
+        blockedAuthor.setId(12L);
+        blockedAuthor.setUsername("ana");
+        when(profiles.findUserByUsernameIgnoreCase("joao")).thenReturn(Optional.of(viewer));
+        when(follows.findByFollowerIdOrderByCreatedAtDesc(15L)).thenReturn(List.of());
+        when(posts.findAllByOrderByCreatedAtDesc(any(Pageable.class))).thenReturn(List.of(
+                SocialPost.builder().id(99L).author(blockedAuthor).content("Não mostrar")
+                        .createdAt(Instant.now()).build()
+        ));
+        when(sessions.findRecentPublicFeedSessions(any(), any(Pageable.class))).thenReturn(List.of());
+        when(participants.findPublicAttendanceFeed(anySet(), any(Pageable.class))).thenReturn(List.of());
+        when(blocks.isBlockedBetween(viewer, blockedAuthor)).thenReturn(true);
+
+        var feed = service.feed("joao");
+
+        assertTrue(feed.isEmpty());
         verifyNoInteractions(likes, comments);
     }
 
