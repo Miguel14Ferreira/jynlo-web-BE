@@ -13,6 +13,7 @@ import com.example.desporto24.repository.community.CommunityRepository;
 import com.example.desporto24.repository.social.ProfileFollowRepository;
 import com.example.desporto24.repository.social.SocialStoryRepository;
 import com.example.desporto24.repository.social.SocialStoryLikeRepository;
+import com.example.desporto24.repository.social.SocialStoryReplyRepository;
 import com.example.desporto24.service.interfaces.NotificationService;
 import com.example.desporto24.storage.MediaStorage;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +40,7 @@ import static org.mockito.Mockito.*;
 class SocialStoryServiceTest {
     @Mock private SocialStoryRepository stories;
     @Mock private SocialStoryLikeRepository likes;
+    @Mock private SocialStoryReplyRepository replies;
     @Mock private NotificationService notificationService;
     @Mock private NotificationPreferencesService notificationPreferences;
     @Mock private UserBlockService userBlockService;
@@ -148,6 +150,10 @@ class SocialStoryServiceTest {
         when(notificationPreferences.allowsInApp("maria",
                 com.example.desporto24.enumeration.NotificationType.SOCIAL_STORY_REPLIED)).thenReturn(true);
         service.reply(5L, "joao", "Grande jogada!");
+        verify(replies).save(argThat(reply -> reply.getStoryId().equals(5L)
+                && reply.getRecipient().getUsername().equals("maria")
+                && reply.getSender().getUsername().equals("joao")
+                && reply.getContent().equals("Grande jogada!")));
         verify(notificationService).save(argThat(n -> n.getUsername().equals("maria")
                 && n.getMessage().contains("Grande jogada!")
                 && n.getRelatedUsername().equals("joao")));
@@ -198,6 +204,35 @@ class SocialStoryServiceTest {
         assertThrows(IllegalArgumentException.class,
                 () -> service.reply(8L, "joao", "x".repeat(501)));
         verifyNoInteractions(notificationService);
+    }
+
+    @Test
+    void privateStoryReplyIsDeliveredEvenWhenNotificationsAreDisabled() {
+        Profile owner = new Profile();
+        owner.setId(20L);
+        owner.setUsername("maria");
+        SocialStory story = SocialStory.builder().id(9L).author(owner)
+                .createdAt(Instant.now()).expiresAt(Instant.now().plusSeconds(3600)).build();
+        when(stories.findById(9L)).thenReturn(Optional.of(story));
+        service.reply(9L, "joao", "Boa defesa!");
+        verify(replies).save(argThat(reply -> reply.getRecipient().getId().equals(20L)
+                && reply.getContent().equals("Boa defesa!")));
+        verifyNoInteractions(notificationService);
+    }
+
+    @Test
+    void privateStoryReplyHistoryIsScopedToAuthenticatedRecipient() {
+        com.example.desporto24.model.social.SocialStoryReply item =
+                com.example.desporto24.model.social.SocialStoryReply.builder()
+                .id(13L).storyId(9L).sender(actor).recipient(actor)
+                .content("Olá").createdAt(Instant.now()).build();
+        when(replies.findByRecipientIdOrderByCreatedAtDesc(eq(19L), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(java.util.List.of(item));
+        var result = service.myPrivateReplies("joao", 1);
+        assertEquals(1, result.size());
+        assertEquals("joao", result.get(0).senderUsername());
+        verify(replies).findByRecipientIdOrderByCreatedAtDesc(eq(19L),
+                argThat(page -> page.getPageNumber()==1 && page.getPageSize()==20));
     }
 
     private Community publicCommunity() {
