@@ -51,6 +51,14 @@ public class IdeaController {
         return buildResponse();
     }
 
+    @PostMapping(value = "/submit-with-attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<HttpResponse> submitWithAttachments(
+            @RequestPart("request") @Valid IdeaSubmissionRequest request,
+            @RequestPart("images") java.util.List<MultipartFile> images) {
+        ideaService.submitNewIdeaWithAttachments(request, images);
+        return buildResponse();
+    }
+
     private ResponseEntity<HttpResponse> buildResponse() {
         return new ResponseEntity<>(
                 new HttpResponse(HttpStatus.OK.value(), HttpStatus.OK, HttpStatus.OK.getReasonPhrase().toUpperCase(), NEW_IDEA),
