@@ -64,10 +64,13 @@ public class SocialPostInteractionService {
 
     public PostLikeResponse unlike(Long postId, String username) {
         Profile actor = profile(username);
-        post(postId);
+        SocialPost target = post(postId);
 
+        // Removing an old like remains possible after blocking, without
+        // leaking the blocked author's like totals through this endpoint.
+        boolean blocked = userBlockService.isBlockedBetween(actor, target.getAuthor());
         likeRepository.deleteByPostIdAndProfileId(postId, actor.getId());
-        return likeStatus(postId, actor.getId());
+        return blocked ? new PostLikeResponse(false, 0) : likeStatus(postId, actor.getId());
     }
 
     @Transactional(readOnly = true)
