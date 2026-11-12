@@ -42,6 +42,23 @@ public class AdminIdeaController {
                 .body(file.content());
     }
 
+    @GetMapping("/{id}/attachments")
+    public ResponseEntity<List<IdeaService.AttachmentMetadata>> attachments(@PathVariable Long id) {
+        return ResponseEntity.ok(ideaService.attachments(id));
+    }
+
+    @GetMapping("/{id}/attachments/{index}")
+    public ResponseEntity<byte[]> attachmentAt(@PathVariable Long id, @PathVariable int index) {
+        var file = ideaService.attachment(id, index);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(file.mimeType()))
+                .cacheControl(CacheControl.noStore())
+                .header("X-Content-Type-Options", "nosniff")
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(file.filename(), StandardCharsets.UTF_8).build().toString())
+                .body(file.content());
+    }
+
     public record ReplyRequest(@jakarta.validation.constraints.NotBlank
                                @jakarta.validation.constraints.Size(min = 3, max = 2000) String message) {}
 
