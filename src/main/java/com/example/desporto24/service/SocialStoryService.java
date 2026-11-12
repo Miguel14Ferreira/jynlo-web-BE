@@ -89,12 +89,7 @@ public class SocialStoryService {
     @Transactional(readOnly = true)
     public StoryResponse view(Long id, String username) {
         Profile actor = actor(username);
-        SocialStory story = activeStory(id);
-        if (story.getCommunity() != null
-                && story.getCommunity().getVisibility() != CommunityVisibility.PUBLIC
-                && !isMemberOrOwner(story.getCommunity(), actor)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Story not found");
-        }
+        SocialStory story = visibleStory(id, actor);
         return response(story, actor);
     }
 
@@ -219,6 +214,10 @@ public class SocialStoryService {
 
     private SocialStory visibleStory(Long id, Profile viewer) {
         SocialStory story = activeStory(id);
+        // Deep links must not expose Stories from profiles blocked in either direction.
+        if (userBlockService.isBlockedBetween(viewer, story.getAuthor())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Story not found");
+        }
         if (story.getCommunity() != null &&
                 story.getCommunity().getVisibility() != CommunityVisibility.PUBLIC &&
                 !isMemberOrOwner(story.getCommunity(), viewer)) {
