@@ -45,6 +45,12 @@ public class CommunityTimelineEntry {
     @Column(name = "video_storage_key", length = 800)
     private String videoStorageKey;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "community_timeline_extra_media", joinColumns = @JoinColumn(name = "entry_id"))
+    @OrderColumn(name = "position")
+    @Builder.Default
+    private java.util.List<com.example.desporto24.model.social.PublicPostMedia> extraMedia = new java.util.ArrayList<>();
+
     // CHAT-only content is stored in the dedicated PRIVATE R2 bucket.
     // Never expose the storage key or reuse the public POST media fields.
     @Column(name = "attachment_key", length = 240)
