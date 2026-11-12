@@ -117,6 +117,32 @@ class SocialStoryServiceTest {
     }
 
     @Test
+    void storyFeedExcludesBlockedAuthorsEvenWhenCommunityIsFollowed() {
+        when(userBlockService.blockedProfileIds(actor)).thenReturn(java.util.Set.of(33L, 44L));
+        when(stories.findActiveFeed(any(Instant.class), anyCollection(), anyCollection(),
+                anyCollection(), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(java.util.List.of());
+        assertTrue(service.feed("joao").isEmpty());
+        verify(stories).findActiveFeed(any(Instant.class),
+                argThat(ids -> ids.contains(19L) && !ids.contains(33L)),
+                anyCollection(),
+                argThat(ids -> ids.contains(33L) && ids.contains(44L)),
+                any(org.springframework.data.domain.Pageable.class));
+    }
+
+    @Test
+    void storyFeedUsesSafePlaceholderWhenNoProfilesAreBlocked() {
+        when(userBlockService.blockedProfileIds(actor)).thenReturn(java.util.Set.of());
+        when(stories.findActiveFeed(any(Instant.class), anyCollection(), anyCollection(),
+                anyCollection(), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(java.util.List.of());
+        assertTrue(service.feed("joao").isEmpty());
+        verify(stories).findActiveFeed(any(Instant.class), anyCollection(),
+                anyCollection(), argThat(ids -> ids.size()==1 && ids.contains(-1L)),
+                any(org.springframework.data.domain.Pageable.class));
+    }
+
+    @Test
     void myStoriesQueryIsScopedToAuthenticatedAuthorAndActiveWindow() {
         when(stories.findTop20ByAuthorIdAndExpiresAtAfterOrderByCreatedAtDesc(eq(19L), any(Instant.class)))
                 .thenReturn(java.util.List.of());
