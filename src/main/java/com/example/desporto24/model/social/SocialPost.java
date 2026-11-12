@@ -51,6 +51,12 @@ public class SocialPost {
     @Column(name = "video_storage_key", length = 800)
     private String videoStorageKey;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "social_post_extra_media", joinColumns = @JoinColumn(name = "post_id"))
+    @OrderColumn(name = "position")
+    @Builder.Default
+    private java.util.List<PublicPostMedia> extraMedia = new java.util.ArrayList<>();
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 }
