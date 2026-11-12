@@ -6,11 +6,16 @@ on:
     paths:
       - '.github/workflows/social-mobile-post-contract-ci.yml'
       - 'src/main/java/com/example/desporto24/service/SocialFeedService.java'
+      - 'src/main/java/com/example/desporto24/service/SocialStoryService.java'
+      - 'src/main/java/com/example/desporto24/service/SocialStoryNotificationDispatcher.java'
+      - 'src/main/java/com/example/desporto24/service/UserBlockService.java'
       - 'src/main/java/com/example/desporto24/service/SocialPostInteractionService.java'
       - 'src/main/java/com/example/desporto24/controllers/SocialFeedController.java'
       - 'src/main/java/com/example/desporto24/register/Notifications/Notifications.java'
       - 'src/main/resources/db/changelog/changes/2026-11-10-social-post-notification-links.yaml'
       - 'src/test/java/com/example/desporto24/service/SocialFeedPostDeepLinkTest.java'
+      - 'src/test/java/com/example/desporto24/service/SocialFeedAttendanceVisibilityTest.java'
+      - 'src/test/java/com/example/desporto24/service/SocialStoryServiceTest.java'
       - 'src/test/java/com/example/desporto24/service/SocialPostNotificationLinkTest.java'
       - 'src/test/java/com/example/desporto24/register/Notifications/NotificationGifSerializationTest.java'
   workflow_dispatch:
@@ -20,7 +25,7 @@ permissions:
 
 jobs:
   social-post-contracts:
-    name: Verify mobile social post deep links
+    name: Verify social post links, stories and attendance privacy
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -30,9 +35,9 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Compile and run focused social notification contracts
+      - name: Compile and run social notifications and privacy regression tests
         env:
           AES_ENCRYPTION_KEY: ciKey1
         run: |
           chmod +x mvnw
-          ./mvnw -B -ntp -Dtest=SocialFeedPostDeepLinkTest,SocialPostNotificationLinkTest,NotificationGifSerializationTest test
+          ./mvnw -B -ntp -Dtest=SocialFeedPostDeepLinkTest,SocialPostNotificationLinkTest,NotificationGifSerializationTest,SocialFeedAttendanceVisibilityTest,SocialStoryServiceTest test
