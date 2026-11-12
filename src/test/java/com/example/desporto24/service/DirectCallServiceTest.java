@@ -104,6 +104,30 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void pendingRecoveryIgnoresHttpForbiddenAfterSessionContactExpires() {
+        var outgoing = calls.start("ana", "bea", "voice");
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "Session contact expired"))
+                .when(inbox).requireConversationAccess("bea", "direct", "ana");
+
+        assertNull(calls.pendingFor("bea"),
+                "A denied invitation must not leak an error or a recoverable ring");
+        verify(gateway, never()).publishDirectCallEvent(eq("ana"), eq("bea"),
+                eq(outgoing.callId().toString()), eq("voice"), eq("ACTIVE"), anyString(), any());
+    }
+
+    @Test
+    void guestRecoveryIgnoresHttpForbiddenAfterInviterLosesContact() {
+        var outgoing = calls.start("ana", "bea", "voice");
+        calls.accept(outgoing.callId(), "bea");
+        calls.invite(outgoing.callId(), "ana", "carlos");
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "Session contact expired"))
+                .when(inbox).requireConversationAccess("ana", "direct", "bea");
+
+        assertNull(calls.pendingFor("carlos"));
+        verify(inbox, never()).requireConversationAccess("carlos", "direct", "ana");
+    }
+
+    @Test
     void simultaneousIncomingRingsAreRejectedEvenIfEarlierPermissionIsRevoked() {
         Profile carlos = mock(Profile.class);
         lenient().when(carlos.getId()).thenReturn(14L);
