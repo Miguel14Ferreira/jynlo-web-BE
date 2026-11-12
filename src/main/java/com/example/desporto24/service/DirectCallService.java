@@ -230,7 +230,10 @@ public class DirectCallService {
                 .build();
         int response = PROVIDER_HTTP.send(request, HttpResponse.BodyHandlers.discarding())
                 .statusCode();
-        return response >= 200 && response < 300;
+        // A participant who hung up may have already disconnected before the
+        // server-side retry runs. An absent participant/room is safely revoked;
+        // retaining a 404 forever would block that guest from rejoining.
+        return (response >= 200 && response < 300) || response == 404;
     }
 
     /**
