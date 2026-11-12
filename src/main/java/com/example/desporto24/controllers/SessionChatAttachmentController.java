@@ -37,6 +37,30 @@ public class SessionChatAttachmentController {
                 authentication.getName(), replyToMessageId);
     }
 
+    @PostMapping(value = "/batch", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public SessionMessageResponse sendBatch(@PathVariable Long sessionId,
+            @RequestPart("files") java.util.List<MultipartFile> files,
+            @RequestParam(value = "caption", required = false) String caption,
+            @RequestParam(value = "replyToMessageId", required = false) Long replyToMessageId,
+            Authentication authentication) {
+        return sessions.postAttachments(sessionId, files, caption,
+                authentication.getName(), replyToMessageId);
+    }
+
+    @GetMapping("/{messageId}/{index}")
+    public ResponseEntity<byte[]> downloadAt(@PathVariable Long sessionId,
+            @PathVariable Long messageId, @PathVariable int index,
+            Authentication authentication) {
+        var file = sessions.downloadAttachmentAt(sessionId, messageId, index, authentication.getName());
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(file.mimeType()))
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(file.filename(), StandardCharsets.UTF_8).build().toString())
+                .header("X-Content-Type-Options", "nosniff")
+                .body(file.content());
+    }
+
     @GetMapping("/{messageId}")
     public ResponseEntity<byte[]> download(@PathVariable Long sessionId,
             @PathVariable Long messageId, Authentication authentication) {
