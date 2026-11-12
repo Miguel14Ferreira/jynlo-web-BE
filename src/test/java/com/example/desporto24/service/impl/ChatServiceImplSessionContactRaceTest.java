@@ -58,4 +58,45 @@ class ChatServiceImplSessionContactRaceTest {
         verify(profiles).lockForSessionChatQuota("ana");
         verifyNoInteractions(chats, notifications, events);
     }
+    @Test
+    void revokedSessionContactCannotReadConversationHistory() {
+        Profile sender = mock(Profile.class);
+        Profile recipient = mock(Profile.class);
+        when(sender.getId()).thenReturn(11L);
+        when(recipient.getId()).thenReturn(22L);
+        when(sender.getUsername()).thenReturn("ana");
+        when(recipient.getUsername()).thenReturn("bea");
+        when(profiles.findUserByUsername("ana")).thenReturn(Optional.of(sender));
+        when(profiles.findUserByUsername("bea")).thenReturn(Optional.of(recipient));
+        when(friends.findConnection(11L, 22L)).thenReturn(Optional.empty());
+        when(sessionContacts.mayContact("ana", "bea")).thenReturn(false);
+        ReflectionTestUtils.setField(service, "sessionContactAccess", sessionContacts);
+
+        assertThrows(AccessDeniedException.class, () -> service.findChatMessages("ana", "bea"));
+        assertThrows(AccessDeniedException.class, () -> service.findChatMessagesPage("ana", "bea", 0, 20));
+        assertThrows(AccessDeniedException.class, () -> service.getChatInfo("ana", "bea"));
+        verify(sessionContacts, times(3)).mayContact("ana", "bea");
+        verifyNoInteractions(chats, notifications, events);
+    }
+
+    @Test
+    void activeSessionContactMayReadHistoryWithoutFriendship() {
+        Profile sender = mock(Profile.class);
+        Profile recipient = mock(Profile.class);
+        when(sender.getId()).thenReturn(11L);
+        when(recipient.getId()).thenReturn(22L);
+        when(sender.getUsername()).thenReturn("ana");
+        when(recipient.getUsername()).thenReturn("bea");
+        when(profiles.findUserByUsername("ana")).thenReturn(Optional.of(sender));
+        when(profiles.findUserByUsername("bea")).thenReturn(Optional.of(recipient));
+        when(friends.findConnection(11L, 22L)).thenReturn(Optional.empty());
+        when(sessionContacts.mayContact("ana", "bea")).thenReturn(true);
+        ReflectionTestUtils.setField(service, "sessionContactAccess", sessionContacts);
+
+        service.findChatMessages("ana", "bea");
+        verify(chats).findConversation("ana", "bea");
+        org.junit.jupiter.api.Assertions.assertNull(service.getChatInfo("ana", "bea").getId());
+        verify(sessionContacts, times(2)).mayContact("ana", "bea");
+    }
+
 }
