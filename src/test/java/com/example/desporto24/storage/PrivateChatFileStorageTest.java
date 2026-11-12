@@ -112,7 +112,7 @@ class PrivateChatFileStorageTest {
                 "<html>fake</html>".getBytes(StandardCharsets.UTF_8));
         var fakeAudio = new MockMultipartFile("file","voice.mp3","audio/mpeg",
                 "MZ-not-an-audio-file".getBytes(StandardCharsets.UTF_8));
-        assertThrows(IllegalArgumentException.class, () -> storage.store(fakeVideo));
+        assertThrows(ResponseStatusException.class, () -> storage.store(fakeVideo));
         assertThrows(ResponseStatusException.class, () -> storage.store(fakeAudio));
     }
 
