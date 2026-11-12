@@ -281,13 +281,28 @@ class SocialStoryServiceTest {
                 com.example.desporto24.model.social.SocialStoryReply.builder()
                 .id(13L).storyId(9L).sender(actor).recipient(actor)
                 .content("Olá").createdAt(Instant.now()).build();
-        when(replies.findByRecipientIdOrderByCreatedAtDesc(eq(19L), any(org.springframework.data.domain.Pageable.class)))
+        when(replies.findVisibleReplies(eq(19L), anyCollection(),
+                any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(java.util.List.of(item));
         var result = service.myPrivateReplies("joao", 1);
         assertEquals(1, result.size());
         assertEquals("joao", result.get(0).senderUsername());
-        verify(replies).findByRecipientIdOrderByCreatedAtDesc(eq(19L),
+        verify(replies).findVisibleReplies(eq(19L),
+                argThat(ids -> ids.size()==1 && ids.contains(-1L)),
                 argThat(page -> page.getPageNumber()==1 && page.getPageSize()==20));
+    }
+
+    @Test
+    void blockedPrivateStorySendersAreFilteredBeforePagination() {
+        when(userBlockService.blockedProfileIds(actor)).thenReturn(java.util.Set.of(44L, 55L));
+        when(replies.findVisibleReplies(eq(19L), anyCollection(),
+                any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(java.util.List.of());
+
+        assertTrue(service.myPrivateReplies("joao", 2).isEmpty());
+        verify(replies).findVisibleReplies(eq(19L),
+                argThat(ids -> ids.contains(44L) && ids.contains(55L)),
+                argThat(page -> page.getPageNumber()==2 && page.getPageSize()==20));
     }
 
     @Test
