@@ -37,7 +37,8 @@ class SocialFeedAttendanceVisibilityTest {
                 mock(SocialPostCommentRepository.class),
                 profiles,
                 mock(SessionRepository.class),
-                participants
+                participants,
+                mock(UserBlockService.class)
         );
     }
 
