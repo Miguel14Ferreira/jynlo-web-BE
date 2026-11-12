@@ -700,4 +700,36 @@ class DirectCallServiceTest {
         assertTrue(calls.members(call.callId(), "bea").pending().isEmpty());
     }
 
+    @Test
+    void declinedInvitationQueuesLiveKitRoomRevocationAndRetriesCleanup() throws Exception {
+        // The caller is issued a room-scoped token before the callee answers,
+        // so declining must also close any room that the caller opened.
+        var outgoing = calls.start("ana", "bea", "voice");
+        String room = JWT.decode(outgoing.token()).getClaim("video").asMap().get("room").toString();
+
+        calls.decline(outgoing.callId(), "bea");
+        assertNull(calls.pendingFor("bea"));
+        assertThrows(ResponseStatusException.class,
+                () -> calls.accept(outgoing.callId(), "bea"));
+
+        @SuppressWarnings("unchecked")
+        var queued = (java.util.concurrent.ConcurrentHashMap<UUID, String>)
+                ReflectionTestUtils.getField(calls, "roomsPendingDeletion");
+        assertNotNull(queued);
+        assertEquals(room, queued.get(outgoing.callId()),
+                "The declined call must be scheduled for provider-side room deletion");
+
+        // A provider outage must preserve the retry entry instead of
+        // silently marking the LiveKit room as disconnected.
+        var retrying = spy(calls);
+        doReturn(false).when(retrying).deleteLiveKitRoom(room);
+        retrying.revokeDisconnectedGuests();
+        assertEquals(room, queued.get(outgoing.callId()));
+
+        doReturn(true).when(retrying).deleteLiveKitRoom(room);
+        retrying.revokeDisconnectedGuests();
+        assertFalse(queued.containsKey(outgoing.callId()));
+        verify(retrying, times(2)).deleteLiveKitRoom(room);
+    }
+
 }
