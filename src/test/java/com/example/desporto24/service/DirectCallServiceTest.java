@@ -331,6 +331,9 @@ class DirectCallServiceTest {
         var queued = (java.util.concurrent.ConcurrentHashMap<String, ?>)
                 ReflectionTestUtils.getField(calls, "pendingGuestEvictions");
         assertEquals(1, queued.size(), "Provider removal must survive a transient outage");
+        assertEquals(HttpStatus.CONFLICT, assertThrows(ResponseStatusException.class,
+                () -> calls.invite(call.callId(), "ana", "carlos")).getStatusCode(),
+                "Reinviting before provider eviction could disconnect a new guest");
 
         DirectCallService retrying = spy(calls);
         doReturn(false).when(retrying).removeFromLiveKit(
@@ -341,6 +344,7 @@ class DirectCallServiceTest {
                 "jynlo-" + call.callId(), "jynlo-user-14");
         retrying.revokeDisconnectedGuests();
         assertTrue(queued.isEmpty());
+        assertDoesNotThrow(() -> retrying.invite(call.callId(), "ana", "carlos"));
         verify(retrying, times(2)).removeFromLiveKit(
                 "jynlo-" + call.callId(), "jynlo-user-14");
     }
