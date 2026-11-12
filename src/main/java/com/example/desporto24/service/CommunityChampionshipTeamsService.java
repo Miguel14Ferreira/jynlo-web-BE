@@ -128,6 +128,37 @@ public class CommunityChampionshipTeamsService {
         }
     }
 
+    public record PendingTeamInvite(Long profileId, String username, String displayName, Instant invitedAt) {}
+
+    /** The roster is public to members, but outstanding invitations are not. */
+    @Transactional(readOnly = true)
+    public List<PendingTeamInvite> pendingPlayerInvitations(Long communityId, Long championshipId,
+                                                             Long teamId, String username) {
+        requireOrganizerOrTeamAdmin(communityId, championshipId, teamId, username);
+        getSeasonTeam(communityId, championshipId, teamId);
+        return teamInvites.findByTeamIdOrderByInvitedAtAscIdAsc(teamId).stream().map(invite -> {
+            var profile = invite.getProfile();
+            return new PendingTeamInvite(profile.getId(), profile.getUsername(),
+                    profile.getFullName() == null || profile.getFullName().isBlank()
+                            ? profile.getUsername() : profile.getFullName(), invite.getInvitedAt());
+        }).toList();
+    }
+
+    /** Cancelling an invitation cannot remove a confirmed player or current admin. */
+    public void revokePlayerInvitation(Long communityId, Long championshipId, Long teamId,
+                                        Long profileId, String username) {
+        requireOrganizerOrTeamAdmin(communityId, championshipId, teamId, username);
+        ensureOpen(getChampionship(communityId, championshipId));
+        getSeasonTeam(communityId, championshipId, teamId);
+        if (profileId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Jogador inválido");
+        }
+        var pending = teamInvites.findByTeamIdAndProfileId(teamId, profileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "O convite já não está pendente"));
+        teamInvites.delete(pending);
+    }
+
     public List<TeamPlayer> respondPlayerInvite(Long communityId, Long championshipId, Long teamId,
                                                  boolean accept, String username) {
         var current = profiles.findUserByUsername(username)
