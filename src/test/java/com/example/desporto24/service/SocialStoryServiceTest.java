@@ -14,7 +14,7 @@ import com.example.desporto24.repository.social.ProfileFollowRepository;
 import com.example.desporto24.repository.social.SocialStoryRepository;
 import com.example.desporto24.repository.social.SocialStoryLikeRepository;
 import com.example.desporto24.repository.social.SocialStoryReplyRepository;
-import com.example.desporto24.service.interfaces.NotificationService;
+import org.springframework.context.ApplicationEventPublisher;
 import com.example.desporto24.storage.MediaStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,8 +41,7 @@ class SocialStoryServiceTest {
     @Mock private SocialStoryRepository stories;
     @Mock private SocialStoryLikeRepository likes;
     @Mock private SocialStoryReplyRepository replies;
-    @Mock private NotificationService notificationService;
-    @Mock private NotificationPreferencesService notificationPreferences;
+    @Mock private ApplicationEventPublisher events;
     @Mock private UserBlockService userBlockService;
     @Mock private ProfileRepository profiles;
     @Mock private CommunityRepository communities;
@@ -147,16 +146,14 @@ class SocialStoryServiceTest {
                 .createdAt(Instant.now()).expiresAt(Instant.now().plusSeconds(3600))
                 .build();
         when(stories.findById(5L)).thenReturn(Optional.of(story));
-        when(notificationPreferences.allowsInApp("maria",
-                com.example.desporto24.enumeration.NotificationType.SOCIAL_STORY_REPLIED)).thenReturn(true);
         service.reply(5L, "joao", "Grande jogada!");
         verify(replies).save(argThat(reply -> reply.getStoryId().equals(5L)
                 && reply.getRecipient().getUsername().equals("maria")
                 && reply.getSender().getUsername().equals("joao")
                 && reply.getContent().equals("Grande jogada!")));
-        verify(notificationService).save(argThat(n -> n.getUsername().equals("maria")
-                && n.getMessage().contains("Grande jogada!")
-                && n.getRelatedUsername().equals("joao")));
+        verify(events).publishEvent(argThat(e -> e instanceof SocialStoryNotificationDispatcher.StoryNotice n
+                && n.authorUsername().equals("maria") && n.senderUsername().equals("joao")
+                && n.message().contains("Grande jogada!")));
     }
 
     @Test
@@ -165,7 +162,7 @@ class SocialStoryServiceTest {
                 .createdAt(Instant.now()).expiresAt(Instant.now().plusSeconds(3600)).build();
         when(stories.findById(6L)).thenReturn(Optional.of(story));
         assertThrows(IllegalArgumentException.class, () -> service.reply(6L, "joao", "Olá"));
-        verifyNoInteractions(notificationService);
+        verifyNoInteractions(events);
     }
 
     @Test
@@ -178,16 +175,15 @@ class SocialStoryServiceTest {
         when(stories.findById(7L)).thenReturn(Optional.of(story));
         when(likes.existsByStoryIdAndProfileId(7L, 19L)).thenReturn(false, true, true);
         when(likes.countByStoryId(7L)).thenReturn(1L);
-        when(notificationPreferences.allowsInApp("maria",
-                com.example.desporto24.enumeration.NotificationType.SOCIAL_STORY_LIKED)).thenReturn(true);
         StoryResponse first = service.like(7L, "joao");
         assertTrue(first.likedByMe());
         assertEquals(1L, first.likeCount());
         service.like(7L, "joao");
         verify(likes, times(1)).save(any());
-        verify(notificationService, times(1)).save(argThat(n ->
-                n.getStoryId().equals(7L) &&
-                n.getType() == com.example.desporto24.enumeration.NotificationType.SOCIAL_STORY_LIKED));
+        verify(events, times(1)).publishEvent(argThat(e ->
+                e instanceof SocialStoryNotificationDispatcher.StoryNotice n
+                && n.storyId().equals(7L)
+                && n.type() == com.example.desporto24.enumeration.NotificationType.SOCIAL_STORY_LIKED));
         service.unlike(7L, "joao");
         verify(likes).deleteByStoryIdAndProfileId(7L, 19L);
     }
@@ -203,11 +199,11 @@ class SocialStoryServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.reply(8L, "joao", "  "));
         assertThrows(IllegalArgumentException.class,
                 () -> service.reply(8L, "joao", "x".repeat(501)));
-        verifyNoInteractions(notificationService);
+        verifyNoInteractions(events);
     }
 
     @Test
-    void privateStoryReplyIsDeliveredEvenWhenNotificationsAreDisabled() {
+    void privateStoryReplyPersistsIndependentlyOfOptionalNotificationProcessing() {
         Profile owner = new Profile();
         owner.setId(20L);
         owner.setUsername("maria");
@@ -217,7 +213,9 @@ class SocialStoryServiceTest {
         service.reply(9L, "joao", "Boa defesa!");
         verify(replies).save(argThat(reply -> reply.getRecipient().getId().equals(20L)
                 && reply.getContent().equals("Boa defesa!")));
-        verifyNoInteractions(notificationService);
+        verify(events).publishEvent(argThat(e ->
+                e instanceof SocialStoryNotificationDispatcher.StoryNotice n
+                && n.storyId().equals(9L) && n.senderUsername().equals("joao")));
     }
 
     @Test
