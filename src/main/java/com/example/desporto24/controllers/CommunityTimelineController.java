@@ -40,7 +40,12 @@ public class CommunityTimelineController {
             @RequestPart(value = "content", required = false) String content,
             @RequestPart(value = "image", required = false) MultipartFile image,
             @RequestPart(value = "video", required = false) MultipartFile video,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
             Authentication authentication) {
+        if (files != null && !files.isEmpty()) {
+            if (image != null || video != null) throw new IllegalArgumentException("Usa apenas um formato de envio");
+            return service.postWithAlbum(communityId, content, files, authentication.getName());
+        }
         return service.postWithMedia(communityId, content, image, video, authentication.getName());
     }
 
