@@ -235,6 +235,21 @@ class SocialStoryServiceTest {
                 argThat(page -> page.getPageNumber()==1 && page.getPageSize()==20));
     }
 
+    @Test
+    void storyDeepLinkHidesContentWhenAuthorIsBlocked() {
+        Profile owner = new Profile();
+        owner.setId(22L);
+        owner.setUsername("rui");
+        SocialStory story = SocialStory.builder().id(31L).author(owner)
+                .createdAt(Instant.now()).expiresAt(Instant.now().plusSeconds(3600)).build();
+        when(stories.findById(31L)).thenReturn(Optional.of(story));
+        when(userBlockService.isBlockedBetween(actor, owner)).thenReturn(true);
+        ResponseStatusException hidden = assertThrows(ResponseStatusException.class,
+                () -> service.view(31L, "joao"));
+        assertEquals(HttpStatus.NOT_FOUND, hidden.getStatusCode());
+        verifyNoInteractions(likes);
+    }
+
     private Community publicCommunity() {
         Profile owner = new Profile();
         owner.setId(200L);
