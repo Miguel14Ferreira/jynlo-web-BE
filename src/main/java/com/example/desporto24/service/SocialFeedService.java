@@ -31,6 +31,8 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.function.Predicate;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -280,6 +282,17 @@ public class SocialFeedService {
                         authorIds,
                         PageRequest.of(0, FEED_LIMIT)
                 );
+
+        // Blocking must apply across posts, created sessions and attendance entries,
+        // including discovery fallback. Cache the decision once per author.
+        Map<Long, Boolean> visibleAuthorIds = new HashMap<>();
+        Predicate<Profile> visibleAuthor = author -> author != null
+                && visibleAuthorIds.computeIfAbsent(author.getId(),
+                        id -> !userBlockService.isBlockedBetween(actor, author));
+        posts = posts.stream().filter(post -> visibleAuthor.test(post.getAuthor())).toList();
+        sessions = sessions.stream().filter(session -> visibleAuthor.test(session.getProfile())).toList();
+        attendedSessions = attendedSessions.stream()
+                .filter(participant -> visibleAuthor.test(participant.getProfile())).toList();
 
         // Interaction backing posts never appear as separate feed entries.
         Set<Long> attendanceSessionIds = attendedSessions.stream()
