@@ -1,0 +1,130 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-12-chat_extra_attachment
+      author: jynlo
+      changes:
+        - createTable:
+            tableName: chat_extra_attachment
+            columns:
+              - column:
+                  name: message_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_chat_extra_attachment
+                    foreignKeyName: fk_chat_extra_attachment
+                    references: chat(id)
+              - column:
+                  name: position
+                  type: integer
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_chat_extra_attachment
+              - column:
+                  name: storage_key
+                  type: varchar(240)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: file_name
+                  type: varchar(160)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: mime_type
+                  type: varchar(60)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: file_size
+                  type: bigint
+                  constraints:
+                    nullable: false
+  - changeSet:
+      id: 2026-11-12-session_message_extra_attachment
+      author: jynlo
+      changes:
+        - createTable:
+            tableName: session_message_extra_attachment
+            columns:
+              - column:
+                  name: message_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_session_message_extra_attachment
+                    foreignKeyName: fk_session_message_extra_attachment
+                    references: session_message(id)
+              - column:
+                  name: position
+                  type: integer
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_session_message_extra_attachment
+              - column:
+                  name: storage_key
+                  type: varchar(240)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: file_name
+                  type: varchar(160)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: mime_type
+                  type: varchar(60)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: file_size
+                  type: bigint
+                  constraints:
+                    nullable: false
+  - changeSet:
+      id: 2026-11-12-community_chat_extra_attachment
+      author: jynlo
+      changes:
+        - createTable:
+            tableName: community_chat_extra_attachment
+            columns:
+              - column:
+                  name: message_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_community_chat_extra_attachment
+                    foreignKeyName: fk_community_chat_extra_attachment
+                    references: community_timeline_entry(id)
+              - column:
+                  name: position
+                  type: integer
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_community_chat_extra_attachment
+              - column:
+                  name: storage_key
+                  type: varchar(240)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: file_name
+                  type: varchar(160)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: mime_type
+                  type: varchar(60)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: file_size
+                  type: bigint
+                  constraints:
+                    nullable: false
