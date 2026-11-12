@@ -75,7 +75,12 @@ public class SocialStoryService {
                 .forEach(group -> groups.add(group.getId()));
         // Avoid passing an empty collection into JPQL IN on different databases.
         if (groups.isEmpty()) groups.add(-1L);
-        return responses(stories.findActiveFeed(Instant.now(), authors, groups, PageRequest.of(0, FEED_LIMIT)), actor);
+        Set<Long> blockedAuthors = new LinkedHashSet<>(userBlockService.blockedProfileIds(actor));
+        // JPQL IN must never receive an empty collection.
+        if (blockedAuthors.isEmpty()) blockedAuthors.add(-1L);
+        authors.removeAll(blockedAuthors);
+        return responses(stories.findActiveFeed(
+                Instant.now(), authors, groups, blockedAuthors, PageRequest.of(0, FEED_LIMIT)), actor);
     }
 
     @Transactional(readOnly = true)
