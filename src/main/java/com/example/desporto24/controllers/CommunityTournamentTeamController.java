@@ -120,6 +120,21 @@ public class CommunityTournamentTeamController {
                 communityId, tournamentId, teamId, authentication.getName(), request.profileId()));
     }
 
+    @GetMapping("/{teamId}/invitations/pending")
+    public List<CommunityTournamentTeamService.PendingTeamInvitation> pendingTeamInvitations(
+            @PathVariable Long communityId, @PathVariable Long tournamentId,
+            @PathVariable Long teamId, Authentication authentication) {
+        return service.pendingInvitations(communityId, tournamentId, teamId, authentication.getName());
+    }
+
+    @DeleteMapping("/{teamId}/invitations/{profileId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revokeTeamInvitation(@PathVariable Long communityId, @PathVariable Long tournamentId,
+                                     @PathVariable Long teamId, @PathVariable Long profileId,
+                                     Authentication authentication) {
+        service.revokeInvitation(communityId, tournamentId, teamId, profileId, authentication.getName());
+    }
+
     @GetMapping("/{teamId}/invitations/mine")
     public java.util.Map<String, Boolean> myTeamInvitation(
             @PathVariable Long communityId, @PathVariable Long tournamentId,
