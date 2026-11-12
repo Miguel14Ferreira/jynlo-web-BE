@@ -73,6 +73,14 @@ public class DirectCallService {
     private final ConcurrentHashMap<UUID, Call> calls = new ConcurrentHashMap<>();
     /** Room deletion retries after users hang up, until LiveKit confirms closure. */
     private final ConcurrentHashMap<UUID, String> roomsPendingDeletion = new ConcurrentHashMap<>();
+    /**
+     * When an invited participant leaves voluntarily, revoke their existing
+     * LiveKit token's connection as well as their application membership.
+     * Provider outages are retried without keeping the guest in the roster.
+     */
+    private final ConcurrentHashMap<String, PendingGuestEviction> pendingGuestEvictions =
+            new ConcurrentHashMap<>();
+    private record PendingGuestEviction(String room, String identity, Instant expiresAt) {}
     private final ConcurrentHashMap<String, Instant> lastStarted = new ConcurrentHashMap<>();
     /** Per-sender/recipient throttling; rejecting or declining a ring does not reset it. */
     private final ConcurrentHashMap<String, InviteBudget> inviteBudgets = new ConcurrentHashMap<>();
@@ -408,6 +416,13 @@ public class DirectCallService {
         Call call = requireCall(id, actor);
         Guest leaving = guestFor(id, actor);
         if (leaving != null) {
+            if (leaving.accepted()) {
+                // Resolve identity while membership is still authoritative.
+                // Never issue a provider removal with an unverified identity.
+                var identity = member(actor).identity();
+                pendingGuestEvictions.put(id + ":" + key(actor),
+                        new PendingGuestEviction(call.room(), identity, call.expiresAt()));
+            }
             guests.get(id).remove(key(actor));
             if (leaving.accepted())
                 gateway.publishDirectCallEvent(call.caller, actor, id.toString(), call.media,
@@ -488,6 +503,7 @@ public class DirectCallService {
     public synchronized void revokeDisconnectedGuests() {
         if (!available()) return;
         retryEndedRoomDeletions();
+        retryVoluntaryGuestEvictions();
         for (Call call : calls.values()) {
             if (!"ACTIVE".equals(call.state()) || !Instant.now().isBefore(call.expiresAt())) continue;
             boolean originalAccessRevoked;
@@ -564,6 +580,30 @@ public class DirectCallService {
                 }
             } catch (Exception providerFailure) {
                 log.warn("LiveKit ended room deletion attempt failed");
+            }
+        }
+    }
+
+    /**
+     * Keep the accepted guest's removal pending across transient LiveKit
+     * failures. An ended room is handled by the room deletion queue instead.
+     * Expired rooms are allowed a short grace interval for provider cleanup,
+     * then purged to avoid retaining node-local entries indefinitely.
+     */
+    private void retryVoluntaryGuestEvictions() {
+        Instant now = Instant.now();
+        for (var pending : pendingGuestEvictions.entrySet()) {
+            var eviction = pending.getValue();
+            if (now.isAfter(eviction.expiresAt().plus(Duration.ofMinutes(15)))) {
+                pendingGuestEvictions.remove(pending.getKey(), eviction);
+                continue;
+            }
+            try {
+                if (removeFromLiveKit(eviction.room(), eviction.identity())) {
+                    pendingGuestEvictions.remove(pending.getKey(), eviction);
+                }
+            } catch (Exception providerFailure) {
+                log.warn("LiveKit voluntary guest disconnection retry failed");
             }
         }
     }
