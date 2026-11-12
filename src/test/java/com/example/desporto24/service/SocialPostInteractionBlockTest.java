@@ -90,11 +90,14 @@ class SocialPostInteractionBlockTest {
         when(posts.findById(51L)).thenReturn(Optional.of(post));
         when(profiles.findUserByUsernameIgnoreCase("viewer"))
                 .thenReturn(Optional.of(viewer));
-        when(likes.countByPostId(51L)).thenReturn(0L);
+        when(blocks.isBlockedBetween(viewer, author)).thenReturn(true);
 
-        service.unlike(51L, "viewer");
+        var response = service.unlike(51L, "viewer");
 
+        assertFalse(response.likedByMe());
+        assertEquals(0L, response.likeCount());
         verify(likes).deleteByPostIdAndProfileId(51L, 11L);
+        verify(likes, never()).countByPostId(anyLong());
         verify(blocks, never()).ensureInteractionAllowed(any(Profile.class), any(Profile.class));
     }
 
