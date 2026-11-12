@@ -3,6 +3,8 @@ package com.example.desporto24.service.impl;
 import com.example.desporto24.enumeration.IdeaStatus;
 import com.example.desporto24.model.Ideas;
 import com.example.desporto24.model.IdeaAttachment;
+import com.example.desporto24.model.IdeaExtraAttachment;
+import com.example.desporto24.repository.IdeaExtraAttachmentRepository;
 import com.example.desporto24.model.dto.idea.AdminIdeaResponse;
 import com.example.desporto24.model.dto.idea.IdeaSubmissionRequest;
 import com.example.desporto24.repository.IdeasRepository;
@@ -34,6 +36,7 @@ public class IdeaServiceImpl implements IdeaService {
 
     private final IdeasRepository ideasRepository;
     private final IdeaAttachmentRepository ideaAttachments;
+    private final IdeaExtraAttachmentRepository extraAttachments;
     private final EmailService emailService;
     private final ProfileRepository profiles;
 
@@ -45,6 +48,22 @@ public class IdeaServiceImpl implements IdeaService {
     @Override
     @Transactional
     public void submitNewIdeaWithAttachment(IdeaSubmissionRequest request, MultipartFile image) {
+        submitNewIdeaWithAttachments(request, image == null ? List.of() : List.of(image));
+    }
+
+    @Override
+    @Transactional
+    public void submitNewIdeaWithAttachments(IdeaSubmissionRequest request, List<MultipartFile> images) {
+        if (images == null || images.size() > 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Máximo de 8 imagens");
+        }
+        // Validate the entire batch before writing the parent row.
+        List<ValidImage> validatedImages = images.stream().map(this::validateImage).toList();
+        long totalSize = validatedImages.stream().mapToLong(i -> i.bytes().length).sum();
+        if (totalSize > 16L * 1024 * 1024) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Máximo de 16 MB por mensagem");
+        }
+        ValidImage validated = validatedImages.isEmpty() ? null : validatedImages.get(0);
         ValidImage validated = image == null ? null : validateImage(image);
         Ideas idea = new Ideas(
                 request.name().trim(),
@@ -62,6 +81,10 @@ public class IdeaServiceImpl implements IdeaService {
         Ideas saved = ideasRepository.save(idea);
         if (validated != null) {
             ideaAttachments.save(new IdeaAttachment(saved.getId(), validated.bytes()));
+        }
+        for (int i = 1; i < validatedImages.size(); i++) {
+            ValidImage extra = validatedImages.get(i);
+            extraAttachments.save(new IdeaExtraAttachment(saved.getId(), i, extra.filename(), extra.mimeType(), extra.bytes()));
         }
 
         try {
@@ -124,6 +147,34 @@ public class IdeaServiceImpl implements IdeaService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Anexo não encontrado"));
         return new AttachmentDownload(idea.getAttachmentName(),
                 idea.getAttachmentMimeType(), stored.getContent());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AttachmentMetadata> attachments(Long ideaId) {
+        Ideas idea = ideasRepository.findById(ideaId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mensagem não encontrada"));
+        java.util.ArrayList<AttachmentMetadata> result = new java.util.ArrayList<>();
+        if (idea.getAttachmentName() != null && idea.getAttachmentMimeType() != null) {
+            result.add(new AttachmentMetadata(0, idea.getAttachmentName(), idea.getAttachmentMimeType()));
+        }
+        extraAttachments.findByIdeaIdOrderByImageIndexAsc(ideaId)
+                .forEach(a -> result.add(new AttachmentMetadata(a.getImageIndex(), a.getFilename(), a.getMimeType())));
+        return result;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AttachmentDownload attachment(Long ideaId, int index) {
+        if (index < 0 || index >= 8) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Anexo não encontrado");
+        }
+        if (index == 0) return attachment(ideaId);
+        Ideas idea = ideasRepository.findById(ideaId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mensagem não encontrada"));
+        var extra = extraAttachments.findByIdeaIdAndImageIndex(idea.getId(), index)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Anexo não encontrado"));
+        return new AttachmentDownload(extra.getFilename(), extra.getMimeType(), extra.getContent());
     }
 
     @Override
