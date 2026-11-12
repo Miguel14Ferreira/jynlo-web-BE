@@ -55,7 +55,7 @@ public class IdeaServiceImpl implements IdeaService {
     @Transactional
     public void submitNewIdeaWithAttachments(IdeaSubmissionRequest request, List<MultipartFile> images) {
         if (images == null || images.size() > 8) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Máximo de 8 imagens");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Máximo de 8 anexos");
         }
         // Validate the entire batch before writing the parent row.
         List<ValidImage> validatedImages = images.stream().map(this::validateImage).toList();
@@ -103,24 +103,29 @@ public class IdeaServiceImpl implements IdeaService {
     /** Only metadata is added to the admin listing; the binary image is never serialized. */
     private record ValidImage(String filename, String mimeType, byte[] bytes) {}
     private static final long MAX_IMAGE_SIZE = 3L * 1024L * 1024L;
-    private static final Map<String, String> IMAGE_EXTENSIONS = Map.of(
-            "image/jpeg", ".jpg", "image/png", ".png",
-            "image/webp", ".webp", "image/gif", ".gif");
+    private static final long MAX_OTHER_SIZE = 12L * 1024L * 1024L;
+    private static final Map<String, String> IMAGE_EXTENSIONS = Map.ofEntries(
+            Map.entry("image/jpeg", ".jpg"), Map.entry("image/png", ".png"),
+            Map.entry("image/webp", ".webp"), Map.entry("image/gif", ".gif"),
+            Map.entry("video/mp4", ".mp4"), Map.entry("video/webm", ".webm"),
+            Map.entry("audio/mpeg", ".mp3"), Map.entry("audio/mp4", ".m4a"),
+            Map.entry("audio/ogg", ".ogg"), Map.entry("application/pdf", ".pdf"));
 
     private ValidImage validateImage(MultipartFile file) {
-        if (file.isEmpty() || file.getSize() > MAX_IMAGE_SIZE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Imagem inválida: máximo 3 MB");
+        if (file == null || file.isEmpty() || file.getSize() > MAX_OTHER_SIZE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Anexo inválido: máximo 12 MB");
         }
         try {
             byte[] bytes = file.getBytes();
-            if (bytes.length == 0 || bytes.length > MAX_IMAGE_SIZE) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Imagem inválida: máximo 3 MB");
+            if (bytes.length == 0 || bytes.length > MAX_OTHER_SIZE) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Anexo inválido: máximo 12 MB");
             }
             String mime = new Tika().detect(bytes);
             String extension = IMAGE_EXTENSIONS.get(mime);
             String declared = file.getContentType();
-            if (extension == null || declared == null || !mime.equalsIgnoreCase(declared)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Formato de imagem inválido");
+            if (extension == null || declared == null || !mime.equalsIgnoreCase(declared)
+                    || (mime.startsWith("image/") && bytes.length > MAX_IMAGE_SIZE)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Formato ou tamanho do anexo inválido");
             }
             String filename = file.getOriginalFilename() == null ? "captura" + extension
                     : file.getOriginalFilename().replace((char) 92, '/');
