@@ -55,6 +55,7 @@ public class SocialFeedService {
     private final ProfileRepository profileRepository;
     private final SessionRepository sessionRepository;
     private final SessionParticipantRepository participantRepository;
+    private final UserBlockService userBlockService;
 
     @Autowired(required = false)
     private MediaStorage mediaStorage;
@@ -229,6 +230,11 @@ public class SocialFeedService {
         if (page < 0 || page > 1000) throw new IllegalArgumentException("Página inválida");
         Profile author = profile(authorUsername);
         Profile viewer = profile(viewerUsername);
+        // A direct profile-post URL must honour blocks in either direction,
+        // just as story deep links do.
+        if (userBlockService.isBlockedBetween(viewer, author)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicações não encontradas");
+        }
         List<SocialPost> posts = postRepository.findByAuthorIdAndActivityTypeIsNullOrderByCreatedAtDesc(
                 author.getId(), PageRequest.of(page, 20));
         return posts.stream().map(post -> {
