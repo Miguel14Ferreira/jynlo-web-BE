@@ -417,7 +417,11 @@ public class SessionChatService {
                 message.getAttachmentSize(),
                 message.getEditedAt(),
                 message.getDeletedAt(),
-                message.getSenderGuestRequest()!=null
+                message.getSenderGuestRequest()!=null,
+                message.getDeletedAt() != null ? java.util.List.of() :
+                        PrivateChatAttachmentBatch.metadata(message.getAttachmentName(),
+                            message.getAttachmentMimeType(), message.getAttachmentSize(),
+                            message.getExtraAttachments())
         );
     }
 }
