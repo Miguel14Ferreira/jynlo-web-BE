@@ -41,6 +41,12 @@ public class SocialStoryController {
         return stories.create(auth.getName(), communityId, caption, image, video);
     }
 
+    @GetMapping("/me/replies")
+    public List<SocialStoryService.PrivateReply> myReplies(
+            @RequestParam(defaultValue = "0") int page, Authentication auth) {
+        return stories.myPrivateReplies(auth.getName(), page);
+    }
+
     @PostMapping("/{id}/likes")
     public StoryResponse like(@PathVariable Long id, Authentication auth) {
         return stories.like(id, auth.getName());
