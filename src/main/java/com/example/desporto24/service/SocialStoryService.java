@@ -12,8 +12,7 @@ import com.example.desporto24.model.social.SocialStoryReply;
 import com.example.desporto24.repository.social.SocialStoryReplyRepository;
 import com.example.desporto24.repository.social.SocialStoryLikeRepository;
 import com.example.desporto24.enumeration.NotificationType;
-import com.example.desporto24.register.Notifications.Notifications;
-import com.example.desporto24.service.interfaces.NotificationService;
+import org.springframework.context.ApplicationEventPublisher;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.community.CommunityMemberRepository;
 import com.example.desporto24.repository.community.CommunityRepository;
@@ -48,8 +47,7 @@ public class SocialStoryService {
     private final SocialStoryRepository stories;
     private final SocialStoryLikeRepository likes;
     private final SocialStoryReplyRepository replies;
-    private final NotificationService notificationService;
-    private final NotificationPreferencesService notificationPreferences;
+    private final ApplicationEventPublisher events;
     private final UserBlockService userBlockService;
     private final ProfileRepository profiles;
     private final CommunityRepository communities;
@@ -195,21 +193,11 @@ public class SocialStoryService {
     }
 
     private void notifyAuthor(SocialStory story, Profile viewer, NotificationType type, String message) {
-        Profile owner = story.getAuthor();
-        if (owner.getId().equals(viewer.getId()) ||
-                !notificationPreferences.allowsInApp(owner.getUsername(), type)) return;
-        Notifications notice = new Notifications();
-        notice.setUsername(owner.getUsername());
-        notice.setRelatedUsername(viewer.getUsername());
-        notice.setStoryId(story.getId());
-        notice.setSubject(type == NotificationType.SOCIAL_STORY_LIKED ? "Gosto na Story" : "Resposta à Story");
-        notice.setMessage(message);
-        notice.setGreeting("");
-        notice.setSignature("");
-        notice.setCreatedAt(Instant.now().toString());
-        notice.setType(type);
-        notice.setRead(false);
-        notificationService.save(notice);
+        // The event is handled only AFTER a successful DB commit, in a separate
+        // transaction; delivery failures cannot roll back a Story reply or like.
+        events.publishEvent(new SocialStoryNotificationDispatcher.StoryNotice(
+                story.getId(), story.getAuthor().getUsername(),
+                viewer.getUsername(), type, message));
     }
 
     private SocialStory visibleStory(Long id, Profile viewer) {
