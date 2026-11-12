@@ -47,6 +47,7 @@ class CommunityChampionshipServiceTest {
 
     @BeforeEach
     void setup() {
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "entityManager", entityManager);
         community = Community.builder().id(7L).name("Amigos").build();
         championship = CommunityChampionship.builder()
                 .id(15L).community(community).name("Campeonato 2026")
