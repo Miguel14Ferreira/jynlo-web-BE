@@ -3,6 +3,8 @@ package com.example.desporto24.service;
 import com.example.desporto24.model.Profile;
 import com.example.desporto24.model.dto.social.CreateSocialCommentRequest;
 import com.example.desporto24.model.social.SocialPost;
+import com.example.desporto24.model.social.SocialPostComment;
+import com.example.desporto24.model.social.SocialPostLike;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.social.SocialPostRepository;
 import com.example.desporto24.repository.social.SocialPostLikeRepository;
@@ -94,6 +96,50 @@ class SocialPostInteractionBlockTest {
 
         verify(likes).deleteByPostIdAndProfileId(51L, 11L);
         verify(blocks, never()).ensureInteractionAllowed(any(Profile.class), any(Profile.class));
+    }
+
+    @Test
+    void commentsExcludeBlockedCommentersButPreserveOtherContributions() {
+        Profile blockedCommenter = new Profile();
+        blockedCommenter.setId(33L);
+        blockedCommenter.setUsername("blocked");
+        SocialPostComment hidden = SocialPostComment.builder()
+                .id(81L).post(post).author(blockedCommenter).content("Oculto")
+                .createdAt(Instant.now()).build();
+        SocialPostComment visible = SocialPostComment.builder()
+                .id(82L).post(post).author(author).content("Visível")
+                .createdAt(Instant.now()).build();
+        when(posts.findById(51L)).thenReturn(Optional.of(post));
+        when(profiles.findUserByUsernameIgnoreCase("viewer")).thenReturn(Optional.of(viewer));
+        when(comments.findByPostIdOrderByCreatedAtAsc(51L))
+                .thenReturn(java.util.List.of(hidden, visible));
+        when(blocks.isBlockedBetween(viewer, blockedCommenter)).thenReturn(true);
+
+        var response = service.comments(51L, "viewer");
+
+        assertEquals(1, response.size());
+        assertEquals(82L, response.get(0).id());
+    }
+
+    @Test
+    void likerListExcludesBlockedLikersWithoutHidingOtherLikers() {
+        Profile blockedLiker = new Profile();
+        blockedLiker.setId(33L);
+        blockedLiker.setUsername("blocked");
+        SocialPostLike hidden = SocialPostLike.builder()
+                .id(71L).post(post).profile(blockedLiker).createdAt(Instant.now()).build();
+        SocialPostLike visible = SocialPostLike.builder()
+                .id(72L).post(post).profile(author).createdAt(Instant.now()).build();
+        when(posts.findById(51L)).thenReturn(Optional.of(post));
+        when(profiles.findUserByUsernameIgnoreCase("viewer")).thenReturn(Optional.of(viewer));
+        when(likes.findLikers(eq(51L), any()))
+                .thenReturn(java.util.List.of(hidden, visible));
+        when(blocks.isBlockedBetween(viewer, blockedLiker)).thenReturn(true);
+
+        var response = service.likers(51L, "viewer");
+
+        assertEquals(1, response.size());
+        assertEquals("author", response.get(0).username());
     }
 
     @Test
