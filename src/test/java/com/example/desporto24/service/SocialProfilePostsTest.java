@@ -45,8 +45,8 @@ class SocialProfilePostsTest {
                 .createdAt(Instant.now()).build();
         when(posts.findByAuthorIdAndActivityTypeIsNullOrderByCreatedAtDesc(eq(12L),any(Pageable.class)))
                 .thenReturn(List.of(post));
-        when(likes.countByPostIds(anySet())).thenReturn(List.of(new Object[] {99L, 4L}));
-        when(comments.countByPostIds(anySet())).thenReturn(List.of(new Object[] {99L, 2L}));
+        when(likes.countByPostIds(anySet())).thenReturn(java.util.Collections.singletonList(new Object[] {99L, 4L}));
+        when(comments.countByPostIds(anySet())).thenReturn(java.util.Collections.singletonList(new Object[] {99L, 2L}));
         when(likes.findLikedPostIds(anySet(), eq(15L))).thenReturn(java.util.Set.of(99L));
 
         var page = service.profilePosts("ana", "joao", 2);
