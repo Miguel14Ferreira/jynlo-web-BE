@@ -14,6 +14,8 @@ on:
       - 'src/main/java/com/example/desporto24/repository/IdeaAttachmentRepository.java'
       - 'src/main/resources/db/changelog/changes/2026-11-12-idea-private-attachments.yaml'
       - 'src/test/java/com/example/desporto24/service/impl/IdeaAttachmentServiceTest.java'
+      - 'src/test/java/com/example/desporto24/service/impl/IdeaServiceReplyTest.java'
+      - 'src/test/java/com/example/desporto24/controllers/IdeaControllerTest.java'
   workflow_dispatch:
 permissions:
   contents: read
