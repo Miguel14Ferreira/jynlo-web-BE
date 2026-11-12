@@ -24,6 +24,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import com.example.desporto24.websocket.ChatRealtimeGateway;
 
 import java.time.Instant;
 import java.util.List;
@@ -44,6 +47,21 @@ public class SocialPostInteractionService {
     private final NotificationsRepository notificationsRepository;
     private final NotificationPreferencesService notificationPreferencesService;
     private final UserBlockService userBlockService;
+    private final ChatRealtimeGateway realtimeGateway;
+
+    /**
+     * Send only after the database transaction commits. Otherwise another
+     * browser could fetch the previous count or see a rolled-back like.
+     */
+    private void signalFeedAfterCommit() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() {
+                    realtimeGateway.publishSocialFeedInvalidated();
+                }
+            });
+        }
+    }
 
     public PostLikeResponse like(Long postId, String username) {
         SocialPost post = post(postId);
@@ -57,6 +75,7 @@ public class SocialPostInteractionService {
                     .createdAt(Instant.now())
                     .build());
             notifySocialAction(post, actor, NotificationType.SOCIAL_POST_LIKED);
+            signalFeedAfterCommit();
         }
 
         return likeStatus(postId, actor.getId());
@@ -70,6 +89,7 @@ public class SocialPostInteractionService {
         // leaking the blocked author's like totals through this endpoint.
         boolean blocked = userBlockService.isBlockedBetween(actor, target.getAuthor());
         likeRepository.deleteByPostIdAndProfileId(postId, actor.getId());
+        signalFeedAfterCommit();
         return blocked ? new PostLikeResponse(false, 0) : likeStatus(postId, actor.getId());
     }
 
@@ -103,6 +123,7 @@ public class SocialPostInteractionService {
         );
 
         notifySocialAction(post, actor, NotificationType.SOCIAL_POST_COMMENTED);
+        signalFeedAfterCommit();
         return toResponse(comment);
     }
 
@@ -204,6 +225,7 @@ public class SocialPostInteractionService {
         }
 
         commentRepository.delete(comment);
+        signalFeedAfterCommit();
     }
 
     @Transactional(readOnly = true)
