@@ -27,6 +27,7 @@ class SocialProfilePostsTest {
     @Mock private SocialPostLikeRepository likes;
     @Mock private SocialPostCommentRepository comments;
     @Mock private ProfileRepository profiles;
+    @Mock private UserBlockService blocks;
     @InjectMocks private SocialFeedService service;
 
     @Test
@@ -50,6 +51,24 @@ class SocialProfilePostsTest {
         assertEquals(99L, page.get(0).postId());
         verify(posts).findByAuthorIdAndActivityTypeIsNullOrderByCreatedAtDesc(
                 eq(12L),argThat(p -> p.getPageNumber()==2 && p.getPageSize()==20));
+    }
+
+    @Test
+    void blockedProfilesCannotReadAuthoredPostsInEitherDirection() {
+        Profile author = new Profile();
+        author.setId(12L);
+        author.setUsername("ana");
+        Profile viewer = new Profile();
+        viewer.setId(15L);
+        viewer.setUsername("joao");
+        when(profiles.findUserByUsernameIgnoreCase("ana")).thenReturn(Optional.of(author));
+        when(profiles.findUserByUsernameIgnoreCase("joao")).thenReturn(Optional.of(viewer));
+        when(blocks.isBlockedBetween(viewer, author)).thenReturn(true);
+
+        var exception = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> service.profilePosts("ana", "joao", 0));
+        assertEquals(org.springframework.http.HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verifyNoInteractions(posts, likes, comments);
     }
 
     @Test
