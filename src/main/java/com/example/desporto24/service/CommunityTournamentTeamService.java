@@ -111,6 +111,40 @@ public class CommunityTournamentTeamService {
         return inviteRepository.findByTeamIdAndProfileId(teamId, current.getId()).isPresent();
     }
 
+    public record PendingTeamInvitation(Long profileId, String username,
+                                        String displayName, Instant invitedAt) {}
+
+    @Transactional(readOnly = true)
+    public List<PendingTeamInvitation> pendingInvitations(Long communityId, Long tournamentId,
+                                                           Long teamId, String username) {
+        Profile current = actor(username);
+        var tournament = tournamentRepository.findById(tournamentId).orElseThrow(this::notFound);
+        verifyScopeAndType(communityId, tournament);
+        var selected = team(tournamentId, teamId);
+        requireTeamManager(communityId, current, selected);
+        return inviteRepository.findByTeamIdOrderByInvitedAtAscIdAsc(teamId).stream().map(invite -> {
+            var profile = invite.getProfile();
+            return new PendingTeamInvitation(profile.getId(), profile.getUsername(),
+                    profile.getFullName() == null || profile.getFullName().isBlank()
+                            ? profile.getUsername() : profile.getFullName(), invite.getInvitedAt());
+        }).toList();
+    }
+
+    public void revokeInvitation(Long communityId, Long tournamentId, Long teamId,
+                                 Long profileId, String username) {
+        Profile current = actor(username);
+        var tournament = lockedTeamTournament(communityId, tournamentId);
+        requireDraft(tournament);
+        var selected = team(tournamentId, teamId);
+        requireTeamManager(communityId, current, selected);
+        if (profileId == null || profileId <= 0)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Jogador inválido");
+        var invite = inviteRepository.findByTeamIdAndProfileId(teamId, profileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "O convite já não está pendente"));
+        inviteRepository.delete(invite);
+    }
+
     public void declineInvitation(Long communityId, Long tournamentId, Long teamId, String username) {
         Profile current = actor(username);
         requireMember(communityId, current);
