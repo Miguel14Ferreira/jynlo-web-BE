@@ -4,12 +4,21 @@ import com.example.desporto24.model.social.SocialStory;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
+import java.util.Optional;
 import org.springframework.data.repository.query.Param;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
 public interface SocialStoryRepository extends JpaRepository<SocialStory, Long> {
+    // Serialize concurrent like/unlike requests for the same Story. The DB
+    // uniqueness constraint is the final guard against duplicate likes.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select story from SocialStory story where story.id = :id")
+    Optional<SocialStory> findByIdForInteraction(@Param("id") Long id);
+
     @Query("""
             select story from SocialStory story
             join fetch story.author
