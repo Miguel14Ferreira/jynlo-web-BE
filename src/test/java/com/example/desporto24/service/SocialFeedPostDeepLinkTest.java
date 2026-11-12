@@ -38,7 +38,8 @@ class SocialFeedPostDeepLinkTest {
         profiles = mock(ProfileRepository.class);
         service = new SocialFeedService(
                 posts, mock(ProfileFollowRepository.class), likes, comments,
-                profiles, mock(SessionRepository.class), mock(SessionParticipantRepository.class));
+                profiles, mock(SessionRepository.class), mock(SessionParticipantRepository.class),
+                mock(UserBlockService.class));
         Profile viewer = new Profile();
         viewer.setId(7L);
         viewer.setUsername("viewer");
