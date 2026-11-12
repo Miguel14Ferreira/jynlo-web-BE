@@ -231,6 +231,21 @@ class SocialStoryServiceTest {
     }
 
     @Test
+    void blockedStoryInteractionDoesNotSaveLikeOrSendNotification() {
+        Profile owner = new Profile();
+        owner.setId(30L);
+        owner.setUsername("ines");
+        SocialStory story = SocialStory.builder().id(88L).author(owner)
+                .createdAt(Instant.now()).expiresAt(Instant.now().plusSeconds(3600)).build();
+        when(stories.findByIdForInteraction(88L)).thenReturn(Optional.of(story));
+        when(userBlockService.isBlockedBetween(actor, owner)).thenReturn(true);
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.like(88L, "joao"));
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verifyNoInteractions(likes, events);
+    }
+
+    @Test
     void storyRepliesRejectEmptyAndExcessivelyLongText() {
         Profile owner = new Profile();
         owner.setId(20L);
