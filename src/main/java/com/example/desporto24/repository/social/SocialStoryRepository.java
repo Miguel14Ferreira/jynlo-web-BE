@@ -15,6 +15,7 @@ public interface SocialStoryRepository extends JpaRepository<SocialStory, Long> 
             join fetch story.author
             left join fetch story.community
             where story.expiresAt > :now
+              and story.author.id not in :blockedAuthorIds
               and ((story.community is null and story.author.id in :authorIds)
                 or story.community.id in :communityIds)
             order by story.createdAt desc, story.id desc
@@ -23,6 +24,7 @@ public interface SocialStoryRepository extends JpaRepository<SocialStory, Long> 
             @Param("now") Instant now,
             @Param("authorIds") Collection<Long> authorIds,
             @Param("communityIds") Collection<Long> communityIds,
+            @Param("blockedAuthorIds") Collection<Long> blockedAuthorIds,
             Pageable page);
 
     // Author-scoped by database, never an unrestricted scan of personal Stories.
