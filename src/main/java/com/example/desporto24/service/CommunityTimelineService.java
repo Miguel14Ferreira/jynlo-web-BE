@@ -448,7 +448,10 @@ public class CommunityTimelineService {
                 entry.getEditedAt(), entry.getDeletedAt(),
                 entry.getExtraMedia() == null ? java.util.List.of() : entry.getExtraMedia().stream()
                     .map(asset -> new com.example.desporto24.model.dto.social.PublicPostMediaResponse(
-                            asset.getUrl(), asset.getMimeType())).toList());
+                            asset.getUrl(), asset.getMimeType())).toList(),
+                entry.getDeletedAt() != null ? java.util.List.of() :
+                    PrivateChatAttachmentBatch.metadata(entry.getAttachmentName(),
+                        entry.getAttachmentMimeType(), entry.getAttachmentSize(), entry.getExtraAttachments()));
     }
 
     private record Access(Community community, Profile actor) {}
