@@ -1,0 +1,37 @@
+name: Jynlo contact private screenshots contract CI
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/contact-private-screenshots-ci.yml'
+      - 'src/main/java/com/example/desporto24/controllers/IdeaController.java'
+      - 'src/main/java/com/example/desporto24/controllers/AdminIdeaController.java'
+      - 'src/main/java/com/example/desporto24/service/impl/IdeaServiceImpl.java'
+      - 'src/main/java/com/example/desporto24/service/interfaces/IdeaService.java'
+      - 'src/main/java/com/example/desporto24/model/IdeaAttachment.java'
+      - 'src/main/java/com/example/desporto24/model/Ideas.java'
+      - 'src/main/java/com/example/desporto24/model/dto/idea/**'
+      - 'src/main/java/com/example/desporto24/repository/IdeaAttachmentRepository.java'
+      - 'src/main/resources/db/changelog/changes/2026-11-12-idea-private-attachments.yaml'
+      - 'src/test/java/com/example/desporto24/service/impl/IdeaAttachmentServiceTest.java'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contact-private-screenshots:
+    name: Validate feedback images and administration
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Compile and test contact attachment contracts
+        env:
+          AES_ENCRYPTION_KEY: ciKey1
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp -Dtest=IdeaAttachmentServiceTest,IdeaControllerTest,IdeaServiceReplyTest test
