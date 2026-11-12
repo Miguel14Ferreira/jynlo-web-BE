@@ -177,8 +177,8 @@ class SocialStoryServiceTest {
                 && reply.getRecipient().getUsername().equals("maria")
                 && reply.getSender().getUsername().equals("joao")
                 && reply.getContent().equals("Grande jogada!")));
-        verify(events).publishEvent(argThat(e -> e instanceof SocialStoryNotificationDispatcher.StoryNotice n
-                && n.authorUsername().equals("maria") && n.senderUsername().equals("joao")
+        verify(events).publishEvent((Object) argThat((SocialStoryNotificationDispatcher.StoryNotice n) ->
+                n.authorUsername().equals("maria") && n.senderUsername().equals("joao")
                 && n.message().contains("Grande jogada!")));
     }
 
@@ -206,9 +206,8 @@ class SocialStoryServiceTest {
         assertEquals(1L, first.likeCount());
         service.like(7L, "joao");
         verify(likes, times(1)).save(any());
-        verify(events, times(1)).publishEvent(argThat(e ->
-                e instanceof SocialStoryNotificationDispatcher.StoryNotice n
-                && n.storyId().equals(7L)
+        verify(events, times(1)).publishEvent((Object) argThat((SocialStoryNotificationDispatcher.StoryNotice n) ->
+                n.storyId().equals(7L)
                 && n.type() == com.example.desporto24.enumeration.NotificationType.SOCIAL_STORY_LIKED));
         service.unlike(7L, "joao");
         verify(likes).deleteByStoryIdAndProfileId(7L, 19L);
@@ -270,9 +269,8 @@ class SocialStoryServiceTest {
         service.reply(9L, "joao", "Boa defesa!");
         verify(replies).save(argThat(reply -> reply.getRecipient().getId().equals(20L)
                 && reply.getContent().equals("Boa defesa!")));
-        verify(events).publishEvent(argThat(e ->
-                e instanceof SocialStoryNotificationDispatcher.StoryNotice n
-                && n.storyId().equals(9L) && n.senderUsername().equals("joao")));
+        verify(events).publishEvent((Object) argThat((SocialStoryNotificationDispatcher.StoryNotice n) ->
+                n.storyId().equals(9L) && n.senderUsername().equals("joao")));
     }
 
     @Test
