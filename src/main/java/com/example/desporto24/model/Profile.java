@@ -48,6 +48,8 @@ public class Profile implements Serializable {
     private String availability;
 
     private String profilePicUrl;
+    @Column(name = "is_private_profile", nullable = false)
+    private boolean privateProfile = false;
     private int loginAttempts;
     private Boolean NotLocked;
     private Boolean enabled;
