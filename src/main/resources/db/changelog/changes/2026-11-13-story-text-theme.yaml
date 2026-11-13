@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-13-story-text-theme
+      author: jynlo
+      changes:
+        - addColumn:
+            tableName: social_story
+            columns:
+              - column:
+                  name: text_color
+                  type: varchar(16)
+              - column:
+                  name: text_background
+                  type: varchar(16)
+              - column:
+                  name: text_font
+                  type: varchar(16)
