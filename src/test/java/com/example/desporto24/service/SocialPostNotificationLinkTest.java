@@ -39,7 +39,8 @@ class SocialPostNotificationLinkTest {
         service = new SocialPostInteractionService(
                 posts, likes, mock(SocialPostCommentRepository.class), profiles,
                 mock(UserReportService.class), mock(SessionParticipantRepository.class),
-                notifications, preferences, mock(UserBlockService.class));
+                notifications, preferences, mock(UserBlockService.class),
+                mock(com.example.desporto24.websocket.ChatRealtimeGateway.class));
     }
 
     private Profile profile(long id, String name) {
