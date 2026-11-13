@@ -201,4 +201,17 @@ class SessionContactAccessServiceTest {
         assertFalse(access.mayContact("ana", "bea"));
         assertThrows(AccessDeniedException.class, () -> access.requireContact("ana", "bea"));
     }
+    @Test
+    void deniesContactWhenSharedSessionStopsBeingEligibleAfterItEnds() {
+        // The repository applies status and time-window rules. Recheck on each
+        // operation so a previously eligible session never becomes a lasting ACL.
+        when(sessions.existsSharedUpcomingContactSession(eq(11L), eq(22L),
+                any(Date.class), any(Date.class))).thenReturn(true, false);
+        assertTrue(access.mayContact("ana", "bea"));
+        assertFalse(access.mayContact("ana", "bea"));
+        assertThrows(AccessDeniedException.class, () -> access.requireContact("ana", "bea"));
+        verify(sessions, times(3)).existsSharedUpcomingContactSession(eq(11L), eq(22L),
+                any(Date.class), any(Date.class));
+    }
+
 }
