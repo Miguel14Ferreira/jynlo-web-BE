@@ -1,0 +1,160 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-13-personal-live-interactions
+      author: jynlo
+      changes:
+        - addColumn:
+            tableName: personal_live_event
+            columns:
+              - column:
+                  name: chat_enabled
+                  type: boolean
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: guest_profile_id
+                  type: bigint
+        - addForeignKeyConstraint:
+            baseTableName: personal_live_event
+            baseColumnNames: guest_profile_id
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_personal_live_guest
+        - createTable:
+            tableName: personal_live_chat_message
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: live_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: author_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: message
+                  type: varchar(500)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: personal_live_chat_message
+            baseColumnNames: live_id
+            referencedTableName: personal_live_event
+            referencedColumnNames: id
+            constraintName: fk_live_chat_event
+        - addForeignKeyConstraint:
+            baseTableName: personal_live_chat_message
+            baseColumnNames: author_id
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_live_chat_author
+        - createIndex:
+            tableName: personal_live_chat_message
+            indexName: idx_live_chat_recent
+            columns:
+              - column:
+                  name: live_id
+              - column:
+                  name: created_at
+        - createTable:
+            tableName: personal_live_guest_request
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: live_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: requester_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: varchar(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: personal_live_guest_request
+            baseColumnNames: live_id
+            referencedTableName: personal_live_event
+            referencedColumnNames: id
+            constraintName: fk_live_request_event
+        - addForeignKeyConstraint:
+            baseTableName: personal_live_guest_request
+            baseColumnNames: requester_id
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_live_request_profile
+        - addUniqueConstraint:
+            tableName: personal_live_guest_request
+            columnNames: live_id, requester_id
+            constraintName: uk_live_guest_request
+        - createTable:
+            tableName: personal_live_mute
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: live_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: profile_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: personal_live_mute
+            baseColumnNames: live_id
+            referencedTableName: personal_live_event
+            referencedColumnNames: id
+            constraintName: fk_live_mute_event
+        - addForeignKeyConstraint:
+            baseTableName: personal_live_mute
+            baseColumnNames: profile_id
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_live_mute_profile
+        - addUniqueConstraint:
+            tableName: personal_live_mute
+            columnNames: live_id, profile_id
+            constraintName: uk_personal_live_mute
