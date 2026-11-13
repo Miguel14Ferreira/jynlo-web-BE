@@ -42,7 +42,7 @@ class SocialFeedPostDeepLinkTest {
         profiles = mock(ProfileRepository.class);
         service = new SocialFeedService(
                 posts, mock(ProfileFollowRepository.class), likes, comments,
-                profiles, mock(SessionRepository.class), mock(SessionParticipantRepository.class),
+                mock(com.example.desporto24.repository.social.SocialPostCommentLikeRepository.class), profiles, mock(SessionRepository.class), mock(SessionParticipantRepository.class),
                 mock(UserBlockService.class));
         Profile viewer = new Profile();
         viewer.setId(7L);
@@ -175,7 +175,8 @@ class SocialFeedPostDeepLinkTest {
         var sessions = mock(SessionRepository.class);
         var attendance = mock(SessionParticipantRepository.class);
         var hidden = mock(com.example.desporto24.repository.social.HiddenFeedPostRepository.class);
-        var tested = new SocialFeedService(posts, follows, likes, comments, profiles,
+        var tested = new SocialFeedService(posts, follows, likes, comments,
+            mock(com.example.desporto24.repository.social.SocialPostCommentLikeRepository.class), profiles,
                 sessions, attendance, mock(UserBlockService.class));
         ReflectionTestUtils.setField(tested, "hiddenFeedPosts", hidden);
 
