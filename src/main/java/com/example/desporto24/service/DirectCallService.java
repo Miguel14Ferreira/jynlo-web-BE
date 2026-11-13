@@ -207,8 +207,11 @@ public class DirectCallService {
      * using the application's own contact authorization.
      */
     protected boolean removeFromLiveKit(String room, String identity) throws Exception {
+        boolean personalBroadcastRoom = room != null && room.matches("jynlo-live-personal-[0-9]+");
+        boolean validIdentity = identity != null && (identity.startsWith("jynlo-user-")
+                || (personalBroadcastRoom && identity.startsWith(room + "-user-")));
         if (!available() || room == null || !room.startsWith("jynlo-")
-                || identity == null || !identity.startsWith("jynlo-user-")) return false;
+                || !validIdentity) return false;
         String host = serverUrl.replaceFirst("^wss://", "https://").replaceAll("/+$", "");
         Instant now = Instant.now();
         String jwt = JWT.create()
