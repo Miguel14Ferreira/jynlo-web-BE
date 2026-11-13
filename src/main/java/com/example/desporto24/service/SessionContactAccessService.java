@@ -33,7 +33,8 @@ public class SessionContactAccessService {
                 || sender.equalsIgnoreCase(recipient)) return false;
         Profile first = profiles.findUserByUsernameIgnoreCase(sender).orElse(null);
         Profile second = profiles.findUserByUsernameIgnoreCase(recipient).orElse(null);
-        if (first == null || second == null || Objects.equals(first.getId(), second.getId())) {
+        if (first == null || second == null || first.getId() == null || second.getId() == null
+                || Objects.equals(first.getId(), second.getId())) {
             return false;
         }
         if (blocks.isBlockedBetween(first, second)) return false;
