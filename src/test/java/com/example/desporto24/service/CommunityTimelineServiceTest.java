@@ -331,6 +331,30 @@ class CommunityTimelineServiceTest {
     }
 
     @Test
+    void galleryRejectsInvalidSecondFileBeforeUploadingAnyObjects() {
+        setup(member, true);
+        MediaStorage media = mock(MediaStorage.class);
+        ReflectionTestUtils.setField(service, "mediaStorage", media);
+        var first = new MockMultipartFile("files", "first.jpg", "image/jpeg", new byte[]{1});
+        var second = new MockMultipartFile("files", "unsafe.svg", "image/svg+xml", new byte[]{2});
+        assertThrows(IllegalArgumentException.class,
+                () -> service.postWithAlbum(7L, "", List.of(first, second), "member"));
+        verifyNoInteractions(media, timelines);
+    }
+
+    @Test
+    void galleryRejectsOversizedPhotoBeforeUploadingAnyObjects() {
+        setup(member, true);
+        MediaStorage media = mock(MediaStorage.class);
+        ReflectionTestUtils.setField(service, "mediaStorage", media);
+        var photo = new MockMultipartFile("files", "large.jpg", "image/jpeg",
+                new byte[5 * 1024 * 1024 + 1]);
+        assertThrows(IllegalArgumentException.class,
+                () -> service.postWithAlbum(7L, "", List.of(photo), "member"));
+        verifyNoInteractions(media, timelines);
+    }
+
+    @Test
     void galleryRejectsOutsidersBeforeWritingPhotos() {
         setup(outsider, false);
         MediaStorage media = mock(MediaStorage.class);
