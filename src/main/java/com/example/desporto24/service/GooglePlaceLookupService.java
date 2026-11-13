@@ -28,13 +28,40 @@ public class GooglePlaceLookupService {
     private static final Pattern SESSION = Pattern.compile("[A-Za-z0-9_-]{8,36}");
 
     @Value("${GOOGLE_PLACES_API_KEY:}") private String apiKey;
+    private final java.util.concurrent.ConcurrentHashMap<String,Quota> quotas =
+        new java.util.concurrent.ConcurrentHashMap<>();
+    private static final class Quota {
+        long minuteStart,dayStart;
+        int minuteCount,dayCount;
+    }
+    private void throttle(String viewer) {
+        long now=System.currentTimeMillis();
+        Quota state=quotas.computeIfAbsent(viewer,k->new Quota());
+        synchronized(state) {
+            if(now-state.minuteStart>=60000) {
+                state.minuteStart=now; state.minuteCount=0;
+            }
+            if(now-state.dayStart>=86400000) {
+                state.dayStart=now; state.dayCount=0;
+            }
+            if(state.minuteCount>=30 || state.dayCount>=200)
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                    "Limite de pesquisa atingido");
+            state.minuteCount++;
+            state.dayCount++;
+        }
+    }
 
     public record Suggestion(String id,String label,String subtitle) {}
     public record Resolved(String id,String label,String subtitle,double latitude,double longitude) {}
     public record Suggestions(String provider,List<Suggestion> places) {}
 
     public Suggestions suggest(String value,String session) {
+        return suggest(value,session,"anonymous");
+    }
+    public Suggestions suggest(String value,String session,String viewer) {
         requireEnabled();
+        throttle(viewer);
         String query=value==null?"":value.strip();
         if(query.length()<3 || query.length()>100)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Pesquisa inválida");
@@ -62,7 +89,11 @@ public class GooglePlaceLookupService {
     }
 
     public Resolved resolve(String encodedId,String session) {
+        return resolve(encodedId,session,"anonymous");
+    }
+    public Resolved resolve(String encodedId,String session,String viewer) {
         requireEnabled();
+        throttle(viewer);
         String id=encodedId==null?"":encodedId;
         if(!PLACE_ID.matcher(id).matches())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Identificador inválido");
