@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-13-community-live-host-heartbeat
+      author: jynlo
+      changes:
+        - addColumn:
+            tableName: community_live_event
+            columns:
+              - column:
+                  name: last_host_heartbeat_at
+                  type: timestamp with time zone
