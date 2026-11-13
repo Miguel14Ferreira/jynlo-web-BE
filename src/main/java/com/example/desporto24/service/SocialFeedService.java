@@ -62,6 +62,10 @@ public class SocialFeedService {
     @Autowired(required = false)
     private MediaStorage mediaStorage;
 
+    @Autowired(required = false)
+    private com.example.desporto24.repository.social.HiddenFeedPostRepository hiddenFeedPosts;
+
+
     public FeedItemResponse createPost(
             String username,
             CreateSocialPostRequest request) {
@@ -278,6 +282,29 @@ public class SocialFeedService {
         return postItem(post, actor);
     }
 
+    /** Hide an authored post only for the requesting viewer, without removing it publicly. */
+    public void hidePost(Long postId, String username) {
+        Profile viewer = profile(username);
+        SocialPost post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação não encontrada"));
+        if (post.getActivityType() != null
+                || userBlockService.isBlockedBetween(viewer, post.getAuthor()))
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação indisponível");
+        if (hiddenFeedPosts == null) throw new IllegalStateException("Hidden post storage unavailable");
+        if (!hiddenFeedPosts.existsByViewerIdAndPostId(viewer.getId(), postId)) {
+            var hidden = new com.example.desporto24.model.social.HiddenFeedPost();
+            hidden.setViewerId(viewer.getId());
+            hidden.setPostId(postId);
+            hiddenFeedPosts.save(hidden);
+        }
+    }
+
+    public void unhidePost(Long postId, String username) {
+        Profile viewer = profile(username);
+        if (hiddenFeedPosts == null) throw new IllegalStateException("Hidden post storage unavailable");
+        hiddenFeedPosts.deleteByViewerIdAndPostId(viewer.getId(), postId);
+    }
+
     public void deletePost(Long postId, String username) {
         Profile actor = profile(username);
         SocialPost post = postRepository.findById(postId)
@@ -292,6 +319,8 @@ public class SocialFeedService {
 
         likeRepository.deleteByPostId(postId);
         commentRepository.deleteByPostId(postId);
+        // Remove viewers' preferences before removing the underlying publication.
+        if (hiddenFeedPosts != null) hiddenFeedPosts.deleteByPostId(postId);
         postRepository.delete(post);
         postRepository.flush();
 
@@ -415,7 +444,19 @@ public class SocialFeedService {
         Predicate<Profile> visibleAuthor = author -> author != null
                 && visibleAuthorIds.computeIfAbsent(author.getId(),
                         id -> !userBlockService.isBlockedBetween(actor, author));
-        posts = posts.stream().filter(post -> visibleAuthor.test(post.getAuthor())).toList();
+        // Personal hides are not deletes and must be applied only to this viewer.
+        Set<Long> hiddenIds = Set.of();
+        if (hiddenFeedPosts != null && !posts.isEmpty()) {
+            Set<Long> ids = posts.stream().map(SocialPost::getId).collect(Collectors.toSet());
+            hiddenIds = hiddenFeedPosts.findByViewerIdAndPostIdIn(actor.getId(), ids)
+                    .stream().map(com.example.desporto24.model.social.HiddenFeedPost::getPostId)
+                    .collect(Collectors.toSet());
+        }
+        Set<Long> excludedPostIds = hiddenIds;
+        posts = posts.stream()
+                .filter(post -> visibleAuthor.test(post.getAuthor())
+                        && !excludedPostIds.contains(post.getId()))
+                .toList();
         sessions = sessions.stream().filter(session -> visibleAuthor.test(session.getProfile())).toList();
         attendedSessions = attendedSessions.stream()
                 .filter(participant -> visibleAuthor.test(participant.getProfile())).toList();
