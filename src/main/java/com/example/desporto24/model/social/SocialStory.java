@@ -28,6 +28,14 @@ public class SocialStory {
     private String textScale;
     @Column(name = "text_style", length = 10)
     private String textStyle;
+    @Column(name = "text_x")
+    private Double textX;
+    @Column(name = "text_y")
+    private Double textY;
+    @Column(name = "text_rotation")
+    private Double textRotation;
+    @Column(name = "text_zoom")
+    private Double textZoom;
     @Column(name = "alt_text", length = 350)
     private String altText;
     @Column(name = "location_label", length = 160)
