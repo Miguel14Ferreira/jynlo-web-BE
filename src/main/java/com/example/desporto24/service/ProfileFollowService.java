@@ -10,6 +10,11 @@ import com.example.desporto24.model.dto.social.FollowStatusResponse;
 import com.example.desporto24.model.social.ProfileFollow;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.social.ProfileFollowRepository;
+import com.example.desporto24.repository.social.ProfileFollowRequestRepository;
+import com.example.desporto24.model.social.ProfileFollowRequest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +34,8 @@ public class ProfileFollowService {
     private final UserBlockService userBlockService;
     private final NotificationsRepository notificationsRepository;
     private final NotificationPreferencesService notificationPreferencesService;
+    @Autowired(required=false)
+    private ProfileFollowRequestRepository requests;
 
     public FollowStatusResponse follow(String actorUsername, String targetUsername) {
         Profile actor = profile(actorUsername);
@@ -40,6 +47,15 @@ public class ProfileFollowService {
 
         userBlockService.ensureInteractionAllowed(actor, target);
 
+        if (target.isPrivateProfile() && !followRepository.existsByFollowerIdAndFollowingId(
+                actor.getId(),target.getId())) {
+            if (requests == null)
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Pedidos indisponíveis");
+            if (!requests.existsByRequesterIdAndTargetId(actor.getId(),target.getId()))
+                requests.save(ProfileFollowRequest.builder().requester(actor).target(target)
+                    .createdAt(Instant.now()).build());
+            return status(actor,target);
+        }
         if (!followRepository.existsByFollowerIdAndFollowingId(
                 actor.getId(), target.getId())) {
             followRepository.save(ProfileFollow.builder()
@@ -71,6 +87,7 @@ public class ProfileFollowService {
 
         followRepository.deleteByFollowerIdAndFollowingId(
                 actor.getId(), target.getId());
+        if (requests != null) requests.deleteByRequesterIdAndTargetId(actor.getId(),target.getId());
 
         return status(actor, target);
     }
@@ -114,7 +131,9 @@ public class ProfileFollowService {
                         && followRepository.existsByFollowerIdAndFollowingId(
                         target.getId(), actor.getId()),
                 followRepository.countByFollowingId(target.getId()),
-                followRepository.countByFollowerId(target.getId())
+                followRepository.countByFollowerId(target.getId()),
+                requests != null && requests.existsByRequesterIdAndTargetId(actor.getId(),target.getId()),
+                target.isPrivateProfile()
         );
     }
 
