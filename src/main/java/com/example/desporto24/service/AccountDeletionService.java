@@ -78,6 +78,8 @@ public class AccountDeletionService {
     private MediaStorage mediaStorage;
     @Autowired(required = false)
     private com.example.desporto24.repository.social.ProfileFollowRequestRepository followRequests;
+    @Autowired(required = false)
+    private com.example.desporto24.repository.social.SocialPostCommentLikeRepository commentLikes;
 
     @Transactional
     public void deleteMyAccount(String username) {
@@ -139,7 +141,12 @@ public class AccountDeletionService {
         confirmationTokenRepository.deleteByProfile(originalUsername);
         mfaVerificationRepository.deleteByPerfil(originalUsername);
 
+        if (commentLikes != null) {
+            commentLikes.deleteByProfileId(profileId);
+            commentLikes.deleteByCommentAuthorId(profileId);
+        }
         for (SocialPost post : ownPosts) {
+            if (commentLikes != null) commentLikes.deleteByCommentPostId(post.getId());
             socialPostLikeRepository.deleteByPostId(post.getId());
             socialPostCommentRepository.deleteByPostId(post.getId());
         }
