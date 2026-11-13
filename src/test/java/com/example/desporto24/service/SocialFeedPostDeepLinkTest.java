@@ -170,6 +170,35 @@ class SocialFeedPostDeepLinkTest {
     }
 
     @Test
+    void hiddenPostsAreFilteredOnlyFromTheRequestingViewersFeed() {
+        var follows = mock(ProfileFollowRepository.class);
+        var sessions = mock(SessionRepository.class);
+        var attendance = mock(SessionParticipantRepository.class);
+        var hidden = mock(com.example.desporto24.repository.social.HiddenFeedPostRepository.class);
+        var tested = new SocialFeedService(posts, follows, likes, comments, profiles,
+                sessions, attendance, mock(UserBlockService.class));
+        ReflectionTestUtils.setField(tested, "hiddenFeedPosts", hidden);
+
+        SocialPost one = samplePost();
+        SocialPost two = samplePost();
+        two.setId(56L);
+        when(follows.findByFollowerIdOrderByCreatedAtDesc(7L)).thenReturn(java.util.List.of());
+        when(posts.findAllByOrderByCreatedAtDesc(any())).thenReturn(java.util.List.of(one, two));
+        when(sessions.findRecentPublicFeedSessions(any(), any())).thenReturn(java.util.List.of());
+        when(attendance.findPublicAttendanceFeed(any(), any())).thenReturn(java.util.List.of());
+
+        var hiddenRow = new com.example.desporto24.model.social.HiddenFeedPost();
+        hiddenRow.setViewerId(7L);
+        hiddenRow.setPostId(55L);
+        when(hidden.findByViewerIdAndPostIdIn(eq(7L), any())).thenReturn(java.util.List.of(hiddenRow));
+
+        var results = tested.feed("viewer");
+        assertEquals(java.util.List.of(56L),
+                results.stream().map(FeedItemResponse::postId).toList());
+        verify(hidden).findByViewerIdAndPostIdIn(eq(7L), eq(java.util.Set.of(55L, 56L)));
+    }
+
+    @Test
     void automaticActivityPostsCannotBeHiddenAsRegularPublications() {
         var hidden = mock(com.example.desporto24.repository.social.HiddenFeedPostRepository.class);
         ReflectionTestUtils.setField(service, "hiddenFeedPosts", hidden);
