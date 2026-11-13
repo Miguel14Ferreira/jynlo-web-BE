@@ -46,6 +46,15 @@ class PersonalLiveServiceTest {
         assertEquals(true,claim.get("canSubscribe"));
         assertEquals("VIEWER",connection.role());
     }
+    @Test void acceptedGuestReceivesPublishPermissionOnlyAfterExplicitApproval(){
+        var before=service.join("spectator",5L);
+        assertEquals("VIEWER",before.role());
+        assertEquals(false,JWT.decode(before.token()).getClaim("video").asMap().get("canPublish"));
+        live.setGuest(viewer);
+        var after=service.join("spectator",5L);
+        assertEquals("GUEST",after.role());
+        assertEquals(true,JWT.decode(after.token()).getClaim("video").asMap().get("canPublish"));
+    }
     @Test void hostMayPublishButOthersCannotEnd(){
         var connection=service.join("host",5L);
         assertEquals("HOST",connection.role());
