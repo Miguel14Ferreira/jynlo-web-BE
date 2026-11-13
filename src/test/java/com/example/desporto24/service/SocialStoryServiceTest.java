@@ -3,11 +3,13 @@ package com.example.desporto24.service;
 import com.example.desporto24.enumeration.CommunityRole;
 import com.example.desporto24.enumeration.CommunityVisibility;
 import com.example.desporto24.model.Profile;
+import com.example.desporto24.model.Friend;
 import com.example.desporto24.model.community.Community;
 import com.example.desporto24.model.community.CommunityMember;
 import com.example.desporto24.model.dto.social.StoryResponse;
 import com.example.desporto24.model.social.SocialStory;
 import com.example.desporto24.repository.ProfileRepository;
+import com.example.desporto24.repository.FriendRepository;
 import com.example.desporto24.repository.community.CommunityMemberRepository;
 import com.example.desporto24.repository.community.CommunityRepository;
 import com.example.desporto24.repository.social.ProfileFollowRepository;
@@ -44,6 +46,7 @@ class SocialStoryServiceTest {
     @Mock private ApplicationEventPublisher events;
     @Mock private UserBlockService userBlockService;
     @Mock private ProfileRepository profiles;
+    @Mock private FriendRepository friends;
     @Mock private CommunityRepository communities;
     @Mock private CommunityMemberRepository memberships;
     @Mock private ProfileFollowRepository follows;
@@ -160,6 +163,7 @@ class SocialStoryServiceTest {
         teammate.setId(22L);
         teammate.setUsername("ana");
         when(profiles.findUserByUsernameIgnoreCase("ana")).thenReturn(Optional.of(teammate));
+        when(friends.findConnection(19L, 22L)).thenReturn(Optional.of(new Friend()));
         when(storage.store(startsWith("stories/19/"), same(image)))
                 .thenReturn(URI.create("/media/stories/19/photo.jpg"));
         when(stories.save(any(SocialStory.class))).thenAnswer(call -> {
@@ -175,6 +179,20 @@ class SocialStoryServiceTest {
         verify(stories).save(argThat(story ->
                 "ana".equals(story.getTaggedUsernames())
                 && "Campo de Benfica, Lisboa".equals(story.getLocationLabel())));
+    }
+
+    @Test
+    void rejectsTaggingAnExistingNonFriendBeforeMediaUpload() {
+        MockMultipartFile image = new MockMultipartFile("image", "photo.jpg", "image/jpeg", new byte[]{1});
+        Profile stranger = new Profile();
+        stranger.setId(23L);
+        stranger.setUsername("stranger");
+        when(profiles.findUserByUsernameIgnoreCase("stranger")).thenReturn(Optional.of(stranger));
+        when(friends.findConnection(19L, 23L)).thenReturn(Optional.empty());
+        assertThrows(AccessDeniedException.class,
+                () -> service.create("joao", null, "Olá", image, null,
+                        "bottom", "medium", "pill", null, false, "Benfica", "stranger"));
+        verifyNoInteractions(storage, stories);
     }
 
     @Test
