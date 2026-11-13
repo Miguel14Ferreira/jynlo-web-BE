@@ -30,6 +30,10 @@ public class SocialStory {
     private String textStyle;
     @Column(name = "alt_text", length = 350)
     private String altText;
+    @Column(name = "location_label", length = 160)
+    private String locationLabel;
+    @Column(name = "tagged_usernames", length = 500)
+    private String taggedUsernames;
     @Column(name = "show_time", nullable = false)
     private boolean showTime;
     @Column(name = "media_url", nullable = false, length = 1200)
