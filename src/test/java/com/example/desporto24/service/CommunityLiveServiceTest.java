@@ -53,6 +53,7 @@ class CommunityLiveServiceTest {
         when(profiles.findUserByUsernameIgnoreCase("organizador")).thenReturn(Optional.of(owner));
         when(profiles.findUserByUsernameIgnoreCase("espectador")).thenReturn(Optional.of(spectator));
         when(communities.findById(7L)).thenReturn(Optional.of(community));
+        when(communities.lockForLiveStart(7L)).thenReturn(Optional.of(community));
         when(events.findByIdAndCommunityId(25L, 7L)).thenReturn(Optional.of(live));
         when(members.existsByCommunityIdAndProfileId(7L, 2L)).thenReturn(true);
         when(provider.providerStatus()).thenReturn("ready");
@@ -118,6 +119,7 @@ class CommunityLiveServiceTest {
         assertEquals(CommunityLiveEvent.Status.SCHEDULED, live.getStatus());
         when(provider.providerStatus()).thenReturn("ready");
         var started = service.start(7L, 25L, "organizador");
+        verify(communities, times(2)).lockForLiveStart(7L);
         assertEquals(CommunityLiveEvent.Status.LIVE, started.status());
         var ended = service.end(7L, 25L, "organizador");
         assertEquals(CommunityLiveEvent.Status.ENDED, ended.status());
