@@ -66,6 +66,21 @@ class SessionContactAccessServiceTest {
     }
 
     @Test
+    void deniesUnpersistedProfilesWithoutQueryingSharedSessions() {
+        when(ana.getId()).thenReturn(null);
+        assertFalse(access.mayContact("ana", "bea"));
+        assertThrows(AccessDeniedException.class, () -> access.requireContact("ana", "bea"));
+        verifyNoInteractions(sessions, blocks);
+    }
+
+    @Test
+    void deniesUnpersistedRecipientWithoutQueryingSharedSessions() {
+        when(bea.getId()).thenReturn(null);
+        assertFalse(access.mayContact("ana", "bea"));
+        verifyNoInteractions(sessions, blocks);
+    }
+
+    @Test
     void deniesBlockedContactEvenWithSharedSession() {
         when(blocks.isBlockedBetween(ana, bea)).thenReturn(true);
         assertFalse(access.mayContact("ana", "bea"));
