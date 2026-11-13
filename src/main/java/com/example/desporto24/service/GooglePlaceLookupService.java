@@ -68,10 +68,7 @@ public class GooglePlaceLookupService {
         var request = new java.util.LinkedHashMap<String,Object>();
         request.put("input",query);
         request.put("languageCode","pt");
-        // A bias helps with local names, but does not restrict worldwide results.
-        request.put("locationBias",Map.of("circle",Map.of(
-            "center",Map.of("latitude",38.73,"longitude",-9.16),
-            "radius",50000)));
+        // No country restriction or fixed Lisbon bias: worldwide results are valid.
         if(session != null && SESSION.matcher(session).matches()) request.put("sessionToken",session);
         JsonNode response=post("https://places.googleapis.com/v1/places:autocomplete",
             request,"suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat");
