@@ -226,4 +226,40 @@ class CommunitySessionResultServiceTest {
         verifyNoInteractions(competition);
     }
 
+    @Test
+    void oldWinnerOnlyPayloadRetainsZeroTotalsForExistingClients() {
+        eligible(CommunityRole.ADMIN, true);
+        pastSession(SessionStatus.COMPLETED);
+        players();
+        var round = new CommunityRound(); round.setId(25L);
+        when(competition.createRound(eq(communityId), eq("manager"), any(CreateCommunityRoundRequest.class)))
+                .thenReturn(new CommunityRoundResponse(25L, "Sessão #63", Instant.now(), List.of(),
+                        "Futebol", null, null, null));
+        when(rounds.findById(25L)).thenReturn(Optional.of(round));
+        service.record(communityId, sessionId, "manager", winnerA());
+        var captor = ArgumentCaptor.forClass(CreateCommunityRoundRequest.class);
+        verify(competition).createRound(eq(communityId), eq("manager"), captor.capture());
+        assertEquals(0, captor.getValue().entries().get(0).goals());
+        assertEquals(0, captor.getValue().entries().get(0).assists());
+        assertNull(captor.getValue().teamScore());
+    }
+
+    @Test
+    void rejectsIndividualFootballStatisticsForOtherSports() {
+        eligible(CommunityRole.ADMIN, true);
+        var game = new Session();
+        game.setId(sessionId);
+        game.setSport("Andebol");
+        game.setStatus(SessionStatus.COMPLETED);
+        game.setGameDate(Date.from(Instant.now().minusSeconds(86400)));
+        when(sessions.lockForCommunityResult(communityId, sessionId)).thenReturn(Optional.of(game));
+        players();
+        var invalid = new CommunitySessionResultRequest(CommunitySessionResultRequest.Outcome.A, List.of(
+                new CommunitySessionResultRequest.Player("ana", CommunitySessionResultRequest.Team.A, 2, 1),
+                new CommunitySessionResultRequest.Player("bea", CommunitySessionResultRequest.Team.B)));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.record(communityId, sessionId, "manager", invalid));
+        verifyNoInteractions(competition);
+    }
+
 }
