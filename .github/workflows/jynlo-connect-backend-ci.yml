@@ -1,0 +1,35 @@
+name: Jynlo Connect backend safety CI
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/jynlo-connect-backend-ci.yml'
+      - 'src/main/java/com/example/desporto24/service/DirectCallService.java'
+      - 'src/main/java/com/example/desporto24/controllers/DirectCallController.java'
+      - 'src/test/java/com/example/desporto24/service/DirectCallServiceTest.java'
+      - 'src/test/java/com/example/desporto24/controllers/DirectCallControllerTest.java'
+      - 'src/main/java/com/example/desporto24/websocket/ChatRealtimeGateway.java'
+      - 'pom.xml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: connect-backend-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  connect-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Validate calls, participants and provider revocation
+        env:
+          AES_ENCRYPTION_KEY: ciKey1
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp -Dtest=DirectCallServiceTest test
