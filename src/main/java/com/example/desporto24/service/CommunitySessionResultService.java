@@ -75,6 +75,21 @@ public class CommunitySessionResultService {
                 .toList();
     }
 
+    /** Feature negotiation prevents older servers from silently dropping
+     * optional player statistics while still accepting a W/D/L round.
+     * Apply the same administrator and community checks as roster access.
+     */
+    public record ResultCapabilities(boolean footballGoalsAssists, int version) {}
+
+    @Transactional(readOnly = true)
+    public ResultCapabilities capabilities(Long communityId, Long sessionId, String actorUsername) {
+        roster(communityId, sessionId, actorUsername);
+        var session = sessions.findById(sessionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Sessão não encontrada"));
+        return new ResultCapabilities("Futebol".equalsIgnoreCase(session.getSport()), 1);
+    }
+
     @Transactional(readOnly = true)
     public List<Long> recordedSessionIds(Long communityId, String actorUsername) {
         Profile actor = profiles.findUserByUsernameIgnoreCase(actorUsername)
