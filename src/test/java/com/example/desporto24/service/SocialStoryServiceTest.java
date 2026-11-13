@@ -154,6 +154,43 @@ class SocialStoryServiceTest {
     }
 
     @Test
+    void persistsLocationAndOnlyTagsExistingProfilesBeforeStoringStory() {
+        MockMultipartFile image = new MockMultipartFile("image", "photo.jpg", "image/jpeg", new byte[]{1,2,3});
+        Profile teammate = new Profile();
+        teammate.setId(22L);
+        teammate.setUsername("ana");
+        when(profiles.findUserByUsernameIgnoreCase("ana")).thenReturn(Optional.of(teammate));
+        when(storage.store(startsWith("stories/19/"), same(image)))
+                .thenReturn(URI.create("/media/stories/19/photo.jpg"));
+        when(stories.save(any(SocialStory.class))).thenAnswer(call -> {
+            SocialStory story = call.getArgument(0);
+            story.setId(101L);
+            return story;
+        });
+        StoryResponse created = service.create("joao", null, "Jogo", image, null,
+                "bottom", "medium", "pill", null, false,
+                " Campo de Benfica, Lisboa ", "Ana");
+        assertEquals("Campo de Benfica, Lisboa", created.locationLabel());
+        assertEquals("ana", created.taggedUsernames());
+        verify(stories).save(argThat(story ->
+                "ana".equals(story.getTaggedUsernames())
+                && "Campo de Benfica, Lisboa".equals(story.getLocationLabel())));
+    }
+
+    @Test
+    void rejectsUnknownAndExcessiveTagsBeforeAnyMediaUpload() {
+        MockMultipartFile image = new MockMultipartFile("image", "photo.jpg", "image/jpeg", new byte[]{1,2,3});
+        assertThrows(IllegalArgumentException.class,
+                () -> service.create("joao", null, "", image, null,
+                        "bottom", "medium", "pill", null, false, "Lisboa", "ghostuser"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.create("joao", null, "", image, null,
+                        "bottom", "medium", "pill", null, false, "Lisboa",
+                        "ana,bia,carlos,dinis,edu,filipa"));
+        verifyNoInteractions(storage, stories);
+    }
+
+    @Test
     void rejectsMissingAndConflictingMediaBeforeSaving() {
         MockMultipartFile image = new MockMultipartFile("image", "a.jpg", "image/jpeg", new byte[]{1});
         MockMultipartFile video = new MockMultipartFile("video", "a.mp4", "video/mp4", new byte[]{1});
