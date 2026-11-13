@@ -1,0 +1,66 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-13-community-live-events
+      author: jynlo
+      changes:
+        - createTable:
+            tableName: community_live_event
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: community_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_community_live_event_community
+                    references: community(id)
+              - column:
+                  name: creator_profile_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_community_live_event_creator
+                    references: profile(id)
+              - column:
+                  name: title
+                  type: varchar(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: varchar(1000)
+              - column:
+                  name: status
+                  type: varchar(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: scheduled_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+              - column:
+                  name: started_at
+                  type: timestamp with time zone
+              - column:
+                  name: ended_at
+                  type: timestamp with time zone
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: community_live_event
+            indexName: idx_community_live_events
+            columns:
+              - column:
+                  name: community_id
+              - column:
+                  name: scheduled_at
