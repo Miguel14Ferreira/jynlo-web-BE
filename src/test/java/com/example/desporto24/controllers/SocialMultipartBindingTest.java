@@ -50,6 +50,26 @@ class SocialMultipartBindingTest {
     }
 
     @Test
+    void editedGalleryMultipartBindsTextFilesAndReplaceFlag() throws Exception {
+        SocialFeedService feed = mock(SocialFeedService.class);
+        SocialPostInteractionService interactions = mock(SocialPostInteractionService.class);
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new SocialFeedController(feed, interactions)).build();
+
+        mvc.perform(multipart("/api/feed/posts/91/media")
+                .file(new MockMultipartFile("files", "replacement.jpg", "image/jpeg", new byte[]{1, 2}))
+                .param("content", "Depois do jogo")
+                .param("location", "Benfica")
+                .param("replaceMedia", "true")
+                .with(request -> {request.setMethod("PUT"); return request;})
+                .principal(actor)
+                .contentType(MediaType.MULTIPART_FORM_DATA))
+            .andExpect(status().isOk());
+
+        verify(feed).editPostWithMedia(eq(91L), eq("miguel"),
+                eq("Depois do jogo"), eq("Benfica"), argThat(files -> files.size() == 1), eq(true));
+    }
+
+    @Test
     void postMultipartBindsContentAndLocationAsOrdinaryFormFields() throws Exception {
         SocialFeedService feed = mock(SocialFeedService.class);
         SocialPostInteractionService interactions = mock(SocialPostInteractionService.class);
