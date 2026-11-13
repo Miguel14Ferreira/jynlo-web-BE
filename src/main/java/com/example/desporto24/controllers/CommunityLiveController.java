@@ -43,6 +43,12 @@ public class CommunityLiveController {
         return service.start(communityId, eventId, auth.getName());
     }
 
+    @PostMapping("/{eventId}/heartbeat")
+    public void heartbeat(@PathVariable Long communityId,
+            @PathVariable Long eventId, Authentication auth) {
+        service.heartbeat(communityId, eventId, auth.getName());
+    }
+
     @PostMapping("/{eventId}/end")
     public CommunityLiveService.LiveEvent end(@PathVariable Long communityId,
             @PathVariable Long eventId, Authentication auth) {
