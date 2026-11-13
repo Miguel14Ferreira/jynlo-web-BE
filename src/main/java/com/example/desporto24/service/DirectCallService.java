@@ -724,7 +724,7 @@ public class DirectCallService {
         if (call == null || !isParticipant(call, actor)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
-        if (Instant.now().isAfter(call.expiresAt)) {
+        if (!Instant.now().isBefore(call.expiresAt)) {
             expireCall(call);
             throw new ResponseStatusException(HttpStatus.GONE, "Call expired");
         }
