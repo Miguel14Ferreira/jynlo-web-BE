@@ -262,4 +262,62 @@ class CommunitySessionResultServiceTest {
         verifyNoInteractions(competition);
     }
 
+    @Test
+    void adminCanNegotiateFootballScorerSupportBeforeRecording() {
+        eligible(CommunityRole.ADMIN, true);
+        var community = Community.builder().id(communityId).rankingsEnabled(true).build();
+        var session = new Session();
+        session.setId(sessionId);
+        session.setCommunity(community);
+        session.setSport("Futebol");
+        when(sessions.findById(sessionId)).thenReturn(Optional.of(session));
+
+        var capabilities = service.capabilities(communityId, sessionId, "manager");
+
+        assertTrue(capabilities.footballGoalsAssists());
+        assertEquals(1, capabilities.version());
+        verifyNoInteractions(competition, rounds);
+    }
+
+    @Test
+    void otherSportsCanNegotiateButCannotClaimFootballScorerSupport() {
+        eligible(CommunityRole.ADMIN, true);
+        var community = Community.builder().id(communityId).rankingsEnabled(true).build();
+        var session = new Session();
+        session.setId(sessionId);
+        session.setCommunity(community);
+        session.setSport("Andebol");
+        when(sessions.findById(sessionId)).thenReturn(Optional.of(session));
+
+        var capabilities = service.capabilities(communityId, sessionId, "manager");
+
+        assertFalse(capabilities.footballGoalsAssists());
+        assertEquals(1, capabilities.version());
+        verifyNoInteractions(competition, rounds);
+    }
+
+    @Test
+    void nonAdminCannotProbeCapabilitiesOrPrivateRoster() {
+        eligible(CommunityRole.MEMBER, true);
+
+        assertThrows(AccessDeniedException.class,
+                () -> service.capabilities(communityId, sessionId, "manager"));
+
+        verifyNoInteractions(sessions, competition, rounds);
+    }
+
+    @Test
+    void capabilitiesRejectUnlinkedSessionForCommunity() {
+        eligible(CommunityRole.ADMIN, true);
+        var session = new Session();
+        session.setId(sessionId);
+        session.setSport("Futebol");
+        when(sessions.findById(sessionId)).thenReturn(Optional.of(session));
+
+        assertThrows(ResponseStatusException.class,
+                () -> service.capabilities(communityId, sessionId, "manager"));
+
+        verifyNoInteractions(competition, rounds);
+    }
+
 }
