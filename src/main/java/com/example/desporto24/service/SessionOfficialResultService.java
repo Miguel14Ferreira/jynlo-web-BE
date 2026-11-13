@@ -1,6 +1,8 @@
 package com.example.desporto24.service;
 
 import com.example.desporto24.repository.community.CommunityRoundRepository;
+import com.example.desporto24.repository.community.CommunityRoundEntryRepository;
+import java.util.List;
 import com.example.desporto24.service.interfaces.SessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -14,9 +16,12 @@ import org.springframework.web.server.ResponseStatusException;
 public class SessionOfficialResultService {
     private final SessionService sessions;
     private final CommunityRoundRepository rounds;
+    private final CommunityRoundEntryRepository entries;
 
+    public record PlayerContribution(String username, String team, int goals, int assists) {}
     public record OfficialResult(Long sessionId, Long communityId, Long roundId,
-                                 Integer scoreA, Integer scoreB) {}
+                                 Integer scoreA, Integer scoreB,
+                                 List<PlayerContribution> contributions) {}
 
     @Transactional(readOnly = true)
     public OfficialResult result(Long sessionId, String username) {
@@ -33,7 +38,17 @@ public class SessionOfficialResultService {
         var round = rounds.findBySourceSessionId(sessionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Esta sessão ainda não tem resultado de classificação"));
+        // Only explicitly stored nonzero contributions are displayed. Legacy
+        // 0/0 may mean "unknown", so never label it an observed zero.
+        List<PlayerContribution> contributions = entries.findByRoundIdOrderByIdAsc(round.getId())
+                .stream()
+                .filter(e -> (e.getGoals() > 0 || e.getAssists() > 0)
+                        && e.getProfile() != null
+                        && e.getProfile().getUsername() != null)
+                .map(e -> new PlayerContribution(e.getProfile().getUsername(),
+                        e.getTeam(), e.getGoals(), e.getAssists()))
+                .toList();
         return new OfficialResult(sessionId, round.getCommunity().getId(), round.getId(),
-                round.getTeamScoreA(), round.getTeamScoreB());
+                round.getTeamScoreA(), round.getTeamScoreB(), contributions);
     }
 }
