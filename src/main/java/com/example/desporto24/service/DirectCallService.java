@@ -112,7 +112,7 @@ public class DirectCallService {
     public synchronized PendingInvitation pendingFor(String recipient) {
         if (recipient == null || recipient.isBlank()) return null;
         Instant now = Instant.now();
-        calls.entrySet().removeIf(entry -> !now.isBefore(entry.getValue().expiresAt));
+        expireCalls(now);
         for (Call call : calls.values()) {
             if ("RINGING".equals(call.state) && call.peer.equalsIgnoreCase(recipient)) {
                 try {
@@ -282,7 +282,7 @@ public class DirectCallService {
         }
         inbox.requireConversationAccess(caller, "direct", peer);
         Instant now = Instant.now();
-        calls.entrySet().removeIf(entry -> now.isAfter(entry.getValue().expiresAt));
+        expireCalls(now);
         for (Call current : calls.values()) {
             if (("RINGING".equals(current.state) || "ACTIVE".equals(current.state))
                     && (isParticipant(current, caller) || isParticipant(current, peer))) {
@@ -702,6 +702,20 @@ public class DirectCallService {
                 || (guest != null && guest.accepted());
     }
 
+    /** Expired calls must revoke LiveKit rooms, not just disappear from signalling. */
+    private void expireCalls(Instant now) {
+        for (Call call : new ArrayList<>(calls.values())) {
+            if (!now.isBefore(call.expiresAt())) expireCall(call);
+        }
+    }
+
+    private void expireCall(Call call) {
+        if (calls.remove(call.id(), call)) {
+            roomsPendingDeletion.put(call.id(), call.room());
+            guests.remove(call.id());
+        }
+    }
+
     private Call requireCall(UUID id, String actor) {
         if (id == null || actor == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         Call call = calls.get(id);
@@ -709,8 +723,7 @@ public class DirectCallService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
         if (Instant.now().isAfter(call.expiresAt)) {
-            calls.remove(id);
-            guests.remove(id);
+            expireCall(call);
             throw new ResponseStatusException(HttpStatus.GONE, "Call expired");
         }
         return call;
