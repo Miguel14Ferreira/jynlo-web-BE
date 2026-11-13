@@ -1,0 +1,36 @@
+name: Jynlo Story publish and media resilience CI
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/story-publish-media-ci.yml'
+      - 'pom.xml'
+      - 'Dockerfile'
+      - 'src/main/java/com/example/desporto24/storage/**'
+      - 'src/main/java/com/example/desporto24/service/SocialStoryService.java'
+      - 'src/main/java/com/example/desporto24/controllers/SocialStoryController.java'
+      - 'src/main/java/com/example/desporto24/model/social/SocialStory.java'
+      - 'src/main/java/com/example/desporto24/model/dto/social/StoryResponse.java'
+      - 'src/main/resources/db/changelog/changes/2026-11-13-story-creative-text.yaml'
+      - 'src/test/java/com/example/desporto24/service/SocialStoryServiceTest.java'
+      - 'src/test/java/com/example/desporto24/storage/MediaStorageTest.java'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  story-media-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Compile and test Story creation and storage
+        env:
+          AES_ENCRYPTION_KEY: ciKey1
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp -Dtest=SocialStoryServiceTest,MediaStorageTest test
