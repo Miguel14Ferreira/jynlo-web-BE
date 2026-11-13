@@ -414,3 +414,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-13-social-post-location-label.yaml
   - include:
       file: db/changelog/changes/2026-11-13-community-live-events.yaml
+  - include:
+      file: db/changelog/changes/2026-11-13-community-live-host-heartbeat.yaml
