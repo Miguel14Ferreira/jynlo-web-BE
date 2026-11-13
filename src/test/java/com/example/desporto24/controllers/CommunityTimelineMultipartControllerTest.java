@@ -35,7 +35,7 @@ class CommunityTimelineMultipartControllerTest {
 
     @Test
     void browserCanPublishOneImageWithoutAnyText() throws Exception {
-        when(service.postWithMedia(eq(7L), eq(""), any(), isNull(), eq("ana")))
+        when(service.postWithMedia(eq(7L), nullable(String.class), any(), isNull(), eq("ana")))
                 .thenReturn(new CommunityTimelineEntryResponse(
                         12L, 7L, "POST", "ana", "", Instant.now()));
         var photo = new MockMultipartFile("image", "MF.jpg", "image/jpeg", new byte[]{1, 2});
@@ -44,7 +44,7 @@ class CommunityTimelineMultipartControllerTest {
                         .file(content("")).file(photo).principal(member()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(12));
-        verify(service).postWithMedia(eq(7L), eq(""),
+        verify(service).postWithMedia(eq(7L), nullable(String.class),
                 argThat(file -> "MF.jpg".equals(file.getOriginalFilename())),
                 isNull(), eq("ana"));
         verify(service, never()).postWithAlbum(anyLong(), any(), anyList(), any());
