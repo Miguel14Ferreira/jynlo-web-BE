@@ -28,6 +28,10 @@ public class SocialStory {
     private String textScale;
     @Column(name = "text_style", length = 10)
     private String textStyle;
+    @Column(name = "alt_text", length = 350)
+    private String altText;
+    @Column(name = "show_time", nullable = false)
+    private boolean showTime;
     @Column(name = "media_url", nullable = false, length = 1200)
     private String mediaUrl;
     @Column(name = "media_storage_key", nullable = false, length = 800)
