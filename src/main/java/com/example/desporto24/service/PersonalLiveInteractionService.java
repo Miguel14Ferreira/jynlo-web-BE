@@ -26,7 +26,8 @@ public class PersonalLiveInteractionService {
   public record ChatMessage(long id,String username,String message,Instant createdAt) {}
   public record GuestRequest(long id,String username,String status,Instant createdAt) {}
   public record LiveControls(boolean chatEnabled,boolean mutedByHost,String guestUsername,
-                             String requestStatus,List<GuestRequest> pendingRequests) {}
+                             boolean isGuest,String requestStatus,List<GuestRequest> pendingRequests,
+                             List<String> mutedUsernames) {}
 
   private Profile actor(String username) {
     return profiles.findUserByUsernameIgnoreCase(username)
@@ -82,7 +83,10 @@ public class PersonalLiveInteractionService {
       liveId,PersonalLiveGuestRequest.Status.PENDING).stream().map(this::view).toList():List.of();
     return new LiveControls(event.isChatEnabled(),
        mutes.existsByLiveIdAndProfileId(liveId,viewer.getId()),
-       event.getGuest()!=null?event.getGuest().getUsername():null,requested,pending);
+       event.getGuest()!=null?event.getGuest().getUsername():null,
+       event.getGuest()!=null && event.getGuest().getId().equals(viewer.getId()),
+       requested,pending,host?mutes.findByLiveId(liveId).stream()
+         .map(m->m.getProfile().getUsername()).toList():List.of());
   }
   private GuestRequest view(PersonalLiveGuestRequest req) {
     return new GuestRequest(req.getId(),req.getRequester().getUsername(),
