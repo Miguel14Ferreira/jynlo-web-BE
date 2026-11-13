@@ -31,6 +31,8 @@ public class CommunityLiveEvent {
     private Instant startedAt;
     @Column(name = "ended_at")
     private Instant endedAt;
+    @Column(name = "last_host_heartbeat_at")
+    private Instant lastHostHeartbeatAt;
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 }
