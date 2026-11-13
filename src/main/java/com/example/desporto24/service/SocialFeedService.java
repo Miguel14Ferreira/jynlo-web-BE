@@ -92,13 +92,12 @@ public class SocialFeedService {
             Long sessionId) {
         String normalizedContent = content == null ? "" : content.trim();
 
-        if (normalizedContent.isBlank()) {
-            throw new IllegalArgumentException("A publicação não pode estar vazia");
-        }
         if (normalizedContent.length() > 1000) {
             throw new IllegalArgumentException("A publicação não pode ter mais de 1000 caracteres");
         }
         if (image == null || image.isEmpty()) {
+            if (normalizedContent.isBlank())
+                throw new IllegalArgumentException("A publicação não pode estar vazia");
             return createPost(
                     username,
                     new CreateSocialPostRequest(normalizedContent, sessionId)
@@ -136,8 +135,8 @@ public class SocialFeedService {
             return createPostWithImage(username, content, image, sessionId);
         }
         String normalized = content == null ? "" : content.trim();
-        if (normalized.isBlank() || normalized.length() > 1000) {
-            throw new IllegalArgumentException("A publicação deve ter entre 1 e 1000 caracteres");
+        if (normalized.length() > 1000) {
+            throw new IllegalArgumentException("A publicação não pode ter mais de 1000 caracteres");
         }
         if (mediaStorage == null) {
             throw new IllegalStateException("Media storage is not configured");
@@ -169,8 +168,8 @@ public class SocialFeedService {
             throw new IllegalArgumentException("Os ficheiros não podem exceder 60 MB no total");
         }
         String normalized = content == null ? "" : content.trim();
-        if (normalized.isBlank() || normalized.length() > 1000) {
-            throw new IllegalArgumentException("A publicação deve ter entre 1 e 1000 caracteres");
+        if (normalized.length() > 1000) {
+            throw new IllegalArgumentException("A publicação não pode ter mais de 1000 caracteres");
         }
         if (mediaStorage == null) throw new IllegalStateException("Media storage is not configured");
         Profile author = profile(username);
