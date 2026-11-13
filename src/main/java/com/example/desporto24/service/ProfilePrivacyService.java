@@ -1,0 +1,94 @@
+package com.example.desporto24.service;
+
+import com.example.desporto24.model.Profile;
+import com.example.desporto24.model.social.ProfileFollow;
+import com.example.desporto24.model.social.ProfileFollowRequest;
+import com.example.desporto24.repository.ProfileRepository;
+import com.example.desporto24.repository.social.ProfileFollowRepository;
+import com.example.desporto24.repository.social.ProfileFollowRequestRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import java.time.Instant;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class ProfilePrivacyService {
+  private final ProfileRepository profiles;
+  private final ProfileFollowRepository follows;
+  private final ProfileFollowRequestRepository requests;
+  private final UserBlockService blocks;
+
+  private Profile profile(String username) {
+    return profiles.findUserByUsernameIgnoreCase(username)
+        .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Perfil não encontrado"));
+  }
+  public record PrivacyStatus(boolean privateProfile,boolean canViewContent) {}
+  public record PendingRequest(long id,String username,String name,String avatarUrl,Instant createdAt) {}
+
+  @Transactional(readOnly=true)
+  public boolean canView(Profile viewer,Profile author) {
+    if (viewer == null || author == null || blocks.isBlockedBetween(viewer,author)) return false;
+    if (!author.isPrivateProfile() || viewer.getId().equals(author.getId())) return true;
+    return follows.existsByFollowerIdAndFollowingId(viewer.getId(),author.getId());
+  }
+  public void requireContentAccess(Profile viewer,Profile author) {
+    if (!canView(viewer,author)) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Conteúdo indisponível");
+  }
+  public PrivacyStatus status(String viewerName,String targetName) {
+    Profile viewer=profile(viewerName),target=profile(targetName);
+    return new PrivacyStatus(target.isPrivateProfile(),canView(viewer,target));
+  }
+  public PrivacyStatus update(String actorName,boolean privateProfile) {
+    Profile actor=profile(actorName);
+    actor.setPrivateProfile(privateProfile);
+    profiles.save(actor);
+    return new PrivacyStatus(actor.isPrivateProfile(),true);
+  }
+  public boolean requested(String requesterName,String targetName) {
+    Profile requester=profile(requesterName),target=profile(targetName);
+    return requests.existsByRequesterIdAndTargetId(requester.getId(),target.getId());
+  }
+  public void request(String requesterName,String targetName) {
+    Profile requester=profile(requesterName),target=profile(targetName);
+    if (requester.getId().equals(target.getId())) throw new IllegalArgumentException("Não podes seguir-te");
+    blocks.ensureInteractionAllowed(requester,target);
+    if (!target.isPrivateProfile()) throw new ResponseStatusException(HttpStatus.CONFLICT,"O perfil é público");
+    if (!follows.existsByFollowerIdAndFollowingId(requester.getId(),target.getId())
+          && !requests.existsByRequesterIdAndTargetId(requester.getId(),target.getId())) {
+      requests.save(ProfileFollowRequest.builder().requester(requester).target(target)
+          .createdAt(Instant.now()).build());
+    }
+  }
+  public void cancel(String requesterName,String targetName) {
+    Profile requester=profile(requesterName),target=profile(targetName);
+    requests.deleteByRequesterIdAndTargetId(requester.getId(),target.getId());
+  }
+  @Transactional(readOnly=true)
+  public List<PendingRequest> pending(String username) {
+    Profile actor=profile(username);
+    return requests.findTop100ByTargetIdOrderByCreatedAtDesc(actor.getId()).stream().map(req->
+      new PendingRequest(req.getId(),req.getRequester().getUsername(),
+        req.getRequester().getFullName(),req.getRequester().getProfilePicUrl(),
+        req.getCreatedAt())).toList();
+  }
+  public void decide(String targetName,long requestId,boolean accept) {
+    Profile target=profile(targetName);
+    ProfileFollowRequest request=requests.findById(requestId).orElseThrow(
+      ()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Pedido indisponível"));
+    if (!request.getTarget().getId().equals(target.getId()))
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Pedido indisponível");
+    Profile requester=request.getRequester();
+    if (accept) {
+      blocks.ensureInteractionAllowed(requester,target);
+      if (!follows.existsByFollowerIdAndFollowingId(requester.getId(),target.getId()))
+        follows.save(ProfileFollow.builder().follower(requester).following(target)
+          .createdAt(Instant.now()).build());
+    }
+    requests.delete(request);
+  }
+}
