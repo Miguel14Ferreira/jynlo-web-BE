@@ -1,0 +1,26 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-13-story-creative-text
+      author: jynlo
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          columnExists:
+            tableName: social_story
+            columnName: text_position
+      changes:
+        - addColumn:
+            tableName: social_story
+            columns:
+              - column:
+                  name: text_position
+                  type: VARCHAR(10)
+                  defaultValue: bottom
+              - column:
+                  name: text_scale
+                  type: VARCHAR(10)
+                  defaultValue: medium
+              - column:
+                  name: text_style
+                  type: VARCHAR(10)
+                  defaultValue: pill
