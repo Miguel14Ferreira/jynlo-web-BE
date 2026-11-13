@@ -142,7 +142,9 @@ public class CommunityLiveService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Já existe um direto nesta comunidade");
         requireProvider();
         event.setStatus(Status.LIVE);
-        event.setStartedAt(Instant.now());
+        Instant started = Instant.now();
+        event.setStartedAt(started);
+        event.setLastHostHeartbeatAt(started);
         return response(events.save(event), organizer);
     }
 
@@ -161,6 +163,20 @@ public class CommunityLiveService {
     }
 
     /**
+     * A separate 20-second heartbeat proves that a host is still present.
+     * The conditional update is atomic with the event status: a late browser
+     * request cannot turn an ENDED broadcast back into LIVE.
+     */
+    @Transactional
+    public void heartbeat(Long communityId, Long eventId, String username) {
+        Profile organizer = actor(username);
+        Community community = accessible(communityId, organizer);
+        requireOwner(community, organizer);
+        if (events.touchHostHeartbeat(eventId, communityId, Status.LIVE, Instant.now()) != 1)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "O direto já terminou");
+    }
+
+    /**
      * A host can close the browser without clicking End. Bound unattended
      * broadcasts to six hours so empty LiveKit rooms cannot remain public
      * indefinitely. The status change commits before provider revocation.
@@ -168,11 +184,18 @@ public class CommunityLiveService {
     @Scheduled(fixedDelay = 60000)
     @Transactional
     public void expireUnattendedStreams() {
-        Instant cutoff = Instant.now().minus(Duration.ofHours(6));
+        Instant now = Instant.now();
+        Instant lifetimeCutoff = now.minus(Duration.ofHours(6));
+        Instant heartbeatCutoff = now.minus(Duration.ofMinutes(2));
         for (CommunityLiveEvent event : events.findTop100ByStatusAndStartedAtBefore(
-                Status.LIVE, cutoff)) {
-            if (event.getStatus() != Status.LIVE || event.getStartedAt() == null
-                    || !event.getStartedAt().isBefore(cutoff)) continue;
+                Status.LIVE, heartbeatCutoff)) {
+            if (event.getStatus() != Status.LIVE || event.getStartedAt() == null) continue;
+            // 6-hour hard cap, or 2 minutes without a presenter heartbeat.
+            // Old events created before this migration use the start time.
+            Instant lastSeen = event.getLastHostHeartbeatAt() != null
+                    ? event.getLastHostHeartbeatAt() : event.getStartedAt();
+            if (!event.getStartedAt().isBefore(lifetimeCutoff)
+                    && !lastSeen.isBefore(heartbeatCutoff)) continue;
             event.setStatus(Status.ENDED);
             event.setEndedAt(Instant.now());
             events.save(event);
