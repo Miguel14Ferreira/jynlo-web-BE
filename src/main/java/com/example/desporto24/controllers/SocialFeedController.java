@@ -58,12 +58,12 @@ public class SocialFeedController {
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
     public FeedItemResponse createPostWithMedia(
-            @RequestPart("content") String content,
+            @RequestParam("content") String content,
             @RequestPart(value = "image", required = false) MultipartFile image,
             @RequestPart(value = "video", required = false) MultipartFile video,
-            @RequestPart(value = "sessionId", required = false) Long sessionId,
+            @RequestParam(value = "sessionId", required = false) Long sessionId,
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
-            @RequestPart(value = "location", required = false) String location,
+            @RequestParam(value = "location", required = false) String location,
             Authentication authentication) {
         if (files != null && !files.isEmpty()) {
             if (image != null || video != null) {
