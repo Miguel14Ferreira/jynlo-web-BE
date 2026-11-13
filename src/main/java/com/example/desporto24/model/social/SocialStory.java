@@ -36,6 +36,12 @@ public class SocialStory {
     private Double textRotation;
     @Column(name = "text_zoom")
     private Double textZoom;
+    @Column(name = "text_color", length = 16)
+    private String textColor;
+    @Column(name = "text_background", length = 16)
+    private String textBackground;
+    @Column(name = "text_font", length = 16)
+    private String textFont;
     @Column(name = "alt_text", length = 350)
     private String altText;
     @Column(name = "location_label", length = 160)
