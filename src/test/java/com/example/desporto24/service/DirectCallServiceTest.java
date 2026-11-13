@@ -338,11 +338,11 @@ class DirectCallServiceTest {
         DirectCallService retrying = spy(calls);
         doReturn(false).when(retrying).removeFromLiveKit(
                 "jynlo-" + call.callId(), "jynlo-user-14");
-        retrying.revokeDisconnectedGuests();
+        retrying.retryDepartedCallGuests();
         assertEquals(1, queued.size());
         doReturn(true).when(retrying).removeFromLiveKit(
                 "jynlo-" + call.callId(), "jynlo-user-14");
-        retrying.revokeDisconnectedGuests();
+        retrying.retryDepartedCallGuests();
         assertTrue(queued.isEmpty());
         assertDoesNotThrow(() -> retrying.invite(call.callId(), "ana", "carlos"));
         verify(retrying, times(2)).removeFromLiveKit(
