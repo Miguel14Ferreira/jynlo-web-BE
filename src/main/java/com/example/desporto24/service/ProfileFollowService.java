@@ -101,6 +101,26 @@ public class ProfileFollowService {
     }
 
     @Transactional(readOnly = true)
+    public List<FollowProfileResponse> following(String username,String viewerUsername) {
+        ensureFollowListVisible(profile(viewerUsername),profile(username));
+        return following(username);
+    }
+
+    @Transactional(readOnly = true)
+    public List<FollowProfileResponse> followers(String username,String viewerUsername) {
+        ensureFollowListVisible(profile(viewerUsername),profile(username));
+        return followers(username);
+    }
+
+    private void ensureFollowListVisible(Profile viewer,Profile target) {
+        if (userBlockService.isBlockedBetween(viewer,target) ||
+            (target.isPrivateProfile() && !viewer.getId().equals(target.getId()) &&
+            !followRepository.existsByFollowerIdAndFollowingId(viewer.getId(),target.getId()))) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Lista de seguidores indisponível");
+        }
+    }
+
+    @Transactional(readOnly = true)
     public List<FollowProfileResponse> following(String username) {
         Profile profile = profile(username);
 
