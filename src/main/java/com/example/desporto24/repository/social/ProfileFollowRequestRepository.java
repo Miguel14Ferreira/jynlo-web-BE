@@ -9,4 +9,5 @@ public interface ProfileFollowRequestRepository extends JpaRepository<ProfileFol
   List<ProfileFollowRequest> findTop100ByTargetIdOrderByCreatedAtDesc(Long targetId);
   long deleteByRequesterIdAndTargetId(Long requesterId,Long targetId);
   long deleteByRequesterIdOrTargetId(Long requesterId,Long targetId);
+  long deleteByTargetId(Long targetId);
 }
