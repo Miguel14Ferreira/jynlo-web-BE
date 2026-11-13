@@ -152,6 +152,35 @@ class CommunityLiveServiceTest {
     }
 
     @Test
+    void abandonedLiveEventExpiresAndProviderRoomIsRevoked() throws Exception {
+        live.setStatus(CommunityLiveEvent.Status.LIVE);
+        live.setStartedAt(Instant.now().minusSeconds(7L * 3600));
+        when(events.findTop100ByStatusAndStartedAtBefore(eq(CommunityLiveEvent.Status.LIVE),
+                any(Instant.class))).thenReturn(java.util.List.of(live));
+        when(provider.deleteLiveKitRoom("jynlo-live-community-7-25")).thenReturn(true);
+
+        service.expireUnattendedStreams();
+
+        assertEquals(CommunityLiveEvent.Status.ENDED, live.getStatus());
+        assertNotNull(live.getEndedAt());
+        verify(events).save(live);
+        verify(provider).deleteLiveKitRoom("jynlo-live-community-7-25");
+        assertThrows(ResponseStatusException.class,
+                () -> service.join(7L, 25L, "espectador"));
+    }
+
+    @Test
+    void activeBroadcastWithinSixHoursIsNotAutoEnded() throws Exception {
+        live.setStartedAt(Instant.now().minusSeconds(3600));
+        when(events.findTop100ByStatusAndStartedAtBefore(eq(CommunityLiveEvent.Status.LIVE),
+                any(Instant.class))).thenReturn(java.util.List.of(live));
+        service.expireUnattendedStreams();
+        assertEquals(CommunityLiveEvent.Status.LIVE, live.getStatus());
+        verify(events, never()).save(any());
+        verify(provider, never()).deleteLiveKitRoom(anyString());
+    }
+
+    @Test
     void eventTitlesAreValidatedBeforePersistence() {
         assertThrows(ResponseStatusException.class,
                 () -> service.schedule(7L, "organizador", "  ", null, Instant.now()));
