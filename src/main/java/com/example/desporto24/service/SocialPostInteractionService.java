@@ -25,6 +25,9 @@ import com.example.desporto24.repository.social.SocialPostRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -51,6 +54,15 @@ public class SocialPostInteractionService {
     private final NotificationPreferencesService notificationPreferencesService;
     private final UserBlockService userBlockService;
     private final ChatRealtimeGateway realtimeGateway;
+    @Autowired(required=false)
+    private ProfilePrivacyService privacy;
+
+    private void requireVisiblePost(Profile viewer,SocialPost post) {
+        if (post.getAuthor().isPrivateProfile() &&
+                (privacy == null || !privacy.canView(viewer,post.getAuthor())))
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Publicação indisponível");
+    }
+
 
     /**
      * Send only after the database transaction commits. Otherwise another
@@ -70,6 +82,7 @@ public class SocialPostInteractionService {
         SocialPost post = post(postId);
         Profile actor = profile(username);
         userBlockService.ensureInteractionAllowed(actor, post.getAuthor());
+        requireVisiblePost(actor,post);
 
         if (!likeRepository.existsByPostIdAndProfileId(postId, actor.getId())) {
             likeRepository.save(SocialPostLike.builder()
@@ -91,6 +104,7 @@ public class SocialPostInteractionService {
         // Removing an old like remains possible after blocking, without
         // leaking the blocked author's like totals through this endpoint.
         boolean blocked = userBlockService.isBlockedBetween(actor, target.getAuthor());
+        requireVisiblePost(actor,target);
         likeRepository.deleteByPostIdAndProfileId(postId, actor.getId());
         signalFeedAfterCommit();
         return blocked ? new PostLikeResponse(false, 0) : likeStatus(postId, actor.getId());
@@ -101,6 +115,7 @@ public class SocialPostInteractionService {
         SocialPost target = post(postId);
         Profile viewer = profile(username);
         userBlockService.ensureInteractionAllowed(viewer, target.getAuthor());
+        requireVisiblePost(viewer,target);
         List<SocialPostComment> visible = commentRepository.findByPostIdOrderByCreatedAtAsc(postId)
                 .stream()
                 .filter(comment -> !userBlockService.isBlockedBetween(viewer, comment.getAuthor()))
@@ -124,6 +139,7 @@ public class SocialPostInteractionService {
         SocialPost post = post(postId);
         Profile actor = profile(username);
         userBlockService.ensureInteractionAllowed(actor, post.getAuthor());
+        requireVisiblePost(actor,post);
 
         SocialPostComment comment = commentRepository.save(
                 SocialPostComment.builder()
@@ -148,6 +164,7 @@ public class SocialPostInteractionService {
         if (text==null || text.trim().isEmpty() || text.trim().length()>500)
             throw new IllegalArgumentException("O comentário deve ter entre 1 e 500 caracteres");
         userBlockService.ensureInteractionAllowed(actor,comment.getPost().getAuthor());
+        requireVisiblePost(actor,comment.getPost());
         comment.setContent(text.trim());
         comment.setEditedAt(Instant.now());
         commentRepository.save(comment);
@@ -161,6 +178,7 @@ public class SocialPostInteractionService {
         SocialPostComment comment=commentForPost(postId,commentId);
         if (like) {
             userBlockService.ensureInteractionAllowed(actor,comment.getPost().getAuthor());
+            requireVisiblePost(actor,comment.getPost());
             userBlockService.ensureInteractionAllowed(actor,comment.getAuthor());
             if (!commentLikes.existsByCommentIdAndProfileId(commentId,actor.getId()))
                 commentLikes.save(SocialPostCommentLike.builder().comment(comment)
@@ -187,6 +205,7 @@ public class SocialPostInteractionService {
         SocialPost target = post(postId);
         Profile viewer = profile(viewerUsername);
         userBlockService.ensureInteractionAllowed(viewer, target.getAuthor());
+        requireVisiblePost(viewer,target);
         if (target.isHideLikers() && !target.getAuthor().getUsername().equalsIgnoreCase(viewerUsername)) {
             throw new AccessDeniedException("Lista de gostos oculta pelo autor");
         }
