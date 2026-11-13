@@ -29,4 +29,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
 # Keep a hard memory budget for the Render 512 MiB instance.
 # The previous 50% heap plus native allocations reached the container limit.
 # JAVA_TOOL_OPTIONS can override these settings for diagnosis if needed.
-ENTRYPOINT ["java", "-Xms48m", "-Xmx192m", "-XX:MaxMetaspaceSize=160m", "-XX:ReservedCodeCacheSize=32m", "-XX:ActiveProcessorCount=2", "-XX:+UseSerialGC", "-Dserver.tomcat.threads.max=32", "-Dserver.tomcat.threads.min-spare=4", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-Xms48m", "-Xmx176m", "-XX:MaxMetaspaceSize=144m", "-XX:ReservedCodeCacheSize=24m", "-XX:ActiveProcessorCount=2", "-XX:+UseSerialGC", "-Dserver.tomcat.threads.max=32", "-Dserver.tomcat.threads.min-spare=4", "-jar", "/app/app.jar"]
