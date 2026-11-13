@@ -150,6 +150,44 @@ class SocialFeedPostDeepLinkTest {
     }
 
     @Test
+    void onlyAuthorCanEditCaptionAndLocationWithoutChangingMedia() {
+        SocialPost post = samplePost();
+        post.setImageUrl("/media/photo.jpg");
+        post.setLocationLabel("Lisboa");
+        when(posts.findById(55L)).thenReturn(Optional.of(post));
+        var request = new com.example.desporto24.model.dto.social.EditSocialPostRequest(" Novo texto ", " Benfica ");
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> service.editPost(55L, "viewer", request));
+        verify(posts, never()).saveAndFlush(any());
+
+        Profile author = post.getAuthor();
+        when(profiles.findUserByUsernameIgnoreCase("author")).thenReturn(Optional.of(author));
+        var result = service.editPost(55L, "author", request);
+        assertEquals("Novo texto", result.content());
+        assertEquals("Benfica", result.location());
+        assertEquals("/media/photo.jpg", result.imageUrl());
+        verify(posts).saveAndFlush(post);
+    }
+
+    @Test
+    void editingCannotEmptyTextOnlyPostsOrModifyAutomaticActivities() {
+        SocialPost post = samplePost();
+        when(posts.findById(55L)).thenReturn(Optional.of(post));
+        when(profiles.findUserByUsernameIgnoreCase("author")).thenReturn(Optional.of(post.getAuthor()));
+        var blank = new com.example.desporto24.model.dto.social.EditSocialPostRequest(" ", null);
+        assertThrows(IllegalArgumentException.class, () -> service.editPost(55L, "author", blank));
+        assertEquals("Treino de hoje", post.getContent());
+
+        post.setActivityType("SESSION_ATTENDED");
+        assertEquals(HttpStatus.NOT_FOUND,
+                assertThrows(ResponseStatusException.class,
+                    () -> service.editPost(55L, "author",
+                        new com.example.desporto24.model.dto.social.EditSocialPostRequest("Falso", null)))
+                    .getStatusCode());
+        verify(posts, never()).saveAndFlush(any());
+    }
+
+    @Test
     void notificationDoesNotExposeInternalAttendanceBackedPost() {
         SocialPost internal = samplePost();
         internal.setActivityType("SESSION_ATTENDED");
