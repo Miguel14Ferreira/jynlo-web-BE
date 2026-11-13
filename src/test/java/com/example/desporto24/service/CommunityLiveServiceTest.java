@@ -58,6 +58,7 @@ class CommunityLiveServiceTest {
         when(members.existsByCommunityIdAndProfileId(7L, 2L)).thenReturn(true);
         when(provider.providerStatus()).thenReturn("ready");
         when(events.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(events.touchHostHeartbeat(eq(25L), eq(7L), eq(CommunityLiveEvent.Status.LIVE), any(Instant.class))).thenReturn(1);
         ReflectionTestUtils.setField(service, "serverUrl", "wss://livekit.example.test");
         ReflectionTestUtils.setField(service, "apiKey", "test-public-key");
         ReflectionTestUtils.setField(service, "apiSecret", "test-only-not-production");
@@ -172,12 +173,42 @@ class CommunityLiveServiceTest {
     @Test
     void activeBroadcastWithinSixHoursIsNotAutoEnded() throws Exception {
         live.setStartedAt(Instant.now().minusSeconds(3600));
+        live.setLastHostHeartbeatAt(Instant.now().minusSeconds(20));
         when(events.findTop100ByStatusAndStartedAtBefore(eq(CommunityLiveEvent.Status.LIVE),
                 any(Instant.class))).thenReturn(java.util.List.of(live));
         service.expireUnattendedStreams();
         assertEquals(CommunityLiveEvent.Status.LIVE, live.getStatus());
         verify(events, never()).save(any());
         verify(provider, never()).deleteLiveKitRoom(anyString());
+    }
+
+    @Test
+    void liveEventWithoutHostHeartbeatExpiresAfterTwoMinutes() throws Exception {
+        live.setStartedAt(Instant.now().minusSeconds(240));
+        live.setLastHostHeartbeatAt(Instant.now().minusSeconds(180));
+        when(events.findTop100ByStatusAndStartedAtBefore(eq(CommunityLiveEvent.Status.LIVE),
+                any(Instant.class))).thenReturn(java.util.List.of(live));
+        when(provider.deleteLiveKitRoom(anyString())).thenReturn(true);
+
+        service.expireUnattendedStreams();
+
+        assertEquals(CommunityLiveEvent.Status.ENDED, live.getStatus());
+        verify(provider).deleteLiveKitRoom("jynlo-live-community-7-25");
+    }
+
+    @Test
+    void onlyOrganizerMaySendHeartbeatAndEndedEventsRejectIt() {
+        assertThrows(AccessDeniedException.class,
+                () -> service.heartbeat(7L, 25L, "espectador"));
+        verify(events, never()).touchHostHeartbeat(anyLong(), anyLong(), any(), any());
+
+        service.heartbeat(7L, 25L, "organizador");
+        verify(events).touchHostHeartbeat(eq(25L), eq(7L),
+                eq(CommunityLiveEvent.Status.LIVE), any(Instant.class));
+        when(events.touchHostHeartbeat(eq(25L), eq(7L),
+                eq(CommunityLiveEvent.Status.LIVE), any(Instant.class))).thenReturn(0);
+        assertThrows(ResponseStatusException.class,
+                () -> service.heartbeat(7L, 25L, "organizador"));
     }
 
     @Test
