@@ -35,6 +35,7 @@ class SocialFeedAttendanceVisibilityTest {
                 mock(ProfileFollowRepository.class),
                 mock(SocialPostLikeRepository.class),
                 mock(SocialPostCommentRepository.class),
+                mock(com.example.desporto24.repository.social.SocialPostCommentLikeRepository.class),
                 profiles,
                 mock(SessionRepository.class),
                 participants,
