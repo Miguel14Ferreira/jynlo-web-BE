@@ -513,6 +513,8 @@ public class DirectCallService {
     // active calls and contacting the database every five seconds.
     @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 30000)
     public synchronized void revokeDisconnectedGuests() {
+        // Expiration must be enforced even when no client makes another request.
+        expireCalls(Instant.now());
         if (!available()) return;
         retryEndedRoomDeletions();
         retryVoluntaryGuestEvictions();
