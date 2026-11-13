@@ -91,6 +91,18 @@ public class SocialStoryService {
         return responses(stories.findTop20ByAuthorIdAndExpiresAtAfterOrderByCreatedAtDesc(actor.getId(), Instant.now()), actor);
     }
 
+    /** Personal active Stories visible from the author's profile, even without following. */
+    @Transactional(readOnly = true)
+    public List<StoryResponse> profileStories(String authorUsername, String viewerUsername) {
+        Profile viewer = actor(viewerUsername);
+        Profile author = profiles.findUserByUsernameIgnoreCase(authorUsername)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Perfil indisponível"));
+        if (userBlockService.isBlockedBetween(viewer, author))
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Stories indisponíveis");
+        return responses(stories.findTop20ByAuthorIdAndExpiresAtAfterOrderByCreatedAtDesc(
+                author.getId(), Instant.now()).stream().filter(story -> story.getCommunity() == null).toList(), viewer);
+    }
+
     @Transactional(readOnly = true)
     public StoryResponse view(Long id, String username) {
         Profile actor = actor(username);
