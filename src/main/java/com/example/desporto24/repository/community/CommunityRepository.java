@@ -55,6 +55,12 @@ public interface CommunityRepository extends JpaRepository<Community, Long> {
     @Query("SELECT c FROM Community c WHERE c.id = :id")
     java.util.Optional<Community> lockForDeletion(@Param("id") Long id);
 
+    // Serialize the start of live streams across Render instances. A Java
+    // synchronized method alone cannot prevent two replicas from going LIVE.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Community c WHERE c.id = :id")
+    java.util.Optional<Community> lockForLiveStart(@Param("id") Long id);
+
     long countByOwnerId(Long ownerId);
     java.util.List<Community> findByOwnerId(Long ownerId);
     boolean existsByOwnerId(Long ownerId);
