@@ -199,6 +199,22 @@ class SocialFeedPostDeepLinkTest {
     }
 
     @Test
+    void hiddenPostManagerOnlyReadsTheSignedInViewersOwnList() {
+        var hidden = mock(com.example.desporto24.repository.social.HiddenFeedPostRepository.class);
+        ReflectionTestUtils.setField(service, "hiddenFeedPosts", hidden);
+        var row = new com.example.desporto24.model.social.HiddenFeedPost();
+        row.setViewerId(7L);
+        row.setPostId(55L);
+        when(hidden.findByViewerIdOrderByIdDesc(7L)).thenReturn(java.util.List.of(row));
+        when(posts.findAllById(java.util.List.of(55L))).thenReturn(java.util.List.of(samplePost()));
+
+        var results = service.hiddenPosts("viewer");
+        assertEquals(java.util.List.of(55L),
+                results.stream().map(FeedItemResponse::postId).toList());
+        verify(hidden).findByViewerIdOrderByIdDesc(7L);
+    }
+
+    @Test
     void automaticActivityPostsCannotBeHiddenAsRegularPublications() {
         var hidden = mock(com.example.desporto24.repository.social.HiddenFeedPostRepository.class);
         ReflectionTestUtils.setField(service, "hiddenFeedPosts", hidden);
