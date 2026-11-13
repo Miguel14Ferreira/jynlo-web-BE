@@ -122,6 +122,27 @@ public class SocialFeedController {
         );
     }
 
+    public record EditCommentRequest(@jakarta.validation.constraints.NotBlank
+        @jakarta.validation.constraints.Size(max=500) String content) {}
+
+    @PutMapping("/posts/{postId}/comments/{commentId}")
+    public SocialCommentResponse editComment(@PathVariable Long postId,@PathVariable Long commentId,
+            @RequestBody @Valid EditCommentRequest request,Authentication authentication) {
+        return interactionService.editComment(postId,commentId,authentication.getName(),request.content());
+    }
+
+    @PostMapping("/posts/{postId}/comments/{commentId}/likes")
+    public SocialCommentResponse likeComment(@PathVariable Long postId,@PathVariable Long commentId,
+            Authentication authentication) {
+        return interactionService.setCommentLike(postId,commentId,authentication.getName(),true);
+    }
+
+    @DeleteMapping("/posts/{postId}/comments/{commentId}/likes")
+    public SocialCommentResponse unlikeComment(@PathVariable Long postId,@PathVariable Long commentId,
+            Authentication authentication) {
+        return interactionService.setCommentLike(postId,commentId,authentication.getName(),false);
+    }
+
     @PostMapping("/posts/{postId}/comments/{commentId}/report")
     public ResponseEntity<Void> reportComment(
             @PathVariable Long postId,
