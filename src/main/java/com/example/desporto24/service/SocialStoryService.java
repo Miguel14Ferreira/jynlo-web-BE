@@ -174,10 +174,8 @@ public class SocialStoryService {
                     .orElseThrow(() -> new IllegalArgumentException("Tagged profile not found"));
             if (userBlockService.isBlockedBetween(actor, target))
                 throw new AccessDeniedException("Cannot tag a blocked profile");
-            // The API must enforce the same accepted-friend boundary as the
-            // creator, including when an old client submits a raw username.
-            if (friends.findConnection(actor.getId(), target.getId()).isEmpty())
-                throw new AccessDeniedException("Only accepted friends may be tagged");
+            // Users may tag other discoverable profiles, not only friends.
+            // Blocking restrictions remain enforced on the server.
         }
         String serializedTags = String.join(",", tags);
         String safePosition = allowedStoryOption(position, Set.of("top", "center", "bottom"), "bottom");
