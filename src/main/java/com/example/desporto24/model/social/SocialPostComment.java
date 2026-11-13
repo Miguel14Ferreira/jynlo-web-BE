@@ -32,4 +32,6 @@ public class SocialPostComment {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+    @Column(name = "edited_at")
+    private Instant editedAt;
 }
