@@ -379,6 +379,29 @@ public class CommunityTimelineService {
     }
 
     @Transactional
+    public CommunityTimelineEntryResponse editPost(Long communityId, Long entryId,
+            String content, String username) {
+        Access access = requireMember(communityId, username);
+        CommunityTimelineEntry entry = timelineRepository.findById(entryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação não encontrada"));
+        if (!communityId.equals(entry.getCommunity().getId())
+                || entry.getKind() != CommunityTimelineEntry.Kind.POST)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação não encontrada");
+        if (!entry.getAuthor().getId().equals(access.actor().getId()))
+            throw new AccessDeniedException("Só o autor pode editar esta publicação");
+        String normalized = content == null ? null : content.strip();
+        if (normalized == null || normalized.length() > 1000)
+            throw new IllegalArgumentException("Descrição inválida");
+        if (normalized.isEmpty() && entry.getImageUrl() == null && entry.getVideoUrl() == null
+                && (entry.getExtraMedia() == null || entry.getExtraMedia().isEmpty()))
+            throw new IllegalArgumentException("A publicação não pode ficar vazia");
+        entry.setBody(normalized);
+        entry.setEditedAt(Instant.now());
+        timelineRepository.saveAndFlush(entry);
+        return toResponse(entry);
+    }
+
+    @Transactional
     public CommunityTimelineEntryResponse deleteChatForEveryone(Long communityId, Long entryId, String username) {
         Access access = requireMember(communityId, username);
         CommunityTimelineEntry entry = ownedChatEntry(communityId, entryId, access);
