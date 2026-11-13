@@ -20,6 +20,11 @@ public class CommunityLiveController {
                                   @Size(max = 1000) String description,
                                   Instant scheduledAt) {}
 
+    @GetMapping("/capabilities")
+    public CommunityLiveService.Capabilities capabilities(@PathVariable Long communityId, Authentication auth) {
+        return service.capabilities(communityId, auth.getName());
+    }
+
     @GetMapping
     public List<CommunityLiveService.LiveEvent> list(@PathVariable Long communityId, Authentication auth) {
         return service.list(communityId, auth.getName());
