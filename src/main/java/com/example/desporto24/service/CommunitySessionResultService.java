@@ -79,7 +79,7 @@ public class CommunitySessionResultService {
      * optional player statistics while still accepting a W/D/L round.
      * Apply the same administrator and community checks as roster access.
      */
-    public record ResultCapabilities(boolean footballGoalsAssists, int version) {}
+    public record ResultCapabilities(boolean footballGoalsAssists, boolean footballFinalScore, int version) {}
 
     @Transactional(readOnly = true)
     public ResultCapabilities capabilities(Long communityId, Long sessionId, String actorUsername) {
@@ -87,7 +87,8 @@ public class CommunitySessionResultService {
         var session = sessions.findById(sessionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Sessão não encontrada"));
-        return new ResultCapabilities("Futebol".equalsIgnoreCase(session.getSport()), 1);
+        boolean football = "Futebol".equalsIgnoreCase(session.getSport());
+        return new ResultCapabilities(football, football, 1);
     }
 
     @Transactional(readOnly = true)
@@ -165,6 +166,23 @@ public class CommunitySessionResultService {
                 input.players().size() < 2 || input.players().size() > 100) {
             throw new IllegalArgumentException("Seleciona pelo menos dois participantes e indica o resultado");
         }
+        boolean hasScoreA = input.scoreA() != null, hasScoreB = input.scoreB() != null;
+        if (hasScoreA != hasScoreB)
+            throw new IllegalArgumentException("Preenche o marcador das duas equipas ou deixa ambos vazios");
+        if (hasScoreA) {
+            if (!"Futebol".equalsIgnoreCase(session.getSport()))
+                throw new IllegalArgumentException("Este marcador oficial só está disponível para Futebol");
+            if (input.scoreA() < 0 || input.scoreA() > 99
+                    || input.scoreB() < 0 || input.scoreB() > 99)
+                throw new IllegalArgumentException("Marcador oficial deve estar entre 0 e 99");
+            CommunitySessionResultRequest.Outcome derived = input.scoreA().equals(input.scoreB())
+                    ? CommunitySessionResultRequest.Outcome.DRAW
+                    : input.scoreA() > input.scoreB()
+                        ? CommunitySessionResultRequest.Outcome.A
+                        : CommunitySessionResultRequest.Outcome.B;
+            if (derived != input.outcome())
+                throw new IllegalArgumentException("O vencedor selecionado não corresponde ao marcador");
+        }
         Set<String> unique = new HashSet<>();
         int teamA = 0;
         int teamB = 0;
@@ -205,7 +223,13 @@ public class CommunitySessionResultService {
             throw new IllegalArgumentException("Seleciona jogadores para as duas equipas");
 
         var response = competition.createRound(communityId, actorUsername,
-                new CreateCommunityRoundRequest(
+                hasScoreA ? new CreateCommunityRoundRequest(
+                        "Sessão #" + sessionId, session.getGameDate().toInstant(),
+                        entries, session.getSport(), null, null, "FOOTBALL_FINAL", null,
+                        null, null,
+                        new com.example.desporto24.model.dto.community.CommunityTeamFinalScore(
+                                input.scoreA(), input.scoreB()))
+                        : new CreateCommunityRoundRequest(
                         "Sessão #" + sessionId, session.getGameDate().toInstant(),
                         entries, session.getSport()));
         CommunityRound round = rounds.findById(response.id())
