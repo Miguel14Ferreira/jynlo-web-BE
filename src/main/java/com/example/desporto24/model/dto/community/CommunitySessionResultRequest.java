@@ -11,8 +11,14 @@ import java.util.List;
 /** Explicit post-game report; no final score is required or inferred. */
 public record CommunitySessionResultRequest(
         @NotNull Outcome outcome,
-        @NotEmpty List<@Valid Player> players
+        @NotEmpty List<@Valid Player> players,
+        @Min(0) @Max(99) Integer scoreA,
+        @Min(0) @Max(99) Integer scoreB
 ) {
+    // Existing clients that only report W/D/L remain source- and JSON-compatible.
+    public CommunitySessionResultRequest(Outcome outcome, List<Player> players) {
+        this(outcome, players, null, null);
+    }
     public enum Outcome { A, B, DRAW }
     public record Player(@NotBlank String username, @NotNull Team team,
                          @Min(0) @Max(99) Integer goals,
