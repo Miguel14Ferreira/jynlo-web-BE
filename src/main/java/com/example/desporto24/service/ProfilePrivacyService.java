@@ -54,6 +54,7 @@ public class ProfilePrivacyService {
         "A proteção de multimédia privado ainda está a ser preparada");
     actor.setPrivateProfile(privateProfile);
     profiles.save(actor);
+    if (!privateProfile) requests.deleteByTargetId(actor.getId());
     return new PrivacyStatus(actor.isPrivateProfile(),true,privateModeEnabled);
   }
   public boolean requested(String requesterName,String targetName) {
