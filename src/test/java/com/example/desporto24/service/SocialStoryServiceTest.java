@@ -83,6 +83,47 @@ class SocialStoryServiceTest {
     }
 
     @Test
+    void persistsCaptionLayoutAndReturnsItToStoryViewers() {
+        MockMultipartFile image = new MockMultipartFile("image", "photo.jpg", "image/jpeg",
+                new byte[]{1,2,3});
+        when(storage.store(startsWith("stories/19/"), same(image)))
+                .thenReturn(URI.create("/media/stories/19/photo.jpg"));
+        when(stories.save(any(SocialStory.class))).thenAnswer(call -> {
+            SocialStory result = call.getArgument(0);
+            result.setId(27L);
+            return result;
+        });
+        StoryResponse created = service.create("joao", null, "Treino", image, null,
+                "center", "large", "plain");
+        assertEquals("center", created.textPosition());
+        assertEquals("large", created.textScale());
+        assertEquals("plain", created.textStyle());
+        verify(stories).save(argThat(story -> "center".equals(story.getTextPosition())
+                && "large".equals(story.getTextScale())
+                && "plain".equals(story.getTextStyle())));
+    }
+
+    @Test
+    void rejectsForgedCaptionLayoutBeforeUploadAndDefaultsOldClients() {
+        MockMultipartFile image = new MockMultipartFile("image", "photo.jpg", "image/jpeg",
+                new byte[]{1,2,3});
+        assertThrows(IllegalArgumentException.class,
+                () -> service.create("joao", null, "", image, null, "hidden", "huge", "plain"));
+        verifyNoInteractions(storage, stories);
+        when(storage.store(startsWith("stories/19/"), same(image)))
+                .thenReturn(URI.create("/media/stories/19/photo.jpg"));
+        when(stories.save(any(SocialStory.class))).thenAnswer(call -> {
+            SocialStory result = call.getArgument(0);
+            result.setId(28L);
+            return result;
+        });
+        StoryResponse created = service.create("joao", null, "", image, null);
+        assertEquals("bottom", created.textPosition());
+        assertEquals("medium", created.textScale());
+        assertEquals("pill", created.textStyle());
+    }
+
+    @Test
     void rejectsMissingAndConflictingMediaBeforeSaving() {
         MockMultipartFile image = new MockMultipartFile("image", "a.jpg", "image/jpeg", new byte[]{1});
         MockMultipartFile video = new MockMultipartFile("video", "a.mp4", "video/mp4", new byte[]{1});
