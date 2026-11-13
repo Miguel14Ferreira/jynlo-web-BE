@@ -100,15 +100,16 @@ public class PersonalLiveService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Direto indisponível");
         requireProvider();
         boolean host=event.getHost().getId().equals(viewer.getId());
+        boolean guest=event.getGuest()!=null && event.getGuest().getId().equals(viewer.getId());
         Instant now=Instant.now(),expiry=now.plus(Duration.ofMinutes(5));
         String room=room(id),identity="jynlo-live-personal-"+id+"-user-"+viewer.getId();
         String token=JWT.create().withIssuer(apiKey).withSubject(identity)
             .withIssuedAt(Date.from(now)).withNotBefore(Date.from(now.minusSeconds(5)))
             .withExpiresAt(Date.from(expiry))
             .withClaim("video",Map.of("roomJoin",true,"room",room,
-                    "canPublish",host,"canSubscribe",true,"canPublishData",false))
+                    "canPublish",host||guest,"canSubscribe",true,"canPublishData",false))
             .sign(Algorithm.HMAC256(apiSecret));
-        return new Connection(serverUrl,token,host?"HOST":"VIEWER",expiry);
+        return new Connection(serverUrl,token,host?"HOST":guest?"GUEST":"VIEWER",expiry);
     }
 
     @Transactional
