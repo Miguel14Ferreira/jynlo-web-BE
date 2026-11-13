@@ -100,13 +100,14 @@ public class GooglePlaceLookupService {
         String uri="https://places.googleapis.com/v1/places/"+id;
         if(session != null && SESSION.matcher(session).matches())
             uri += "?sessionToken="+session;
-        JsonNode data=get(uri,"id,displayName,formattedAddress,location");
+        // Essentials-only field mask: avoid paying for Pro fields just to save a label.
+        JsonNode data=get(uri,"id,formattedAddress,location");
         JsonNode loc=data.path("location");
         double lat=loc.path("latitude").asDouble(Double.NaN);
         double lon=loc.path("longitude").asDouble(Double.NaN);
         if(!Double.isFinite(lat)||!Double.isFinite(lon))
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Localização indisponível");
-        return new Resolved("google:"+id,data.path("displayName").path("text").asText(""),
+        return new Resolved("google:"+id,"",
             data.path("formattedAddress").asText(""),lat,lon);
     }
 
