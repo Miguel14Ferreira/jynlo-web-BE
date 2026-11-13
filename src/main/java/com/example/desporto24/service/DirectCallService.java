@@ -507,9 +507,10 @@ public class DirectCallService {
      * A failed provider eviction is retried on the next pass; it must not be
      * recorded locally as a successful disconnection.
      */
-    // Guest revocations are access-control changes: retry promptly instead of
-    // leaving a departed participant connected to the provider for 30 seconds.
-    @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 5000)
+    // Keep the comprehensive membership/ACL recheck at its existing cadence.
+    // Guest exits have a separate fast retry below to avoid scanning all
+    // active calls and contacting the database every five seconds.
+    @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 30000)
     public synchronized void revokeDisconnectedGuests() {
         if (!available()) return;
         retryEndedRoomDeletions();
@@ -600,6 +601,16 @@ public class DirectCallService {
      * Expired rooms are allowed a short grace interval for provider cleanup,
      * then purged to avoid retaining node-local entries indefinitely.
      */
+    /** Promptly disconnect guests who voluntarily left the application.
+     * Provider timeouts remain queued for the next pass; the full call ACL
+     * verification retains its slower, independent 30-second schedule.
+     */
+    @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 5000)
+    public synchronized void retryDepartedCallGuests() {
+        if (!available() || pendingGuestEvictions.isEmpty()) return;
+        retryVoluntaryGuestEvictions();
+    }
+
     private void retryVoluntaryGuestEvictions() {
         Instant now = Instant.now();
         for (var pending : pendingGuestEvictions.entrySet()) {
