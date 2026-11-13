@@ -11,6 +11,7 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -91,7 +92,10 @@ public class S3MediaStorage implements MediaStorage {
     private static S3Client buildClient(MediaStorageProperties properties) {
         MediaStorageProperties.S3 s3 = properties.getS3();
 
+        // URLConnection keeps startup and upload native-memory pressure below
+        // the default Apache HTTP transport on Render's 512 MiB instance.
         S3ClientBuilder builder = S3Client.builder()
+                .httpClientBuilder(UrlConnectionHttpClient.builder())
                 .region(Region.of(s3.getRegion()))
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(s3.getEndpoint() != null
