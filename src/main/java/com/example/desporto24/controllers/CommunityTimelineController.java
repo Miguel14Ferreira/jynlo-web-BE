@@ -49,6 +49,14 @@ public class CommunityTimelineController {
         return service.postWithMedia(communityId, content, image, video, authentication.getName());
     }
 
+    @PutMapping("/posts/{entryId}")
+    public CommunityTimelineEntryResponse editPost(@PathVariable Long communityId,
+            @PathVariable Long entryId,
+            @RequestBody @Valid com.example.desporto24.model.dto.social.EditSocialPostRequest request,
+            Authentication authentication) {
+        return service.editPost(communityId, entryId, request.content(), authentication.getName());
+    }
+
     @DeleteMapping("/posts/{entryId}")
     public ResponseEntity<Void> deletePost(
             @PathVariable Long communityId, @PathVariable Long entryId, Authentication authentication) {
