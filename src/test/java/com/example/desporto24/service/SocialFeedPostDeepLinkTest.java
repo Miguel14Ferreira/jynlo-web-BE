@@ -104,6 +104,45 @@ class SocialFeedPostDeepLinkTest {
     }
 
     @Test
+    void failedPhotoPersistenceDeletesUploadedAsset() {
+        MediaStorage storage = mock(MediaStorage.class);
+        ReflectionTestUtils.setField(service, "mediaStorage", storage);
+        var photo = new MockMultipartFile("image", "campo.jpg", "image/jpeg", new byte[]{1, 2});
+        when(storage.store(anyString(), same(photo))).thenReturn(URI.create("/media/posts/7/campo.jpg"));
+        when(posts.save(any())).thenThrow(new IllegalStateException("Database unavailable"));
+
+        assertThrows(IllegalStateException.class,
+                () -> service.createPostWithImage("viewer", "Jogo", photo, null, "Lisboa"));
+
+        verify(storage).delete("posts/7/campo.jpg");
+    }
+
+    @Test
+    void failedVideoPersistenceDeletesUploadedAsset() {
+        MediaStorage storage = mock(MediaStorage.class);
+        ReflectionTestUtils.setField(service, "mediaStorage", storage);
+        var video = new MockMultipartFile("video", "jogo.mp4", "video/mp4", new byte[]{1, 2});
+        when(storage.storeVideo(anyString(), same(video))).thenReturn(URI.create("/media/posts/7/jogo.mp4"));
+        when(posts.save(any())).thenThrow(new IllegalStateException("Database unavailable"));
+
+        assertThrows(IllegalStateException.class,
+                () -> service.createPostWithMedia("viewer", "", null, video, null, "Lisboa"));
+
+        verify(storage).delete("posts/7/jogo.mp4");
+    }
+
+    @Test
+    void invalidAlbumLocationIsRejectedBeforeUploadingAnyFile() {
+        MediaStorage storage = mock(MediaStorage.class);
+        ReflectionTestUtils.setField(service, "mediaStorage", storage);
+        var photo = new MockMultipartFile("files", "campo.jpg", "image/jpeg", new byte[]{1});
+        assertThrows(IllegalArgumentException.class, () ->
+                service.createPostWithAlbum("viewer", "", java.util.List.of(photo), null, "x".repeat(161)));
+        verifyNoInteractions(storage);
+        verify(posts, never()).save(any());
+    }
+
+    @Test
     void textOnlyPostsRejectEmptyContentEvenWhenALocationWasProvided() {
         assertThrows(IllegalArgumentException.class, () ->
                 service.createPostWithImage("viewer","",null,null,"Lisboa"));
