@@ -47,6 +47,18 @@ public class CommunityLiveService {
                             Status status, Instant scheduledAt, Instant startedAt, Instant endedAt,
                             boolean canManage) {}
     public record Connection(String serverUrl, String token, String role, Instant expiresAt) {}
+    public record Capabilities(boolean canManage, boolean enabled) {}
+
+    @Transactional(readOnly = true)
+    public Capabilities capabilities(Long communityId, String username) {
+        Profile person = actor(username);
+        Community community = accessible(communityId, person);
+        boolean owner = community.getOwner().getId().equals(person.getId());
+        boolean configured = serverUrl != null && serverUrl.startsWith("wss://")
+                && apiKey != null && !apiKey.isBlank()
+                && apiSecret != null && !apiSecret.isBlank();
+        return new Capabilities(owner, configured && "ready".equals(provider.providerStatus()));
+    }
 
     private Profile actor(String username) {
         return profiles.findUserByUsernameIgnoreCase(username)
