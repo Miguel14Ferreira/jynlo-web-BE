@@ -150,6 +150,40 @@ class SocialFeedPostDeepLinkTest {
     }
 
     @Test
+    void hidingAFeedPostIsViewerScopedAndDoesNotDeleteTheAuthorsContent() {
+        var hidden = mock(com.example.desporto24.repository.social.HiddenFeedPostRepository.class);
+        ReflectionTestUtils.setField(service, "hiddenFeedPosts", hidden);
+        when(posts.findById(55L)).thenReturn(Optional.of(samplePost()));
+
+        service.hidePost(55L, "viewer");
+        verify(hidden).save(argThat(row -> row.getViewerId().equals(7L)
+                && row.getPostId().equals(55L)));
+        verify(posts, never()).delete(any());
+
+        when(hidden.existsByViewerIdAndPostId(7L, 55L)).thenReturn(true);
+        service.hidePost(55L, "viewer");
+        verify(hidden, times(1)).save(any());
+
+        service.unhidePost(55L, "viewer");
+        verify(hidden).deleteByViewerIdAndPostId(7L, 55L);
+        verify(posts, never()).delete(any());
+    }
+
+    @Test
+    void automaticActivityPostsCannotBeHiddenAsRegularPublications() {
+        var hidden = mock(com.example.desporto24.repository.social.HiddenFeedPostRepository.class);
+        ReflectionTestUtils.setField(service, "hiddenFeedPosts", hidden);
+        SocialPost activity = samplePost();
+        activity.setActivityType("SESSION_ATTENDED");
+        when(posts.findById(55L)).thenReturn(Optional.of(activity));
+
+        assertEquals(HttpStatus.NOT_FOUND,
+                assertThrows(ResponseStatusException.class,
+                    () -> service.hidePost(55L, "viewer")).getStatusCode());
+        verifyNoInteractions(hidden);
+    }
+
+    @Test
     void onlyAuthorCanEditCaptionAndLocationWithoutChangingMedia() {
         SocialPost post = samplePost();
         post.setImageUrl("/media/photo.jpg");
