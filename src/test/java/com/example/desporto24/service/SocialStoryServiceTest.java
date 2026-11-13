@@ -196,6 +196,41 @@ class SocialStoryServiceTest {
     }
 
     @Test
+    void storesCoordinatesRotationAndScaleForAllStoryViewers() {
+        MockMultipartFile image = new MockMultipartFile("image", "photo.jpg", "image/jpeg", new byte[]{1});
+        when(storage.store(startsWith("stories/19/"), same(image)))
+                .thenReturn(URI.create("/media/stories/19/new.jpg"));
+        when(stories.save(any(SocialStory.class))).thenAnswer(call -> {
+            SocialStory story = call.getArgument(0);
+            story.setId(501L);
+            return story;
+        });
+        StoryResponse created = service.create("joao", null, "É golo!", image, null,
+                "bottom", "medium", "pill", null, false, "Benfica", null,
+                30.0, 45.0, 72.0, 1.4);
+        assertEquals(30.0, created.textX());
+        assertEquals(45.0, created.textY());
+        assertEquals(72.0, created.textRotation());
+        assertEquals(1.4, created.textZoom());
+        verify(stories).save(argThat(story -> story.getTextX() == 30.0 &&
+                story.getTextRotation() == 72.0));
+    }
+
+    @Test
+    void rejectsInvalidOrNonFiniteStoryTextGeometryBeforeStorage() {
+        MockMultipartFile image = new MockMultipartFile("image", "photo.jpg", "image/jpeg", new byte[]{1});
+        assertThrows(IllegalArgumentException.class, () ->
+                service.create("joao", null, "Olá", image, null,
+                        "bottom", "medium", "pill", null, false, "Benfica", null,
+                        Double.NaN, 50.0, 0.0, 1.0));
+        assertThrows(IllegalArgumentException.class, () ->
+                service.create("joao", null, "Olá", image, null,
+                        "bottom", "medium", "pill", null, false, "Benfica", null,
+                        40.0, 50.0, 0.0, 20.0));
+        verifyNoInteractions(storage, stories);
+    }
+
+    @Test
     void rejectsUnknownAndExcessiveTagsBeforeAnyMediaUpload() {
         MockMultipartFile image = new MockMultipartFile("image", "photo.jpg", "image/jpeg", new byte[]{1,2,3});
         assertThrows(IllegalArgumentException.class,
