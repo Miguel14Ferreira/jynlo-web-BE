@@ -379,4 +379,53 @@ class CommunityTeamFinalResultsTest {
         assertEquals(score(0, 0), CommunityTeamFinalResults.decode(0, 0));
         assertNull(CommunityTeamFinalResults.decode(null, null));
     }
+    private CommunityRoundEntryRequest footballPlayer(String name, String team,
+                                                      CommunityMatchResult outcome,
+                                                      int goals, int assists) {
+        return new CommunityRoundEntryRequest(name, team, outcome,
+                goals, assists, false, false);
+    }
+
+    @Test void footballScoreAndScorersCountAsRealWdlStandings() {
+        assertNull(CommunityRoundEventType.validate("Futebol", null));
+        assertEquals("FOOTBALL_FINAL",
+                CommunityRoundEventType.validate("Futebol", "FOOTBALL_FINAL"));
+        assertFalse(CommunityRoundEventType.isNeutralEvent("Futebol", "FOOTBALL_FINAL"));
+        assertTrue(CommunityTeamFinalResults.isTeamFinalEvent("FOOTBALL_FINAL"));
+        var players = List.of(
+                footballPlayer("ana", "A", CommunityMatchResult.WIN, 2, 1),
+                footballPlayer("bea", "B", CommunityMatchResult.LOSS, 1, 0));
+        assertEquals(score(3, 1), CommunityTeamFinalResults.validate(
+                "Futebol", "FOOTBALL_FINAL", players, score(3, 1)));
+        CommunityRoundEventType.validateEntries("Futebol", "FOOTBALL_FINAL", players);
+    }
+
+    @Test void footballDrawAndUnattributedGoalsRemainValid() {
+        var players = List.of(
+                footballPlayer("ana", "A", CommunityMatchResult.DRAW, 0, 0),
+                footballPlayer("bea", "B", CommunityMatchResult.DRAW, 0, 0));
+        assertEquals(score(2, 2), CommunityTeamFinalResults.validate(
+                "Futebol", "FOOTBALL_FINAL", players, score(2, 2)));
+        assertEquals(score(0, 0), CommunityTeamFinalResults.validate(
+                "Futebol", "FOOTBALL_FINAL", players, score(0, 0)));
+    }
+
+    @Test void footballScoreRejectsContradictoryWinnerAndExcessAttributedGoals() {
+        var oneWin = List.of(
+                footballPlayer("ana", "A", CommunityMatchResult.WIN, 2, 0),
+                footballPlayer("bea", "B", CommunityMatchResult.LOSS, 0, 0));
+        assertThrows(IllegalArgumentException.class, () ->
+                CommunityTeamFinalResults.validate("Futebol", "FOOTBALL_FINAL", oneWin, score(1, 0)));
+        assertThrows(IllegalArgumentException.class, () ->
+                CommunityTeamFinalResults.validate("Futebol", "FOOTBALL_FINAL", oneWin, score(1, 1)));
+        assertThrows(IllegalArgumentException.class, () ->
+                CommunityTeamFinalResults.validate("Futebol", "FOOTBALL_FINAL", oneWin, score(1000, 0)));
+        assertThrows(IllegalArgumentException.class, () ->
+                CommunityTeamFinalResults.validate("Futebol", "FOOTBALL_FINAL", oneWin, null));
+        assertThrows(IllegalArgumentException.class, () ->
+                CommunityRoundEventType.validate("Andebol", "FOOTBALL_FINAL"));
+        assertThrows(IllegalArgumentException.class, () ->
+                CommunityTeamFinalResults.validate("Andebol", "FOOTBALL_FINAL", oneWin, score(1, 0)));
+    }
+
 }
