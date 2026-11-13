@@ -191,4 +191,39 @@ class CommunitySessionResultServiceTest {
                     new CommunitySessionResultRequest.Player("bea", CommunitySessionResultRequest.Team.A)))));
         verifyNoInteractions(competition);
     }
+    @Test
+    void preservesExplicitFootballGoalsAndAssistsWithoutInventingTeamScore() {
+        eligible(CommunityRole.ADMIN, true);
+        pastSession(SessionStatus.COMPLETED);
+        players();
+        var round = new CommunityRound(); round.setId(25L);
+        when(competition.createRound(eq(communityId), eq("manager"), any(CreateCommunityRoundRequest.class)))
+                .thenReturn(new CommunityRoundResponse(25L, "Sessão #63", Instant.now(), List.of(),
+                        "Futebol", null, null, null));
+        when(rounds.findById(25L)).thenReturn(Optional.of(round));
+        var report = new CommunitySessionResultRequest(CommunitySessionResultRequest.Outcome.A, List.of(
+                new CommunitySessionResultRequest.Player("ana", CommunitySessionResultRequest.Team.A, 2, 1),
+                new CommunitySessionResultRequest.Player("bea", CommunitySessionResultRequest.Team.B, 1, 0)));
+        assertEquals(25L, service.record(communityId, sessionId, "manager", report).id());
+        var captured = ArgumentCaptor.forClass(CreateCommunityRoundRequest.class);
+        verify(competition).createRound(eq(communityId), eq("manager"), captured.capture());
+        assertEquals(2, captured.getValue().entries().get(0).goals());
+        assertEquals(1, captured.getValue().entries().get(0).assists());
+        assertEquals(1, captured.getValue().entries().get(1).goals());
+        assertNull(captured.getValue().teamScore());
+    }
+
+    @Test
+    void rejectsImpossibleIndividualStatsBeforeCreatingRound() {
+        eligible(CommunityRole.ADMIN, true);
+        pastSession(SessionStatus.COMPLETED);
+        players();
+        var report = new CommunitySessionResultRequest(CommunitySessionResultRequest.Outcome.A, List.of(
+                new CommunitySessionResultRequest.Player("ana", CommunitySessionResultRequest.Team.A, -1, 0),
+                new CommunitySessionResultRequest.Player("bea", CommunitySessionResultRequest.Team.B, 0, 0)));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.record(communityId, sessionId, "manager", report));
+        verifyNoInteractions(competition);
+    }
+
 }
