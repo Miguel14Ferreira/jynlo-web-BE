@@ -14,6 +14,7 @@ public interface SocialPostCommentLikeRepository extends JpaRepository<SocialPos
     long deleteByCommentId(Long commentId);
     long deleteByCommentPostId(Long postId);
     long deleteByProfileId(Long profileId);
+    long deleteByCommentAuthorId(Long authorId);
     @Query("SELECT l.comment.id, count(l.id) FROM SocialPostCommentLike l WHERE l.comment.id IN :ids GROUP BY l.comment.id")
     List<Object[]> countsByCommentIds(@Param("ids") Set<Long> ids);
     @Query("SELECT l.comment.id FROM SocialPostCommentLike l WHERE l.comment.id IN :ids AND l.profile.id=:viewer")
