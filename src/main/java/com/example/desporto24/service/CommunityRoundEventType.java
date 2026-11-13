@@ -98,6 +98,10 @@ final class CommunityRoundEventType {
     );
 
     static String validate(String sport, String requested) {
+        // Opt-in official football score. Keep legacy football W/D/L rounds
+        // with null eventType valid; adding Futebol to TYPES would break them.
+        if ("Futebol".equals(sport) && "FOOTBALL_FINAL".equals(requested))
+            return "FOOTBALL_FINAL";
         List<String> allowed = TYPES.get(sport);
         if (allowed == null) {
             if (requested != null && !requested.isBlank())
