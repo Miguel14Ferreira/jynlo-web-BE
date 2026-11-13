@@ -9,4 +9,6 @@ public interface CommunityLiveEventRepository extends JpaRepository<CommunityLiv
     List<CommunityLiveEvent> findTop30ByCommunityIdOrderByScheduledAtDescIdDesc(Long communityId);
     Optional<CommunityLiveEvent> findByIdAndCommunityId(Long eventId, Long communityId);
     boolean existsByCommunityIdAndStatus(Long communityId, CommunityLiveEvent.Status status);
+    java.util.List<CommunityLiveEvent> findTop100ByStatusAndStartedAtBefore(
+            CommunityLiveEvent.Status status, java.time.Instant startedAt);
 }
