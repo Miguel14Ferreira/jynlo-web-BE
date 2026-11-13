@@ -76,6 +76,8 @@ public class AccountDeletionService {
 
     @Autowired(required = false)
     private MediaStorage mediaStorage;
+    @Autowired(required = false)
+    private com.example.desporto24.repository.social.ProfileFollowRequestRepository followRequests;
 
     @Transactional
     public void deleteMyAccount(String username) {
@@ -119,6 +121,7 @@ public class AccountDeletionService {
                 profileId, profileId);
         communityMemberRepository.deleteByProfileId(profileId);
 
+        if (followRequests != null) followRequests.deleteByRequesterIdOrTargetId(profileId,profileId);
         profileFollowRepository.deleteByFollowerIdOrFollowingId(
                 profileId, profileId);
         userBlockRepository.deleteByBlockerIdOrBlockedId(
