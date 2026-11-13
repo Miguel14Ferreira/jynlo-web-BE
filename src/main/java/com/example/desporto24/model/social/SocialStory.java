@@ -20,6 +20,14 @@ public class SocialStory {
     private Community community;
     @Column(length = 180)
     private String caption;
+    // Visual metadata is saved with the Story, so the editor preview matches
+    // how every viewer sees it on web/mobile after publication.
+    @Column(name = "text_position", length = 10)
+    private String textPosition;
+    @Column(name = "text_scale", length = 10)
+    private String textScale;
+    @Column(name = "text_style", length = 10)
+    private String textStyle;
     @Column(name = "media_url", nullable = false, length = 1200)
     private String mediaUrl;
     @Column(name = "media_storage_key", nullable = false, length = 800)
