@@ -275,6 +275,7 @@ class CommunitySessionResultServiceTest {
         var capabilities = service.capabilities(communityId, sessionId, "manager");
 
         assertTrue(capabilities.footballGoalsAssists());
+        assertTrue(capabilities.footballFinalScore());
         assertEquals(1, capabilities.version());
         verifyNoInteractions(competition, rounds);
     }
@@ -292,6 +293,7 @@ class CommunitySessionResultServiceTest {
         var capabilities = service.capabilities(communityId, sessionId, "manager");
 
         assertFalse(capabilities.footballGoalsAssists());
+        assertFalse(capabilities.footballFinalScore());
         assertEquals(1, capabilities.version());
         verifyNoInteractions(competition, rounds);
     }
@@ -318,6 +320,68 @@ class CommunitySessionResultServiceTest {
                 () -> service.capabilities(communityId, sessionId, "manager"));
 
         verifyNoInteractions(competition, rounds);
+    }
+
+    @Test
+    void officialFootballScoreAndIndividualScorersAreRecordedInOneRound() {
+        eligible(CommunityRole.ADMIN, true);
+        pastSession(SessionStatus.COMPLETED);
+        players();
+        var round = new CommunityRound(); round.setId(25L);
+        when(competition.createRound(eq(communityId), eq("manager"),
+                any(CreateCommunityRoundRequest.class)))
+                .thenReturn(new CommunityRoundResponse(25L, "Sessão #63",
+                        Instant.now(), List.of(), "Futebol", null, null, null));
+        when(rounds.findById(25L)).thenReturn(Optional.of(round));
+        var request = new CommunitySessionResultRequest(
+                CommunitySessionResultRequest.Outcome.A, List.of(
+                    new CommunitySessionResultRequest.Player(
+                            "ana", CommunitySessionResultRequest.Team.A, 2, 1),
+                    new CommunitySessionResultRequest.Player(
+                            "bea", CommunitySessionResultRequest.Team.B, 1, 0)), 3, 1);
+        assertEquals(25L, service.record(communityId, sessionId, "manager", request).id());
+        var captured = ArgumentCaptor.forClass(CreateCommunityRoundRequest.class);
+        verify(competition).createRound(eq(communityId), eq("manager"), captured.capture());
+        assertEquals("FOOTBALL_FINAL", captured.getValue().eventType());
+        assertEquals(3, captured.getValue().teamScore().sideA());
+        assertEquals(1, captured.getValue().teamScore().sideB());
+        assertEquals(2, captured.getValue().entries().get(0).goals());
+        assertEquals(1, captured.getValue().entries().get(0).assists());
+        assertEquals(sessionId, round.getSourceSessionId());
+    }
+
+    @Test
+    void officialFootballScoreRejectsMissingSideAndContradictoryOutcome() {
+        eligible(CommunityRole.ADMIN, true);
+        pastSession(SessionStatus.COMPLETED);
+        players();
+        var invalid = new CommunitySessionResultRequest(
+                CommunitySessionResultRequest.Outcome.B, winnerA().players(), 2, 1);
+        assertThrows(IllegalArgumentException.class,
+                () -> service.record(communityId, sessionId, "manager", invalid));
+        var incomplete = new CommunitySessionResultRequest(
+                CommunitySessionResultRequest.Outcome.A, winnerA().players(), 2, null);
+        assertThrows(IllegalArgumentException.class,
+                () -> service.record(communityId, sessionId, "manager", incomplete));
+        verifyNoInteractions(competition);
+    }
+
+    @Test
+    void onlyFootballCanRecordThisOfficialScore() {
+        eligible(CommunityRole.ADMIN, true);
+        var game = new Session();
+        game.setId(sessionId);
+        game.setSport("Andebol");
+        game.setStatus(SessionStatus.COMPLETED);
+        game.setGameDate(Date.from(Instant.now().minusSeconds(86400)));
+        when(sessions.lockForCommunityResult(communityId, sessionId))
+                .thenReturn(Optional.of(game));
+        players();
+        var invalid = new CommunitySessionResultRequest(
+                CommunitySessionResultRequest.Outcome.A, winnerA().players(), 2, 1);
+        assertThrows(IllegalArgumentException.class,
+                () -> service.record(communityId, sessionId, "manager", invalid));
+        verifyNoInteractions(competition);
     }
 
 }
