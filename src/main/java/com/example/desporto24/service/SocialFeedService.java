@@ -112,59 +112,22 @@ public class SocialFeedService {
 
         Profile author = profile(username);
         Session linkedSession = resolvePublicSession(sessionId);
-        String baseKey = "posts/" + author.getId() + "/" + UUID.randomUUID();
-        URI uri = mediaStorage.store(baseKey, image);
-        String storageKey = storageKey(uri);
-
-        SocialPost post = postRepository.save(SocialPost.builder()
-                .author(author)
-                .session(linkedSession)
-                .content(normalizedContent)
-                .locationLabel(normalizePostLocation(location))
-                .imageUrl(uri.toString())
-                .imageStorageKey(storageKey)
-                .createdAt(Instant.now())
-                .build());
-
-        return postItem(post, author);
-    }
-
-    public FeedItemResponse createPostWithMedia(
-            String username, String content, MultipartFile image,
-            MultipartFile video, Long sessionId) {
-        return createPostWithMedia(username, content, image, video, sessionId, null);
-    }
-
-    public FeedItemResponse createPostWithMedia(
-            String username, String content, MultipartFile image,
-            MultipartFile video, Long sessionId, String location) {
-        if (image != null && !image.isEmpty() && video != null && !video.isEmpty()) {
-            throw new IllegalArgumentException("Only one photo or video per post");
-        }
-        if (video == null || video.isEmpty()) {
-            return createPostWithImage(username, content, image, sessionId, location);
-        }
-        String normalized = content == null ? "" : content.trim();
-        if (normalized.length() > 1000) {
-            throw new IllegalArgumentException("A publicação não pode ter mais de 1000 caracteres");
-        }
-        if (mediaStorage == null) {
-            throw new IllegalStateException("Media storage is not configured");
-        }
-        Profile author = profile(username);
-        Session linkedSession = resolvePublicSession(sessionId);
+        String normalizedLocation = normalizePostLocation(location);
+        String normalizedLocation = normalizePostLocation(location);
         String baseKey = "posts/" + author.getId() + "/" + UUID.randomUUID();
         URI uri = mediaStorage.storeVideo(baseKey, video);
-        SocialPost post = postRepository.save(SocialPost.builder()
-                .author(author)
-                .session(linkedSession)
-                .content(normalized)
-                .locationLabel(normalizePostLocation(location))
-                .videoUrl(uri.toString())
-                .videoStorageKey(storageKey(uri))
-                .createdAt(Instant.now())
-                .build());
-        return postItem(post, author);
+        String key = storageKey(uri);
+        try {
+            SocialPost post = postRepository.save(SocialPost.builder()
+                    .author(author).session(linkedSession)
+                    .content(normalized).locationLabel(normalizedLocation)
+                    .videoUrl(uri.toString()).videoStorageKey(key)
+                    .createdAt(Instant.now()).build());
+            return postItem(post, author);
+        } catch (RuntimeException failure) {
+            deleteFailedUpload(key, failure);
+            throw failure;
+        }
     }
 
     /** One publication with an ordered gallery; storage is cleaned on upload or DB failure. */
@@ -190,6 +153,7 @@ public class SocialFeedService {
         if (mediaStorage == null) throw new IllegalStateException("Media storage is not configured");
         Profile author = profile(username);
         Session linkedSession = resolvePublicSession(sessionId);
+        String normalizedLocation = normalizePostLocation(location);
         java.util.List<com.example.desporto24.model.social.PublicPostMedia> stored = new java.util.ArrayList<>();
         try {
             for (MultipartFile file : files) {
@@ -208,7 +172,7 @@ public class SocialFeedService {
                     .author(author)
                     .session(linkedSession)
                     .content(normalized)
-                    .locationLabel(normalizePostLocation(location))
+                    .locationLabel(normalizedLocation)
                     .imageUrl(first.getMimeType().startsWith("image/") ? first.getUrl() : null)
                     .imageStorageKey(first.getMimeType().startsWith("image/") ? first.getStorageKey() : null)
                     .videoUrl(first.getMimeType().startsWith("video/") ? first.getUrl() : null)
@@ -223,6 +187,15 @@ public class SocialFeedService {
                 catch (RuntimeException ignored) { failure.addSuppressed(ignored); }
             }
             throw failure;
+        }
+    }
+
+    private void deleteFailedUpload(String key, RuntimeException failure) {
+        if (key == null || mediaStorage == null) return;
+        try {
+            mediaStorage.delete(key);
+        } catch (RuntimeException cleanupFailure) {
+            failure.addSuppressed(cleanupFailure);
         }
     }
 
