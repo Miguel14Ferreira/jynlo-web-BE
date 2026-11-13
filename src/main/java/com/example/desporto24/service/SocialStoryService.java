@@ -99,7 +99,16 @@ public class SocialStoryService {
     @Transactional
     public StoryResponse create(String username, Long communityId, String caption,
                                 MultipartFile image, MultipartFile video) {
+        return create(username, communityId, caption, image, video, null, null, null);
+    }
+
+    public StoryResponse create(String username, Long communityId, String caption,
+                                MultipartFile image, MultipartFile video,
+                                String position, String scale, String style) {
         Profile actor = actor(username);
+        String safePosition = allowedStoryOption(position, Set.of("top", "center", "bottom"), "bottom");
+        String safeScale = allowedStoryOption(scale, Set.of("small", "medium", "large"), "medium");
+        String safeStyle = allowedStoryOption(style, Set.of("plain", "pill"), "pill");
         boolean hasImage = image != null && !image.isEmpty();
         boolean hasVideo = video != null && !video.isEmpty();
         if (hasImage == hasVideo) {
@@ -129,6 +138,7 @@ public class SocialStoryService {
         try {
             SocialStory story = stories.save(SocialStory.builder()
                     .author(actor).community(group).caption(text)
+                    .textPosition(safePosition).textScale(safeScale).textStyle(safeStyle)
                     .mediaUrl(uri.toString()).mediaStorageKey(objectKey)
                     .video(hasVideo).createdAt(now).expiresAt(now.plus(24, ChronoUnit.HOURS))
                     .build());
@@ -316,7 +326,17 @@ public class SocialStoryService {
                 story.getCaption(), story.getMediaUrl(), story.isVideo(),
                 story.getCreatedAt(), story.getExpiresAt(),
                 author.getId().equals(actor.getId()) || (group != null && canManage(group, actor)),
-                likeCount, likedByMe);
+                likeCount, likedByMe,
+                story.getTextPosition() == null ? "bottom" : story.getTextPosition(),
+                story.getTextScale() == null ? "medium" : story.getTextScale(),
+                story.getTextStyle() == null ? "pill" : story.getTextStyle());
+    }
+
+    private static String allowedStoryOption(String choice, Set<String> allowed, String fallback) {
+        if (choice == null || choice.isBlank()) return fallback;
+        if (!allowed.contains(choice))
+            throw new IllegalArgumentException("Invalid Story caption formatting");
+        return choice;
     }
 
     private Profile actor(String username) {
