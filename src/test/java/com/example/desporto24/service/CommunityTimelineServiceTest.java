@@ -284,6 +284,64 @@ class CommunityTimelineServiceTest {
     }
 
     @Test
+    void galleryPublishesTwoPhotosAsOnePostWithOrderedMedia() {
+        setup(member, true);
+        MediaStorage media = mock(MediaStorage.class);
+        ReflectionTestUtils.setField(service, "mediaStorage", media);
+        var first = new MockMultipartFile("files", "one.jpg", "image/jpeg", new byte[]{1, 2});
+        var second = new MockMultipartFile("files", "two.png", "image/png", new byte[]{3, 4});
+        when(media.store(startsWith("community-posts/7/"), same(first)))
+                .thenReturn(URI.create("/media/community-posts/7/first.jpg"));
+        when(media.store(startsWith("community-posts/7/"), same(second)))
+                .thenReturn(URI.create("/media/community-posts/7/second.png"));
+        when(timelines.save(any())).thenAnswer(invocation -> {
+            CommunityTimelineEntry entry = invocation.getArgument(0);
+            entry.setId(108L);
+            return entry;
+        });
+
+        var posted = service.postWithAlbum(7L, "", List.of(first, second), "member");
+        assertEquals(108L, posted.id());
+        assertEquals("", posted.body(), "Image-only posts are supported");
+        assertEquals("/media/community-posts/7/first.jpg", posted.imageUrl());
+        assertEquals(1, posted.extraMedia().size());
+        assertEquals("/media/community-posts/7/second.png", posted.extraMedia().get(0).url());
+        verify(timelines, times(1)).save(argThat(entry ->
+                entry.getKind() == Kind.POST && entry.getExtraMedia().size() == 1));
+        verify(media, times(2)).store(anyString(), any());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void galleryFailureCleansUpAlreadyUploadedObjectsWithoutCreatingPost() {
+        setup(owner, true);
+        MediaStorage media = mock(MediaStorage.class);
+        ReflectionTestUtils.setField(service, "mediaStorage", media);
+        var first = new MockMultipartFile("files", "one.jpg", "image/jpeg", new byte[]{1});
+        var broken = new MockMultipartFile("files", "two.png", "image/png", new byte[]{2});
+        when(media.store(startsWith("community-posts/7/"), same(first)))
+                .thenReturn(URI.create("/media/community-posts/7/first.jpg"));
+        when(media.store(startsWith("community-posts/7/"), same(broken)))
+                .thenThrow(new IllegalStateException("Storage unavailable"));
+
+        assertThrows(IllegalStateException.class,
+                () -> service.postWithAlbum(7L, "Photos", List.of(first, broken), "owner"));
+        verify(media).delete("community-posts/7/first.jpg");
+        verify(timelines, never()).save(any());
+    }
+
+    @Test
+    void galleryRejectsOutsidersBeforeWritingPhotos() {
+        setup(outsider, false);
+        MediaStorage media = mock(MediaStorage.class);
+        ReflectionTestUtils.setField(service, "mediaStorage", media);
+        var image = new MockMultipartFile("files", "one.jpg", "image/jpeg", new byte[]{1});
+        assertThrows(AccessDeniedException.class,
+                () -> service.postWithAlbum(7L, "", List.of(image), "outsider"));
+        verifyNoInteractions(media, timelines);
+    }
+
+    @Test
     void outsidersCannotUploadEvenBeforeMediaValidationOrStorage() {
         setup(outsider, false);
         MediaStorage media = mock(MediaStorage.class);
