@@ -37,8 +37,12 @@ public class SocialStoryController {
                                  @RequestPart(value = "communityId", required = false) Long communityId,
                                  @RequestPart(value = "image", required = false) MultipartFile image,
                                  @RequestPart(value = "video", required = false) MultipartFile video,
+                                 @RequestPart(value = "textPosition", required = false) String textPosition,
+                                 @RequestPart(value = "textScale", required = false) String textScale,
+                                 @RequestPart(value = "textStyle", required = false) String textStyle,
                                  Authentication auth) {
-        return stories.create(auth.getName(), communityId, caption, image, video);
+        return stories.create(auth.getName(), communityId, caption, image, video,
+                textPosition, textScale, textStyle);
     }
 
     @GetMapping("/me/replies")
