@@ -16,7 +16,7 @@ final class CommunityTeamFinalResults {
     private CommunityTeamFinalResults() {}
 
     static boolean isTeamFinalEvent(String type) {
-        return "HANDBALL_FINAL".equals(type) || "RUGBY_FINAL".equals(type)
+        return "FOOTBALL_FINAL".equals(type) || "HANDBALL_FINAL".equals(type) || "RUGBY_FINAL".equals(type)
                 || "RUGBY_SEVENS_FINAL".equals(type)
                 || "FUTSAL_FINAL".equals(type)
                 || "FIELD_HOCKEY_FINAL".equals(type)
@@ -51,7 +51,8 @@ final class CommunityTeamFinalResults {
                 throw new IllegalArgumentException("Marcador coletivo incompatível com a prova");
             return null;
         }
-        boolean allowed = "Andebol".equals(sport) && "HANDBALL_FINAL".equals(eventType)
+        boolean allowed = "Futebol".equals(sport) && "FOOTBALL_FINAL".equals(eventType)
+                || "Andebol".equals(sport) && "HANDBALL_FINAL".equals(eventType)
                 || "Rugby".equals(sport) && "RUGBY_FINAL".equals(eventType)
                 || "Rugby Sevens".equals(sport) && "RUGBY_SEVENS_FINAL".equals(eventType)
                 || "Futsal".equals(sport) && "FUTSAL_FINAL".equals(eventType)
@@ -132,6 +133,50 @@ final class CommunityTeamFinalResults {
                 || Math.min(score.sideA(), score.sideB()) >= petanqueTarget))
             throw new IllegalArgumentException(
                     "Petanca: uma equipa tem de atingir exatamente os pontos do formato selecionado");
+        // Football rounds carry both a real official score and individual
+        // W/D/L, goals and assists. The other team-final formats intentionally
+        // remain neutral and reject individual football statistics.
+        if ("FOOTBALL_FINAL".equals(eventType)) {
+            com.example.desporto24.enumeration.CommunityMatchResult aResult =
+                    score.sideA().equals(score.sideB())
+                            ? CommunityMatchResult.DRAW
+                            : score.sideA() > score.sideB()
+                                ? CommunityMatchResult.WIN : CommunityMatchResult.LOSS;
+            com.example.desporto24.enumeration.CommunityMatchResult bResult =
+                    score.sideA().equals(score.sideB())
+                            ? CommunityMatchResult.DRAW
+                            : score.sideB() > score.sideA()
+                                ? CommunityMatchResult.WIN : CommunityMatchResult.LOSS;
+            int teamA = 0, teamB = 0, knownGoalsA = 0, knownGoalsB = 0;
+            for (CommunityRoundEntryRequest e : entries) {
+                if (e == null) throw new IllegalArgumentException("Jogador inválido");
+                if ("A".equals(e.team())) {
+                    teamA++;
+                    if (e.result() != aResult)
+                        throw new IllegalArgumentException("Vitória ou empate incompatível com o marcador");
+                    knownGoalsA += e.goals() == null ? 0 : e.goals();
+                } else if ("B".equals(e.team())) {
+                    teamB++;
+                    if (e.result() != bResult)
+                        throw new IllegalArgumentException("Vitória ou empate incompatível com o marcador");
+                    knownGoalsB += e.goals() == null ? 0 : e.goals();
+                } else throw new IllegalArgumentException("Associa cada jogador à equipa A ou B");
+                if (e.goals() != null && (e.goals() < 0 || e.goals() > 99)
+                        || e.assists() != null && (e.assists() < 0 || e.assists() > 99)
+                        || e.mvp() || e.cleanSheet() || e.finishPosition() != null
+                        || e.elapsedSeconds() != null || e.bestLapSeconds() != null
+                        || e.lapsCompleted() != null || e.performanceValue() != null
+                        || e.waveScore1() != null || e.waveScore2() != null)
+                    throw new IllegalArgumentException("Dados individuais incompatíveis com Futebol");
+            }
+            if (teamA == 0 || teamB == 0)
+                throw new IllegalArgumentException("Regista jogadores nas duas equipas");
+            // Some goals may be own goals or have unreported scorers; only
+            // prevent known goals exceeding the final, never infer equality.
+            if (knownGoalsA > score.sideA() || knownGoalsB > score.sideB())
+                throw new IllegalArgumentException("Golos atribuídos excedem o marcador oficial");
+            return score;
+        }
         int a = 0, b = 0;
         for (CommunityRoundEntryRequest e : entries) {
             if ("A".equals(e.team())) a++;
