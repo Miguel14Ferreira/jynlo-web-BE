@@ -846,6 +846,14 @@ public class CommunityController {
      * Fast post-game result only for sessions owned by this community and with
      * community standings enabled. Never infer players, winners or score.
      */
+    @GetMapping("/{id}/sessions/{sessionId}/competition-result/capabilities")
+    public ResponseEntity<com.example.desporto24.service.CommunitySessionResultService.ResultCapabilities>
+            communitySessionResultCapabilities(@PathVariable Long id, @PathVariable Long sessionId,
+                                               Authentication authentication) {
+        return ResponseEntity.ok(communitySessionResultService.capabilities(
+                id, sessionId, authentication.getName()));
+    }
+
     @GetMapping("/{id}/sessions/{sessionId}/competition-result/roster")
     public ResponseEntity<List<com.example.desporto24.model.dto.session.SessionParticipantResponse>>
             communitySessionResultRoster(@PathVariable Long id, @PathVariable Long sessionId,
