@@ -170,6 +170,11 @@ public class SocialFeedController {
         return feedService.editPost(postId, authentication.getName(), request);
     }
 
+    @GetMapping("/posts/hidden")
+    public List<FeedItemResponse> hiddenPosts(Authentication authentication) {
+        return feedService.hiddenPosts(authentication.getName());
+    }
+
     @PutMapping("/posts/{postId}/hide")
     public ResponseEntity<Void> hidePost(@PathVariable Long postId, Authentication authentication) {
         feedService.hidePost(postId, authentication.getName());
