@@ -163,7 +163,6 @@ class SocialStoryServiceTest {
         teammate.setId(22L);
         teammate.setUsername("ana");
         when(profiles.findUserByUsernameIgnoreCase("ana")).thenReturn(Optional.of(teammate));
-        when(friends.findConnection(19L, 22L)).thenReturn(Optional.of(new Friend()));
         when(storage.store(startsWith("stories/19/"), same(image)))
                 .thenReturn(URI.create("/media/stories/19/photo.jpg"));
         when(stories.save(any(SocialStory.class))).thenAnswer(call -> {
@@ -182,13 +181,13 @@ class SocialStoryServiceTest {
     }
 
     @Test
-    void rejectsTaggingAnExistingNonFriendBeforeMediaUpload() {
+    void rejectsTaggingABlockedProfileBeforeMediaUpload() {
         MockMultipartFile image = new MockMultipartFile("image", "photo.jpg", "image/jpeg", new byte[]{1});
         Profile stranger = new Profile();
         stranger.setId(23L);
         stranger.setUsername("stranger");
         when(profiles.findUserByUsernameIgnoreCase("stranger")).thenReturn(Optional.of(stranger));
-        when(friends.findConnection(19L, 23L)).thenReturn(Optional.empty());
+        when(userBlockService.isBlockedBetween(actor, stranger)).thenReturn(true);
         assertThrows(AccessDeniedException.class,
                 () -> service.create("joao", null, "Olá", image, null,
                         "bottom", "medium", "pill", null, false, "Benfica", "stranger"));
