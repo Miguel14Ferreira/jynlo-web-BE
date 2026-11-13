@@ -14,6 +14,7 @@ import com.example.desporto24.repository.social.SocialStoryLikeRepository;
 import com.example.desporto24.enumeration.NotificationType;
 import org.springframework.context.ApplicationEventPublisher;
 import com.example.desporto24.repository.ProfileRepository;
+import com.example.desporto24.repository.FriendRepository;
 import com.example.desporto24.repository.community.CommunityMemberRepository;
 import com.example.desporto24.repository.community.CommunityRepository;
 import com.example.desporto24.repository.social.ProfileFollowRepository;
@@ -50,6 +51,7 @@ public class SocialStoryService {
     private final ApplicationEventPublisher events;
     private final UserBlockService userBlockService;
     private final ProfileRepository profiles;
+    private final FriendRepository friends;
     private final CommunityRepository communities;
     private final CommunityMemberRepository memberships;
     private final ProfileFollowRepository follows;
@@ -138,6 +140,10 @@ public class SocialStoryService {
                     .orElseThrow(() -> new IllegalArgumentException("Tagged profile not found"));
             if (userBlockService.isBlockedBetween(actor, target))
                 throw new AccessDeniedException("Cannot tag a blocked profile");
+            // The API must enforce the same accepted-friend boundary as the
+            // creator, including when an old client submits a raw username.
+            if (friends.findConnection(actor.getId(), target.getId()).isEmpty())
+                throw new AccessDeniedException("Only accepted friends may be tagged");
         }
         String serializedTags = String.join(",", tags);
         String safePosition = allowedStoryOption(position, Set.of("top", "center", "bottom"), "bottom");
