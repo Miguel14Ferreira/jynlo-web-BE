@@ -255,6 +255,29 @@ public class SocialFeedService {
         return clean;
     }
 
+    /** Only the author can change text/location. Attachments and session links stay intact. */
+    public FeedItemResponse editPost(Long postId, String username,
+            com.example.desporto24.model.dto.social.EditSocialPostRequest request) {
+        Profile actor = profile(username);
+        SocialPost post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação não encontrada"));
+        if (post.getActivityType() != null)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação não encontrada");
+        if (!post.getAuthor().getId().equals(actor.getId()))
+            throw new AccessDeniedException("Só o autor pode editar a publicação");
+        String content = request.content() == null ? null : request.content().strip();
+        if (content == null || content.length() > 1000)
+            throw new IllegalArgumentException("Descrição inválida");
+        if (content.isEmpty() && post.getImageUrl() == null && post.getVideoUrl() == null
+                && (post.getExtraMedia() == null || post.getExtraMedia().isEmpty()))
+            throw new IllegalArgumentException("A publicação não pode ficar vazia");
+        String location = normalizePostLocation(request.location());
+        post.setContent(content);
+        post.setLocationLabel(location);
+        postRepository.saveAndFlush(post);
+        return postItem(post, actor);
+    }
+
     public void deletePost(Long postId, String username) {
         Profile actor = profile(username);
         SocialPost post = postRepository.findById(postId)
