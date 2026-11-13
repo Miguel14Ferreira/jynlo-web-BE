@@ -416,3 +416,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-13-community-live-events.yaml
   - include:
       file: db/changelog/changes/2026-11-13-community-live-host-heartbeat.yaml
+  - include:
+      file: db/changelog/changes/2026-11-13-hidden-feed-posts.yaml
