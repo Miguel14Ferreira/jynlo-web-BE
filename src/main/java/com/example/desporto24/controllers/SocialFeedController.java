@@ -163,6 +163,13 @@ public class SocialFeedController {
         return ResponseEntity.accepted().build();
     }
 
+    @PutMapping("/posts/{postId}")
+    public FeedItemResponse editPost(@PathVariable Long postId,
+            @RequestBody @Valid com.example.desporto24.model.dto.social.EditSocialPostRequest request,
+            Authentication authentication) {
+        return feedService.editPost(postId, authentication.getName(), request);
+    }
+
     @DeleteMapping("/posts/{postId}")
     public ResponseEntity<Void> deletePost(
             @PathVariable Long postId,
