@@ -282,6 +282,99 @@ public class SocialFeedService {
         return postItem(post, actor);
     }
 
+    /**
+     * Replace the gallery in one edit while retaining the same post ID, likes and comments.
+     * Upload all replacement assets before modifying the entity. On any failure,
+     * clean up the new assets; keep the original post/media untouched.
+     */
+    public FeedItemResponse editPostWithMedia(Long postId, String username, String content,
+            String location, List<MultipartFile> replacementFiles, boolean replaceMedia) {
+        Profile actor = profile(username);
+        SocialPost post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação não encontrada"));
+        if (post.getActivityType() != null)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação não encontrada");
+        if (!post.getAuthor().getId().equals(actor.getId()))
+            throw new AccessDeniedException("Só o autor pode editar a publicação");
+        String normalized = content == null ? null : content.strip();
+        if (normalized == null || normalized.length() > 1000)
+            throw new IllegalArgumentException("Descrição inválida");
+        String safeLocation = normalizePostLocation(location);
+        List<MultipartFile> files = replacementFiles == null ? List.of() : replacementFiles;
+        if (!replaceMedia && !files.isEmpty())
+            throw new IllegalArgumentException("A substituição de multimédia deve ser confirmada");
+        if (replaceMedia && files.size() > 6)
+            throw new IllegalArgumentException("Máximo de 6 ficheiros");
+        long total = files.stream().mapToLong(file -> file == null ? 0 : file.getSize()).sum();
+        if (replaceMedia && (total > 60L * 1024 * 1024 ||
+                files.stream().anyMatch(file -> file == null || file.isEmpty() ||
+                        file.getSize() > 20L * 1024 * 1024)))
+            throw new IllegalArgumentException("Os ficheiros não podem exceder 60 MB no total");
+        if (normalized.isEmpty() && (replaceMedia ? files.isEmpty()
+                : post.getImageUrl() == null && post.getVideoUrl() == null &&
+                  (post.getExtraMedia() == null || post.getExtraMedia().isEmpty())))
+            throw new IllegalArgumentException("A publicação não pode ficar vazia");
+        if (replaceMedia && !files.isEmpty() && mediaStorage == null)
+            throw new IllegalStateException("Media storage is not configured");
+
+        List<com.example.desporto24.model.social.PublicPostMedia> stored = new ArrayList<>();
+        List<String> oldKeys = new ArrayList<>();
+        if (replaceMedia) {
+            if (post.getImageStorageKey() != null) oldKeys.add(post.getImageStorageKey());
+            if (post.getVideoStorageKey() != null) oldKeys.add(post.getVideoStorageKey());
+            if (post.getExtraMedia() != null) post.getExtraMedia().forEach(m -> {
+                if (m.getStorageKey() != null) oldKeys.add(m.getStorageKey());
+            });
+        }
+        try {
+            for (MultipartFile file : files) {
+                String mime = file.getContentType() == null ? "" :
+                        file.getContentType().toLowerCase(java.util.Locale.ROOT);
+                String key = "posts/" + actor.getId() + "/" + UUID.randomUUID();
+                URI url = switch (mime) {
+                    case "image/jpeg", "image/png", "image/webp" -> mediaStorage.store(key, file);
+                    case "video/mp4", "video/webm" -> mediaStorage.storeVideo(key, file);
+                    default -> throw new IllegalArgumentException("Formato de media não suportado");
+                };
+                stored.add(new com.example.desporto24.model.social.PublicPostMedia(
+                        url.toString(), storageKey(url), mime));
+            }
+
+            post.setContent(normalized);
+            post.setLocationLabel(safeLocation);
+            if (replaceMedia) {
+                post.setImageUrl(null);
+                post.setImageStorageKey(null);
+                post.setVideoUrl(null);
+                post.setVideoStorageKey(null);
+                var first = stored.isEmpty() ? null : stored.get(0);
+                if (first != null) {
+                    if (first.getMimeType().startsWith("image/")) {
+                        post.setImageUrl(first.getUrl());
+                        post.setImageStorageKey(first.getStorageKey());
+                    } else {
+                        post.setVideoUrl(first.getUrl());
+                        post.setVideoStorageKey(first.getStorageKey());
+                    }
+                }
+                if (post.getExtraMedia() == null)
+                    post.setExtraMedia(new ArrayList<>());
+                post.getExtraMedia().clear();
+                if (stored.size() > 1) post.getExtraMedia().addAll(stored.subList(1, stored.size()));
+            }
+            postRepository.saveAndFlush(post);
+        } catch (RuntimeException failure) {
+            for (var asset : stored) deleteFailedUpload(asset.getStorageKey(), failure);
+            throw failure;
+        }
+        // Deletion is best-effort after the database update so old assets are not lost on failure.
+        if (replaceMedia && mediaStorage != null)
+            for (String key : oldKeys) {
+                try { mediaStorage.delete(key); } catch (RuntimeException ignored) { /* Orphan cleanup */ }
+            }
+        return postItem(post, actor);
+    }
+
     /** Hide an authored post only for the requesting viewer, without removing it publicly. */
     public void hidePost(Long postId, String username) {
         Profile viewer = profile(username);
