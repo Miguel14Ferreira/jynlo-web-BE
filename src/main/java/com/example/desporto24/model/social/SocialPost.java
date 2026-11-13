@@ -39,6 +39,10 @@ public class SocialPost {
     @Column(nullable = false, length = 1000)
     private String content;
 
+    /** Voluntary place label, never derived from the user's GPS. */
+    @Column(name = "location_label", length = 160)
+    private String locationLabel;
+
     @Column(name = "image_url", length = 1200)
     private String imageUrl;
 
