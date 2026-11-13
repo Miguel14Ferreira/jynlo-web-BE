@@ -25,6 +25,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URI;
@@ -367,11 +369,30 @@ public class SocialFeedService {
             for (var asset : stored) deleteFailedUpload(asset.getStorageKey(), failure);
             throw failure;
         }
-        // Deletion is best-effort after the database update so old assets are not lost on failure.
-        if (replaceMedia && mediaStorage != null)
-            for (String key : oldKeys) {
-                try { mediaStorage.delete(key); } catch (RuntimeException ignored) { /* Orphan cleanup */ }
+        // Defer deletion until the database transaction commits: a failed commit
+        // must not leave the original publication pointing at deleted objects.
+        if (replaceMedia && mediaStorage != null) {
+            List<String> uploadedKeys = stored.stream()
+                    .map(com.example.desporto24.model.social.PublicPostMedia::getStorageKey)
+                    .filter(java.util.Objects::nonNull).toList();
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override public void afterCompletion(int status) {
+                        var keys = status == TransactionSynchronization.STATUS_COMMITTED
+                                ? oldKeys : uploadedKeys;
+                        for (String key : keys) {
+                            try { mediaStorage.delete(key); }
+                            catch (RuntimeException ignored) { /* retry orphan cleanup independently */ }
+                        }
+                    }
+                });
+            } else {
+                for (String key : oldKeys) {
+                    try { mediaStorage.delete(key); }
+                    catch (RuntimeException ignored) { /* retry orphan cleanup independently */ }
+                }
             }
+        }
         return postItem(post, actor);
     }
 
