@@ -9,7 +9,19 @@ public record StoryResponse(
         Instant createdAt, Instant expiresAt, boolean canDelete,
         long likeCount, boolean likedByMe,
         String textPosition, String textScale, String textStyle,
-        String altText, boolean showTime) {
+        String altText, boolean showTime,
+        String locationLabel, String taggedUsernames) {
+    public StoryResponse(Long id, String authorUsername, String displayName, String avatarUrl,
+            Long communityId, String communityName, String communityPhotoUrl,
+            String caption, String mediaUrl, boolean video,
+            Instant createdAt, Instant expiresAt, boolean canDelete,
+            long likeCount, boolean likedByMe,
+            String textPosition, String textScale, String textStyle,
+            String altText, boolean showTime) {
+        this(id, authorUsername, displayName, avatarUrl, communityId, communityName,
+             communityPhotoUrl, caption, mediaUrl, video, createdAt, expiresAt, canDelete,
+             likeCount, likedByMe, textPosition, textScale, textStyle, altText, showTime, null, null);
+    }
     public StoryResponse(Long id, String authorUsername, String displayName, String avatarUrl,
             Long communityId, String communityName, String communityPhotoUrl,
             String caption, String mediaUrl, boolean video,
