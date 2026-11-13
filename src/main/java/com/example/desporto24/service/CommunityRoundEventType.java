@@ -451,6 +451,10 @@ final class CommunityRoundEventType {
     }
 
     static boolean isNeutralEvent(String sport, String eventType) {
+        // Unlike neutral team-total events, an official football score still
+        // represents ordinary player W/D/L standings and must be counted.
+        if ("Futebol".equals(sport) && "FOOTBALL_FINAL".equals(eventType))
+            return false;
         return eventType != null && !isRaceEvent(sport, eventType);
     }
 }
