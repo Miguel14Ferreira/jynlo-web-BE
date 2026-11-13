@@ -422,3 +422,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-13-story-creative-text.yaml
   - include:
       file: db/changelog/changes/2026-11-13-story-accessibility.yaml
+  - include:
+      file: db/changelog/changes/2026-11-13-story-places-tags.yaml
