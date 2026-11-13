@@ -72,6 +72,7 @@ public class SocialFeedService {
                 .author(author)
                 .session(linkedSession)
                 .content(request.content().trim())
+                .locationLabel(normalizePostLocation(request.location()))
                 .createdAt(Instant.now())
                 .build());
 
@@ -86,10 +87,12 @@ public class SocialFeedService {
     }
 
     public FeedItemResponse createPostWithImage(
-            String username,
-            String content,
-            MultipartFile image,
-            Long sessionId) {
+            String username, String content, MultipartFile image, Long sessionId) {
+        return createPostWithImage(username, content, image, sessionId, null);
+    }
+
+    public FeedItemResponse createPostWithImage(
+            String username, String content, MultipartFile image, Long sessionId, String location) {
         String normalizedContent = content == null ? "" : content.trim();
 
         if (normalizedContent.length() > 1000) {
@@ -100,7 +103,7 @@ public class SocialFeedService {
                 throw new IllegalArgumentException("A publicação não pode estar vazia");
             return createPost(
                     username,
-                    new CreateSocialPostRequest(normalizedContent, sessionId)
+                    new CreateSocialPostRequest(normalizedContent, sessionId, location)
             );
         }
         if (mediaStorage == null) {
@@ -117,6 +120,7 @@ public class SocialFeedService {
                 .author(author)
                 .session(linkedSession)
                 .content(normalizedContent)
+                .locationLabel(normalizePostLocation(location))
                 .imageUrl(uri.toString())
                 .imageStorageKey(storageKey)
                 .createdAt(Instant.now())
@@ -128,11 +132,17 @@ public class SocialFeedService {
     public FeedItemResponse createPostWithMedia(
             String username, String content, MultipartFile image,
             MultipartFile video, Long sessionId) {
+        return createPostWithMedia(username, content, image, video, sessionId, null);
+    }
+
+    public FeedItemResponse createPostWithMedia(
+            String username, String content, MultipartFile image,
+            MultipartFile video, Long sessionId, String location) {
         if (image != null && !image.isEmpty() && video != null && !video.isEmpty()) {
             throw new IllegalArgumentException("Only one photo or video per post");
         }
         if (video == null || video.isEmpty()) {
-            return createPostWithImage(username, content, image, sessionId);
+            return createPostWithImage(username, content, image, sessionId, location);
         }
         String normalized = content == null ? "" : content.trim();
         if (normalized.length() > 1000) {
@@ -149,6 +159,7 @@ public class SocialFeedService {
                 .author(author)
                 .session(linkedSession)
                 .content(normalized)
+                .locationLabel(normalizePostLocation(location))
                 .videoUrl(uri.toString())
                 .videoStorageKey(storageKey(uri))
                 .createdAt(Instant.now())
@@ -159,6 +170,11 @@ public class SocialFeedService {
     /** One publication with an ordered gallery; storage is cleaned on upload or DB failure. */
     public FeedItemResponse createPostWithAlbum(String username, String content,
             java.util.List<MultipartFile> files, Long sessionId) {
+        return createPostWithAlbum(username, content, files, sessionId, null);
+    }
+
+    public FeedItemResponse createPostWithAlbum(String username, String content,
+            java.util.List<MultipartFile> files, Long sessionId, String location) {
         if (files == null || files.isEmpty() || files.size() > 6) {
             throw new IllegalArgumentException("Escolhe entre 1 e 6 fotografias ou vídeos");
         }
@@ -192,6 +208,7 @@ public class SocialFeedService {
                     .author(author)
                     .session(linkedSession)
                     .content(normalized)
+                    .locationLabel(normalizePostLocation(location))
                     .imageUrl(first.getMimeType().startsWith("image/") ? first.getUrl() : null)
                     .imageStorageKey(first.getMimeType().startsWith("image/") ? first.getStorageKey() : null)
                     .videoUrl(first.getMimeType().startsWith("video/") ? first.getUrl() : null)
@@ -207,6 +224,14 @@ public class SocialFeedService {
             }
             throw failure;
         }
+    }
+
+    private String normalizePostLocation(String location) {
+        if (location == null || location.isBlank()) return null;
+        String clean = location.strip().replaceAll("[\\p{Cntrl}]", " ");
+        if (clean.length() > 160)
+            throw new IllegalArgumentException("Localização demasiado longa (máximo 160 caracteres)");
+        return clean;
     }
 
     public void deletePost(Long postId, String username) {
@@ -427,7 +452,8 @@ public class SocialFeedService {
                 post.isHideLikers(),
                 post.getExtraMedia() == null ? java.util.List.of() : post.getExtraMedia().stream()
                     .map(asset -> new com.example.desporto24.model.dto.social.PublicPostMediaResponse(
-                            asset.getUrl(), asset.getMimeType())).toList()
+                            asset.getUrl(), asset.getMimeType())).toList(),
+                post.getLocationLabel()
         );
     }
 
