@@ -38,12 +38,14 @@ public class ProfileFollowController {
     }
 
     @GetMapping("/{username}/followers")
-    public List<FollowProfileResponse> followers(@PathVariable String username) {
-        return followService.followers(username);
+    public List<FollowProfileResponse> followers(@PathVariable String username,
+            Authentication authentication) {
+        return followService.followers(username,authentication.getName());
     }
 
     @GetMapping("/{username}/following")
-    public List<FollowProfileResponse> following(@PathVariable String username) {
-        return followService.following(username);
+    public List<FollowProfileResponse> following(@PathVariable String username,
+            Authentication authentication) {
+        return followService.following(username,authentication.getName());
     }
 }
