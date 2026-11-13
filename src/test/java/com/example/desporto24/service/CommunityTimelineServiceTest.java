@@ -559,6 +559,44 @@ class CommunityTimelineServiceTest {
         order.verify(storage).delete(chat.getAttachmentKey());
     }
 
+    @Test
+    void communityAuthorMayEditCaptionWithoutReplacingImages() {
+        setup(member, true);
+        var post = entry(501L, Kind.POST, member);
+        post.setImageUrl("/media/first.jpg");
+        when(timelines.findById(501L)).thenReturn(Optional.of(post));
+        var response = service.editPost(7L, 501L, " Atualização ", "member");
+        assertEquals("Atualização", response.body());
+        assertEquals("/media/first.jpg", response.imageUrl());
+        assertNotNull(response.editedAt());
+        verify(timelines).saveAndFlush(post);
+    }
+
+    @Test
+    void communityManagersCannotImpersonateAuthorsAndChatCannotUsePostEdit() {
+        setup(owner, true);
+        var post = entry(502L, Kind.POST, member);
+        when(timelines.findById(502L)).thenReturn(Optional.of(post));
+        assertThrows(AccessDeniedException.class,
+                () -> service.editPost(7L, 502L, "Escrito por outra pessoa", "owner"));
+        var chat = entry(502L, Kind.CHAT, owner);
+        when(timelines.findById(502L)).thenReturn(Optional.of(chat));
+        assertEquals(404, assertThrows(ResponseStatusException.class,
+                () -> service.editPost(7L, 502L, "Alterado", "owner")).getStatusCode().value());
+        verify(timelines, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void communityPostCannotBecomeEmptyWithoutMedia() {
+        setup(member, true);
+        var post = entry(503L, Kind.POST, member);
+        when(timelines.findById(503L)).thenReturn(Optional.of(post));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.editPost(7L, 503L, " ", "member"));
+        assertEquals("Mensagem", post.getBody());
+        verify(timelines, never()).saveAndFlush(any());
+    }
+
     private CommunityTimelineEntry entry(Long id, Kind kind, Profile actor) {
         return CommunityTimelineEntry.builder()
                 .id(id).community(group).kind(kind).author(actor)
