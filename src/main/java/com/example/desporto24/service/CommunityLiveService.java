@@ -127,6 +127,11 @@ public class CommunityLiveService {
         Profile organizer = actor(username);
         Community community = accessible(communityId, organizer);
         requireOwner(community, organizer);
+        // Hold a row lock until this transaction commits, so two application
+        // replicas cannot both observe zero active events and start streams.
+        Community locked = communities.lockForLiveStart(communityId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        requireOwner(locked, organizer);
         CommunityLiveEvent event = find(communityId, eventId);
         if (event.getStatus() == Status.LIVE) return response(event, organizer);
         if (event.getStatus() != Status.SCHEDULED)
