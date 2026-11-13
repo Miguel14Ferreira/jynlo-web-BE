@@ -125,6 +125,20 @@ class CommunityLiveServiceTest {
     }
 
     @Test
+    void endingBroadcastClosesRoomAndRetriesWhenProviderFails() throws Exception {
+        when(provider.deleteLiveKitRoom("jynlo-live-community-7-25"))
+                .thenReturn(false, true);
+        service.end(7L, 25L, "organizador");
+        assertEquals(CommunityLiveEvent.Status.ENDED, live.getStatus());
+        // No active join tokens are minted after the application marks it ended.
+        assertThrows(ResponseStatusException.class, () -> service.join(7L, 25L, "espectador"));
+        service.closePendingRooms();
+        verify(provider, times(2)).deleteLiveKitRoom("jynlo-live-community-7-25");
+        service.closePendingRooms();
+        verify(provider, times(2)).deleteLiveKitRoom("jynlo-live-community-7-25");
+    }
+
+    @Test
     void preventsEarlyStartAndConcurrentLiveEvents() {
         live.setStatus(CommunityLiveEvent.Status.SCHEDULED);
         live.setScheduledAt(Instant.now().plusSeconds(3600));
