@@ -262,7 +262,8 @@ public class DirectCallService {
                 .build();
         int status = PROVIDER_HTTP.send(request, HttpResponse.BodyHandlers.discarding())
                 .statusCode();
-        return status >= 200 && status < 300;
+        // A room that no longer exists is already fully disconnected.
+        return (status >= 200 && status < 300) || status == 404;
     }
 
     @EventListener(ApplicationReadyEvent.class)
