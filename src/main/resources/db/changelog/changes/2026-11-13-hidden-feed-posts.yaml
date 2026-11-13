@@ -32,6 +32,20 @@ databaseChangeLog:
             tableName: social_post_hidden
             columnNames: viewer_id, post_id
             constraintName: uq_social_post_hidden_viewer_post
+        - addForeignKeyConstraint:
+            baseTableName: social_post_hidden
+            baseColumnNames: viewer_id
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_social_post_hidden_viewer
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: social_post_hidden
+            baseColumnNames: post_id
+            referencedTableName: social_post
+            referencedColumnNames: id
+            constraintName: fk_social_post_hidden_post
+            onDelete: CASCADE
         - createIndex:
             indexName: idx_social_post_hidden_viewer
             tableName: social_post_hidden
