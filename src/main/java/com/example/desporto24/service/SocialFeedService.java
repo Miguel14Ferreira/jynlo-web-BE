@@ -56,6 +56,7 @@ public class SocialFeedService {
     private final ProfileFollowRepository followRepository;
     private final SocialPostLikeRepository likeRepository;
     private final SocialPostCommentRepository commentRepository;
+    private final com.example.desporto24.repository.social.SocialPostCommentLikeRepository commentLikeRepository;
     private final ProfileRepository profileRepository;
     private final SessionRepository sessionRepository;
     private final SessionParticipantRepository participantRepository;
@@ -447,6 +448,7 @@ public class SocialFeedService {
         }
 
         likeRepository.deleteByPostId(postId);
+        commentLikeRepository.deleteByCommentPostId(postId);
         commentRepository.deleteByPostId(postId);
         // Remove viewers' preferences before removing the underlying publication.
         if (hiddenFeedPosts != null) hiddenFeedPosts.deleteByPostId(postId);
