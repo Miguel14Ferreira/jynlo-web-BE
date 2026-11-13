@@ -209,7 +209,7 @@ public class DirectCallService {
     protected boolean removeFromLiveKit(String room, String identity) throws Exception {
         boolean personalBroadcastRoom = room != null && room.matches("jynlo-live-personal-[0-9]+");
         boolean validIdentity = identity != null && (identity.startsWith("jynlo-user-")
-                || (personalBroadcastRoom && identity.startsWith(room + "-user-")));
+                || (personalBroadcastRoom && identity.matches(java.util.regex.Pattern.quote(room) + "-user-[0-9]+")));
         if (!available() || room == null || !room.startsWith("jynlo-")
                 || !validIdentity) return false;
         String host = serverUrl.replaceFirst("^wss://", "https://").replaceAll("/+$", "");
