@@ -126,7 +126,22 @@ public class SocialStoryService {
                                 String position, String scale, String style,
                                 String altText, boolean showTime,
                                 String locationLabel, String taggedUsernames) {
+        return create(username, communityId, caption, image, video, position, scale, style,
+                altText, showTime, locationLabel, taggedUsernames, null, null, null, null);
+    }
+
+    @Transactional
+    public StoryResponse create(String username, Long communityId, String caption,
+                                MultipartFile image, MultipartFile video,
+                                String position, String scale, String style,
+                                String altText, boolean showTime,
+                                String locationLabel, String taggedUsernames,
+                                Double textX, Double textY, Double textRotation, Double textZoom) {
         Profile actor = actor(username);
+        if (!isValidPlacement(textX, 0, 100) || !isValidPlacement(textY, 0, 100)
+                || !isValidPlacement(textRotation, -3600, 3600)
+                || !isValidPlacement(textZoom, .5, 3))
+            throw new IllegalArgumentException("Invalid Story text geometry");
         String safeLocation = locationLabel == null ? "" : locationLabel.trim();
         if (safeLocation.length() > 160) throw new IllegalArgumentException("Story location is too long");
         String safeTags = taggedUsernames == null ? "" : taggedUsernames.trim();
@@ -183,6 +198,7 @@ public class SocialStoryService {
             SocialStory story = stories.save(SocialStory.builder()
                     .author(actor).community(group).caption(text)
                     .textPosition(safePosition).textScale(safeScale).textStyle(safeStyle)
+                    .textX(textX).textY(textY).textRotation(textRotation).textZoom(textZoom)
                     .altText(safeAlt == null || safeAlt.isBlank() ? null : safeAlt)
                     .locationLabel(safeLocation.isBlank() ? null : safeLocation)
                     .taggedUsernames(serializedTags.isBlank() ? null : serializedTags)
@@ -379,7 +395,12 @@ public class SocialStoryService {
                 story.getTextScale() == null ? "medium" : story.getTextScale(),
                 story.getTextStyle() == null ? "pill" : story.getTextStyle(),
                 story.getAltText(), story.isShowTime(),
-                story.getLocationLabel(), story.getTaggedUsernames());
+                story.getLocationLabel(), story.getTaggedUsernames(),
+                story.getTextX(), story.getTextY(), story.getTextRotation(), story.getTextZoom());
+    }
+
+    private static boolean isValidPlacement(Double value, double min, double max) {
+        return value == null || (Double.isFinite(value) && value >= min && value <= max);
     }
 
     private static String allowedStoryOption(String choice, Set<String> allowed, String fallback) {
