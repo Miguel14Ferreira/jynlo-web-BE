@@ -772,4 +772,44 @@ class DirectCallServiceTest {
         verify(retrying, times(2)).deleteLiveKitRoom(room);
     }
 
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void periodicExpirationRevokesUnansweredCallWithoutFurtherUserRequests() {
+        var outgoing = calls.start("ana", "bea", "video");
+        String room = JWT.decode(outgoing.token()).getClaim("video").asMap().get("room").toString();
+
+        // Simulate the scheduled sweep after the ringing invitation's deadline.
+        ReflectionTestUtils.invokeMethod(calls, "expireCalls", outgoing.expiresAt().plusSeconds(1));
+
+        var queued = (java.util.concurrent.ConcurrentHashMap<UUID, String>)
+                ReflectionTestUtils.getField(calls, "roomsPendingDeletion");
+        assertEquals(room, queued.get(outgoing.callId()));
+        assertNull(calls.pendingFor("bea"));
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
+                () -> calls.accept(outgoing.callId(), "bea")).getStatusCode());
+
+        // A second sweep must not lose the provider cleanup task.
+        ReflectionTestUtils.invokeMethod(calls, "expireCalls", outgoing.expiresAt().plusSeconds(2));
+        assertEquals(room, queued.get(outgoing.callId()));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void periodicExpirationRevokesActiveCallAndHidesItsRoster() {
+        var outgoing = calls.start("ana", "bea", "voice");
+        var accepted = calls.accept(outgoing.callId(), "bea");
+        String room = JWT.decode(accepted.token()).getClaim("video").asMap().get("room").toString();
+
+        ReflectionTestUtils.invokeMethod(calls, "expireCalls", accepted.expiresAt().plusSeconds(1));
+
+        var queued = (java.util.concurrent.ConcurrentHashMap<UUID, String>)
+                ReflectionTestUtils.getField(calls, "roomsPendingDeletion");
+        assertEquals(room, queued.get(outgoing.callId()));
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
+                () -> calls.members(outgoing.callId(), "ana")).getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
+                () -> calls.members(outgoing.callId(), "bea")).getStatusCode());
+    }
+
 }
