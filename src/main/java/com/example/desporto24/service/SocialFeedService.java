@@ -299,6 +299,21 @@ public class SocialFeedService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public List<FeedItemResponse> hiddenPosts(String username) {
+        Profile viewer = profile(username);
+        if (hiddenFeedPosts == null) throw new IllegalStateException("Hidden post storage unavailable");
+        List<Long> ids = hiddenFeedPosts.findByViewerIdOrderByIdDesc(viewer.getId())
+                .stream().map(com.example.desporto24.model.social.HiddenFeedPost::getPostId).toList();
+        if (ids.isEmpty()) return List.of();
+        Map<Long, SocialPost> postsById = postRepository.findAllById(ids).stream()
+                .filter(post -> post.getActivityType() == null
+                        && !userBlockService.isBlockedBetween(viewer, post.getAuthor()))
+                .collect(Collectors.toMap(SocialPost::getId, Function.identity()));
+        return ids.stream().map(postsById::get).filter(java.util.Objects::nonNull)
+                .map(post -> postItem(post, viewer)).toList();
+    }
+
     public void unhidePost(Long postId, String username) {
         Profile viewer = profile(username);
         if (hiddenFeedPosts == null) throw new IllegalStateException("Hidden post storage unavailable");
