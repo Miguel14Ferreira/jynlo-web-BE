@@ -40,9 +40,11 @@ public class SocialStoryController {
                                  @RequestPart(value = "textPosition", required = false) String textPosition,
                                  @RequestPart(value = "textScale", required = false) String textScale,
                                  @RequestPart(value = "textStyle", required = false) String textStyle,
+                                 @RequestPart(value = "altText", required = false) String altText,
+                                 @RequestPart(value = "showTime", required = false, defaultValue = "false") boolean showTime,
                                  Authentication auth) {
         return stories.create(auth.getName(), communityId, caption, image, video,
-                textPosition, textScale, textStyle);
+                textPosition, textScale, textStyle, altText, showTime);
     }
 
     @GetMapping("/me/replies")
