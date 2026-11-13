@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-13-social-post-location-label
+      author: jynlo
+      changes:
+        - addColumn:
+            tableName: social_post
+            columns:
+              - column:
+                  name: location_label
+                  type: varchar(160)
+                  constraints:
+                    nullable: true
