@@ -2,6 +2,9 @@ package com.example.desporto24.service;
 
 import com.example.desporto24.model.community.Community;
 import com.example.desporto24.model.community.CommunityRound;
+import com.example.desporto24.model.community.CommunityRoundEntry;
+import com.example.desporto24.model.Profile;
+import com.example.desporto24.repository.community.CommunityRoundEntryRepository;
 import com.example.desporto24.model.dto.session.SessionDetailResponse;
 import com.example.desporto24.repository.community.CommunityRoundRepository;
 import com.example.desporto24.service.interfaces.SessionService;
@@ -21,6 +24,7 @@ import static org.mockito.Mockito.*;
 class SessionOfficialResultServiceTest {
     @Mock SessionService sessions;
     @Mock CommunityRoundRepository rounds;
+    @Mock CommunityRoundEntryRepository entries;
     @InjectMocks SessionOfficialResultService service;
 
     private final Long sessionId = 63L;
@@ -34,6 +38,30 @@ class SessionOfficialResultServiceTest {
         return CommunityRound.builder().id(25L)
                 .community(Community.builder().id(8L).build())
                 .sourceSessionId(sessionId).teamScoreA(a).teamScoreB(b).build();
+    }
+
+
+    @Test void realRecordedScorersAreVisibleOnlyToConfirmedParticipants() {
+        var authorized = detail("organizer", true);
+        when(sessions.getById(sessionId, "player")).thenReturn(authorized);
+        when(rounds.findBySourceSessionId(sessionId)).thenReturn(Optional.of(round(3, 1)));
+        var ana = new Profile(); ana.setUsername("ana");
+        var bea = new Profile(); bea.setUsername("bea");
+        var scored = CommunityRoundEntry.builder().profile(ana).team("A")
+                .goals(2).assists(1).build();
+        var assisted = CommunityRoundEntry.builder().profile(bea).team("B")
+                .goals(0).assists(1).build();
+        var unknown = CommunityRoundEntry.builder().profile(ana).team("A")
+                .goals(0).assists(0).build();
+        when(entries.findByRoundIdOrderByIdAsc(25L))
+                .thenReturn(java.util.List.of(scored, assisted, unknown));
+
+        var result = service.result(sessionId, "player");
+        assertEquals(2, result.contributions().size());
+        assertEquals("ana", result.contributions().get(0).username());
+        assertEquals(2, result.contributions().get(0).goals());
+        assertEquals(1, result.contributions().get(1).assists());
+        assertEquals(3, result.scoreA());
     }
 
     @Test void confirmedPlayerCanReadRealScoreWithoutAccessingPrivateRoster() {
@@ -61,7 +89,7 @@ class SessionOfficialResultServiceTest {
         when(sessions.getById(sessionId, "outsider")).thenReturn(unauthorized);
         assertThrows(ResponseStatusException.class,
                 () -> service.result(sessionId, "outsider"));
-        verifyNoInteractions(rounds);
+        verifyNoInteractions(rounds, entries);
     }
 
     @Test void missingRoundDoesNotInventOfficialScores() {
@@ -84,6 +112,6 @@ class SessionOfficialResultServiceTest {
     @Test void missingIdentityFailsBeforeFetchingAnyPrivateDetails() {
         assertThrows(ResponseStatusException.class, () -> service.result(sessionId, null));
         assertThrows(ResponseStatusException.class, () -> service.result(sessionId, " "));
-        verifyNoInteractions(sessions, rounds);
+        verifyNoInteractions(sessions, rounds, entries);
     }
 }
