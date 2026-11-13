@@ -507,7 +507,9 @@ public class DirectCallService {
      * A failed provider eviction is retried on the next pass; it must not be
      * recorded locally as a successful disconnection.
      */
-    @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 30000)
+    // Guest revocations are access-control changes: retry promptly instead of
+    // leaving a departed participant connected to the provider for 30 seconds.
+    @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 5000)
     public synchronized void revokeDisconnectedGuests() {
         if (!available()) return;
         retryEndedRoomDeletions();
