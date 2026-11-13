@@ -27,6 +27,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
   CMD curl --fail --silent "http://127.0.0.1:${PORT:-${CONTAINER_PORT:-8080}}/actuator/health" >/dev/null || exit 1
 
 # Keep a hard memory budget for the Render 512 MiB instance.
-# The previous 50% heap plus native allocations reached the container limit.
+# A 144 MiB metaspace cap produced repeated OutOfMemoryError on normal HTTP requests.
+# Rebalance the 512 MiB instance: reserve more class metadata by bounding
+# heap, direct buffers, thread stacks and Tomcat worker count.
 # JAVA_TOOL_OPTIONS can override these settings for diagnosis if needed.
-ENTRYPOINT ["java", "-Xms48m", "-Xmx176m", "-XX:MaxMetaspaceSize=144m", "-XX:ReservedCodeCacheSize=24m", "-XX:ActiveProcessorCount=2", "-XX:+UseSerialGC", "-Dserver.tomcat.threads.max=32", "-Dserver.tomcat.threads.min-spare=4", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-Xms48m", "-Xmx160m", "-XX:MaxMetaspaceSize=200m", "-XX:ReservedCodeCacheSize=20m", "-XX:MaxDirectMemorySize=20m", "-Xss512k", "-XX:ActiveProcessorCount=2", "-XX:+UseSerialGC", "-Dserver.tomcat.threads.max=24", "-Dserver.tomcat.threads.min-spare=3", "-jar", "/app/app.jar"]
