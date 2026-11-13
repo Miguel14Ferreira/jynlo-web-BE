@@ -170,6 +170,18 @@ public class SocialFeedController {
         return feedService.editPost(postId, authentication.getName(), request);
     }
 
+    @PutMapping("/posts/{postId}/hide")
+    public ResponseEntity<Void> hidePost(@PathVariable Long postId, Authentication authentication) {
+        feedService.hidePost(postId, authentication.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/posts/{postId}/hide")
+    public ResponseEntity<Void> unhidePost(@PathVariable Long postId, Authentication authentication) {
+        feedService.unhidePost(postId, authentication.getName());
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/posts/{postId}")
     public ResponseEntity<Void> deletePost(
             @PathVariable Long postId,
