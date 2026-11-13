@@ -170,6 +170,17 @@ public class SocialFeedController {
         return feedService.editPost(postId, authentication.getName(), request);
     }
 
+    @PutMapping(value = "/posts/{postId}/media", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public FeedItemResponse editPostWithMedia(@PathVariable Long postId,
+            @RequestParam("content") String content,
+            @RequestParam(value = "location", required = false) String location,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
+            @RequestParam(value = "replaceMedia", defaultValue = "false") boolean replaceMedia,
+            Authentication authentication) {
+        return feedService.editPostWithMedia(postId, authentication.getName(),
+                content, location, files, replaceMedia);
+    }
+
     @GetMapping("/posts/hidden")
     public List<FeedItemResponse> hiddenPosts(Authentication authentication) {
         return feedService.hiddenPosts(authentication.getName());
