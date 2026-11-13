@@ -39,7 +39,7 @@ public record StoryResponse(
         this(id, authorUsername, displayName, avatarUrl, communityId, communityName,
              communityPhotoUrl, caption, mediaUrl, video, createdAt, expiresAt, canDelete,
              likeCount, likedByMe, textPosition, textScale, textStyle, altText, showTime,
-             locationLabel, taggedUsernames, null, null, null, null, null, null, null, null, null, null);
+             locationLabel, taggedUsernames, null, null, null, null, null, null, null);
     }
     public StoryResponse(Long id, String authorUsername, String displayName, String avatarUrl,
             Long communityId, String communityName, String communityPhotoUrl,
@@ -50,7 +50,7 @@ public record StoryResponse(
             String altText, boolean showTime) {
         this(id, authorUsername, displayName, avatarUrl, communityId, communityName,
              communityPhotoUrl, caption, mediaUrl, video, createdAt, expiresAt, canDelete,
-             likeCount, likedByMe, textPosition, textScale, textStyle, altText, showTime, null, null, null, null, null, null);
+             likeCount, likedByMe, textPosition, textScale, textStyle, altText, showTime, null, null, null, null, null, null, null, null, null);
     }
     public StoryResponse(Long id, String authorUsername, String displayName, String avatarUrl,
             Long communityId, String communityName, String communityPhotoUrl,
