@@ -57,6 +57,11 @@ public class SocialStoryService {
     private final ProfileFollowRepository follows;
     private final MediaStorage storage;
 
+    private boolean canViewPersonalStories(Profile viewer,Profile author) {
+        return !author.isPrivateProfile() || viewer.getId().equals(author.getId())
+          || follows.existsByFollowerIdAndFollowingId(viewer.getId(),author.getId());
+    }
+
     @Transactional(readOnly = true)
     public List<StoryResponse> feed(String username) {
         Profile actor = actor(username);
@@ -82,7 +87,9 @@ public class SocialStoryService {
         if (blockedAuthors.isEmpty()) blockedAuthors.add(-1L);
         authors.removeAll(blockedAuthors);
         return responses(stories.findActiveFeed(
-                Instant.now(), authors, groups, blockedAuthors, PageRequest.of(0, FEED_LIMIT)), actor);
+                Instant.now(), authors, groups, blockedAuthors, PageRequest.of(0, FEED_LIMIT))
+                .stream().filter(story -> story.getCommunity() != null ||
+                  canViewPersonalStories(actor,story.getAuthor())).toList(), actor);
     }
 
     @Transactional(readOnly = true)
@@ -97,7 +104,8 @@ public class SocialStoryService {
         Profile viewer = actor(viewerUsername);
         Profile author = profiles.findUserByUsernameIgnoreCase(authorUsername)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Perfil indisponível"));
-        if (userBlockService.isBlockedBetween(viewer, author))
+        if (userBlockService.isBlockedBetween(viewer, author) ||
+            !canViewPersonalStories(viewer,author))
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Stories indisponíveis");
         return responses(stories.findTop20ByAuthorIdAndExpiresAtAfterOrderByCreatedAtDesc(
                 author.getId(), Instant.now()).stream().filter(story -> story.getCommunity() == null).toList(), viewer);
@@ -329,6 +337,8 @@ public class SocialStoryService {
         if (userBlockService.isBlockedBetween(viewer, story.getAuthor())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Story not found");
         }
+        if (story.getCommunity() == null && !canViewPersonalStories(viewer,story.getAuthor()))
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Story not found");
         if (story.getCommunity() != null &&
                 story.getCommunity().getVisibility() != CommunityVisibility.PUBLIC &&
                 !isMemberOrOwner(story.getCommunity(), viewer)) {
