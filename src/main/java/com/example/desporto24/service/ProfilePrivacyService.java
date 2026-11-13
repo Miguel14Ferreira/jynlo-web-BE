@@ -9,6 +9,7 @@ import com.example.desporto24.repository.social.ProfileFollowRequestRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
@@ -22,12 +23,15 @@ public class ProfilePrivacyService {
   private final ProfileFollowRepository follows;
   private final ProfileFollowRequestRepository requests;
   private final UserBlockService blocks;
+  // Keep the setting disabled until private media delivery is access-controlled.
+  @Value("${jynlo.profile.private-mode-enabled:false}")
+  private boolean privateModeEnabled;
 
   private Profile profile(String username) {
     return profiles.findUserByUsernameIgnoreCase(username)
         .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Perfil não encontrado"));
   }
-  public record PrivacyStatus(boolean privateProfile,boolean canViewContent) {}
+  public record PrivacyStatus(boolean privateProfile,boolean canViewContent,boolean privateModeAvailable) {}
   public record PendingRequest(long id,String username,String name,String avatarUrl,Instant createdAt) {}
 
   @Transactional(readOnly=true)
@@ -41,13 +45,16 @@ public class ProfilePrivacyService {
   }
   public PrivacyStatus status(String viewerName,String targetName) {
     Profile viewer=profile(viewerName),target=profile(targetName);
-    return new PrivacyStatus(target.isPrivateProfile(),canView(viewer,target));
+    return new PrivacyStatus(target.isPrivateProfile(),canView(viewer,target),privateModeEnabled);
   }
   public PrivacyStatus update(String actorName,boolean privateProfile) {
     Profile actor=profile(actorName);
+    if (privateProfile && !privateModeEnabled)
+      throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+        "A proteção de multimédia privado ainda está a ser preparada");
     actor.setPrivateProfile(privateProfile);
     profiles.save(actor);
-    return new PrivacyStatus(actor.isPrivateProfile(),true);
+    return new PrivacyStatus(actor.isPrivateProfile(),true,privateModeEnabled);
   }
   public boolean requested(String requesterName,String targetName) {
     Profile requester=profile(requesterName),target=profile(targetName);
