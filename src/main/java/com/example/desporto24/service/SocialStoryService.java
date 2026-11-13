@@ -99,17 +99,29 @@ public class SocialStoryService {
     @Transactional
     public StoryResponse create(String username, Long communityId, String caption,
                                 MultipartFile image, MultipartFile video) {
-        return create(username, communityId, caption, image, video, null, null, null);
+        return create(username, communityId, caption, image, video, null, null, null, null, false);
     }
 
     @Transactional
     public StoryResponse create(String username, Long communityId, String caption,
                                 MultipartFile image, MultipartFile video,
                                 String position, String scale, String style) {
+        return create(username, communityId, caption, image, video, position, scale, style, null, false);
+    }
+
+    @Transactional
+    public StoryResponse create(String username, Long communityId, String caption,
+                                MultipartFile image, MultipartFile video,
+                                String position, String scale, String style,
+                                String altText, boolean showTime) {
         Profile actor = actor(username);
         String safePosition = allowedStoryOption(position, Set.of("top", "center", "bottom"), "bottom");
         String safeScale = allowedStoryOption(scale, Set.of("small", "medium", "large"), "medium");
         String safeStyle = allowedStoryOption(style, Set.of("plain", "pill"), "pill");
+        String safeAlt = altText == null ? null : altText.trim();
+        if (safeAlt != null && safeAlt.length() > 350) {
+            throw new IllegalArgumentException("Story alternative text must not exceed 350 characters");
+        }
         boolean hasImage = image != null && !image.isEmpty();
         boolean hasVideo = video != null && !video.isEmpty();
         if (hasImage == hasVideo) {
@@ -140,6 +152,8 @@ public class SocialStoryService {
             SocialStory story = stories.save(SocialStory.builder()
                     .author(actor).community(group).caption(text)
                     .textPosition(safePosition).textScale(safeScale).textStyle(safeStyle)
+                    .altText(safeAlt == null || safeAlt.isBlank() ? null : safeAlt)
+                    .showTime(showTime)
                     .mediaUrl(uri.toString()).mediaStorageKey(objectKey)
                     .video(hasVideo).createdAt(now).expiresAt(now.plus(24, ChronoUnit.HOURS))
                     .build());
@@ -330,7 +344,8 @@ public class SocialStoryService {
                 likeCount, likedByMe,
                 story.getTextPosition() == null ? "bottom" : story.getTextPosition(),
                 story.getTextScale() == null ? "medium" : story.getTextScale(),
-                story.getTextStyle() == null ? "pill" : story.getTextStyle());
+                story.getTextStyle() == null ? "pill" : story.getTextStyle(),
+                story.getAltText(), story.isShowTime());
     }
 
     private static String allowedStoryOption(String choice, Set<String> allowed, String fallback) {
