@@ -48,10 +48,14 @@ public class SocialStoryController {
                                  @RequestParam(value = "textY", required = false) Double textY,
                                  @RequestParam(value = "textRotation", required = false) Double textRotation,
                                  @RequestParam(value = "textZoom", required = false) Double textZoom,
+                                 @RequestParam(value = "textColor", required = false) String textColor,
+                                 @RequestParam(value = "textBackground", required = false) String textBackground,
+                                 @RequestParam(value = "textFont", required = false) String textFont,
                                  Authentication auth) {
         return stories.create(auth.getName(), communityId, caption, image, video,
                 textPosition, textScale, textStyle, altText, Boolean.TRUE.equals(showTime),
-                locationLabel, taggedUsernames, textX, textY, textRotation, textZoom);
+                locationLabel, taggedUsernames, textX, textY, textRotation, textZoom,
+                textColor, textBackground, textFont);
     }
 
     @GetMapping("/me/replies")
