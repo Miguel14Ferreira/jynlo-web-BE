@@ -27,9 +27,7 @@ class SessionOfficialResultServiceTest {
     private SessionDetailResponse detail(String creator, boolean joined) {
         SessionDetailResponse response = mock(SessionDetailResponse.class);
         when(response.creatorUsername()).thenReturn(creator);
-        if (!"organizer".equalsIgnoreCase(creator)) {
-            when(response.joined()).thenReturn(joined);
-        }
+        lenient().when(response.joined()).thenReturn(joined);
         return response;
     }
     private CommunityRound round(Integer a, Integer b) {
