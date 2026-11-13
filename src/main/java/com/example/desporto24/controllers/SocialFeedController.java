@@ -63,15 +63,23 @@ public class SocialFeedController {
             @RequestPart(value = "video", required = false) MultipartFile video,
             @RequestPart(value = "sessionId", required = false) Long sessionId,
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
+            @RequestPart(value = "location", required = false) String location,
             Authentication authentication) {
         if (files != null && !files.isEmpty()) {
             if (image != null || video != null) {
                 throw new IllegalArgumentException("Usa apenas um formato de envio");
             }
-            return feedService.createPostWithAlbum(authentication.getName(), content, files, sessionId);
+            return feedService.createPostWithAlbum(authentication.getName(), content, files, sessionId, location);
         }
         return feedService.createPostWithMedia(
-                authentication.getName(), content, image, video, sessionId);
+                authentication.getName(), content, image, video, sessionId, location);
+    }
+
+    /** Source compatibility for callers exercising the old controller signature. */
+    public FeedItemResponse createPostWithMedia(String content, MultipartFile image,
+            MultipartFile video, Long sessionId, List<MultipartFile> files,
+            Authentication authentication) {
+        return createPostWithMedia(content, image, video, sessionId, files, null, authentication);
     }
 
     @PutMapping("/attendance/{sessionId}/hide")
