@@ -812,4 +812,20 @@ class DirectCallServiceTest {
                 () -> calls.members(outgoing.callId(), "bea")).getStatusCode());
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void periodicExpirationAtExactDeadlineQueuesRoomRevocation() {
+        var outgoing = calls.start("ana", "bea", "video");
+        String room = JWT.decode(outgoing.token()).getClaim("video").asMap().get("room").toString();
+
+        // Equality with the deadline is expired, not a remaining valid instant.
+        ReflectionTestUtils.invokeMethod(calls, "expireCalls", outgoing.expiresAt());
+
+        var queued = (java.util.concurrent.ConcurrentHashMap<UUID, String>)
+                ReflectionTestUtils.getField(calls, "roomsPendingDeletion");
+        assertEquals(room, queued.get(outgoing.callId()));
+        assertNull(calls.pendingFor("bea"));
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
+                () -> calls.accept(outgoing.callId(), "bea")).getStatusCode());
+    }
 }
