@@ -303,6 +303,19 @@ public class CommunityTimelineService {
                 file == null || file.isEmpty() || file.getSize() > 20L * 1024 * 1024)) {
             throw new IllegalArgumentException("Ficheiros demasiado grandes");
         }
+        // Reject the entire album before storing a single object, matching
+        // the editor limits. Previously a 12 MB JPEG or an invalid second
+        // file could trigger avoidable partial uploads and cleanup.
+        for (MultipartFile file : files) {
+            String mime = file.getContentType() == null ? "" :
+                    file.getContentType().toLowerCase(java.util.Locale.ROOT);
+            boolean photo = java.util.Set.of("image/jpeg", "image/png", "image/webp").contains(mime);
+            boolean video = java.util.Set.of("video/mp4", "video/webm").contains(mime);
+            if (!photo && !video)
+                throw new IllegalArgumentException("Formato de media não suportado");
+            if (photo && file.getSize() > 5L * 1024 * 1024)
+                throw new IllegalArgumentException("Fotografia demasiado grande (máximo 5 MB)");
+        }
         String normalized = body == null ? "" : body.trim();
         if (normalized.length() > 1000) throw new IllegalArgumentException("Publicação demasiado longa");
         if (mediaStorage == null) throw new IllegalStateException("Media storage is not configured");
