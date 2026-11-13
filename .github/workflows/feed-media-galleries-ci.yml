@@ -16,6 +16,7 @@ on:
       - 'src/main/java/com/example/desporto24/controllers/CommunityTimelineController.java'
       - 'src/test/java/com/example/desporto24/service/CommunityTimelineServiceTest.java'
       - 'src/test/java/com/example/desporto24/controllers/CommunityTimelineMultipartControllerTest.java'
+      - 'src/test/java/com/example/desporto24/service/SocialPostNotificationLinkTest.java'
       - 'src/main/resources/db/changelog/changes/2026-11-12-public-feed-galleries.yaml'
       - 'src/main/resources/db/changelog/db.changelog-master.yaml'
   workflow_dispatch:
@@ -37,4 +38,4 @@ jobs:
           AES_ENCRYPTION_KEY: ciKey1
         run: |
           chmod +x mvnw
-          ./mvnw -B -ntp -Dtest=CommunityTimelineServiceTest,CommunityTimelineMultipartControllerTest,MediaStorageTest test
+          ./mvnw -B -ntp -Dtest=CommunityTimelineServiceTest,CommunityTimelineMultipartControllerTest,MediaStorageTest,SocialPostNotificationLinkTest test
