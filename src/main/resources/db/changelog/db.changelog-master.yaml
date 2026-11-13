@@ -431,6 +431,8 @@ databaseChangeLog:
   - include:
       file: db/changelog/changes/2026-11-13-personal-live-events.yaml
   - include:
+      file: db/changelog/changes/2026-11-13-personal-live-interactions.yaml
+  - include:
       file: db/changelog/changes/2026-11-13-social-comment-actions.yaml
   - include:
       file: db/changelog/changes/2026-11-13-profile-privacy.yaml
