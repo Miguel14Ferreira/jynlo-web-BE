@@ -37,7 +37,9 @@ class SocialPostNotificationLinkTest {
         notifications = mock(NotificationsRepository.class);
         preferences = mock(NotificationPreferencesService.class);
         service = new SocialPostInteractionService(
-                posts, likes, mock(SocialPostCommentRepository.class), profiles,
+                posts, likes, mock(SocialPostCommentRepository.class),
+                mock(com.example.desporto24.repository.social.SocialPostCommentLikeRepository.class),
+                profiles,
                 mock(UserReportService.class), mock(SessionParticipantRepository.class),
                 notifications, preferences, mock(UserBlockService.class),
                 mock(com.example.desporto24.websocket.ChatRealtimeGateway.class));
