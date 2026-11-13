@@ -164,14 +164,27 @@ public class CommunitySessionResultService {
                         "Só os inscritos ativos e não repetidos podem contar para esta jornada");
             }
             if (player.team() == CommunitySessionResultRequest.Team.A) teamA++; else teamB++;
+            // Individual scoring is explicitly reported; it must never be invented
+            // from a team victory. Other sports retain the existing W/D/L contract.
+            if ((player.goals() != null || player.assists() != null)
+                    && !"Futebol".equalsIgnoreCase(session.getSport())) {
+                throw new IllegalArgumentException(
+                        "Golos e assistências individuais só estão disponíveis para Futebol");
+            }
+            if (player.goals() != null && (player.goals() < 0 || player.goals() > 99)
+                    || player.assists() != null && (player.assists() < 0 || player.assists() > 99)) {
+                throw new IllegalArgumentException("Cada estatística deve estar entre 0 e 99");
+            }
             CommunityMatchResult result = input.outcome() == CommunitySessionResultRequest.Outcome.DRAW
                     ? CommunityMatchResult.DRAW
                     : player.team().name().equals(input.outcome().name())
                         ? CommunityMatchResult.WIN : CommunityMatchResult.LOSS;
-            // Goals/assists are unknown, not inferred from a quick W/D/L report.
+            // Null means unreported, preserved as the historical zero in
+            // standings. Explicit numeric values are trusted only after validation.
             entries.add(new CommunityRoundEntryRequest(
                     registered.getProfile().getUsername(), player.team().name(),
-                    result, 0, 0, false, false));
+                    result, player.goals() == null ? 0 : player.goals(),
+                    player.assists() == null ? 0 : player.assists(), false, false));
         }
         if (teamA == 0 || teamB == 0)
             throw new IllegalArgumentException("Seleciona jogadores para as duas equipas");
