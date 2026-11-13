@@ -12,6 +12,10 @@ import com.example.desporto24.repository.social.SocialPostLikeRepository;
 import com.example.desporto24.repository.social.SocialPostRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockMultipartFile;
+import com.example.desporto24.storage.MediaStorage;
+import org.springframework.test.util.ReflectionTestUtils;
+import java.net.URI;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -76,6 +80,34 @@ class SocialFeedPostDeepLinkTest {
         assertTrue(item.likedByMe());
         assertTrue(item.hideLikers());
         verify(likes, never()).findLikers(anyLong(), any());
+    }
+
+    @Test
+    void imageOnlyPostKeepsVoluntaryLocationWithoutNeedingCaption() {
+        MediaStorage storage=mock(MediaStorage.class);
+        ReflectionTestUtils.setField(service, "mediaStorage", storage);
+        var photo=new MockMultipartFile("image","treino.jpg","image/jpeg",new byte[]{1,2,3});
+        when(storage.store(anyString(),same(photo))).thenReturn(
+                URI.create("/media/posts/7/treino.jpg"));
+        when(posts.save(any())).thenAnswer(invocation -> {
+            SocialPost post=invocation.getArgument(0);
+            post.setId(123L);
+            return post;
+        });
+
+        var item=service.createPostWithImage("viewer","",photo,null,"  Campo do Bairro, Lisboa  ");
+        assertEquals("",item.content());
+        assertEquals("Campo do Bairro, Lisboa",item.location());
+        assertEquals("/media/posts/7/treino.jpg",item.imageUrl());
+        verify(posts).save(argThat(post -> "".equals(post.getContent())
+                && "Campo do Bairro, Lisboa".equals(post.getLocationLabel())));
+    }
+
+    @Test
+    void textOnlyPostsRejectEmptyContentEvenWhenALocationWasProvided() {
+        assertThrows(IllegalArgumentException.class, () ->
+                service.createPostWithImage("viewer","",null,null,"Lisboa"));
+        verify(posts,never()).save(any());
     }
 
     @Test
