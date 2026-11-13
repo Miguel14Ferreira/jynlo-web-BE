@@ -503,7 +503,8 @@ public class SocialFeedService {
         // Activity interaction records can contain hidden attendance; they are
         // never individually exposed through a social notification deep link.
         if (target.getActivityType() != null
-                || userBlockService.isBlockedBetween(viewer, target.getAuthor())) {
+                || userBlockService.isBlockedBetween(viewer, target.getAuthor())
+                || !canViewPrivatePosts(viewer,target.getAuthor())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação indisponível");
         }
         long likes = likeRepository.countByPostId(postId);
@@ -511,6 +512,12 @@ public class SocialFeedService {
         boolean liked = likeRepository.existsByPostIdAndProfileId(postId, viewer.getId());
         return postItem(target, Map.of(postId, likes), Map.of(postId, comments),
                 liked ? Set.of(postId) : Set.of());
+    }
+
+    private boolean canViewPrivatePosts(Profile viewer,Profile author) {
+        return author != null && viewer != null &&
+          (!author.isPrivateProfile() || viewer.getId().equals(author.getId()) ||
+            followRepository.existsByFollowerIdAndFollowingId(viewer.getId(),author.getId()));
     }
 
     /** Permanent authored publications, independent from expiring Stories and automatic activities. */
@@ -521,7 +528,8 @@ public class SocialFeedService {
         Profile viewer = profile(viewerUsername);
         // A direct profile-post URL must honour blocks in either direction,
         // just as story deep links do.
-        if (userBlockService.isBlockedBetween(viewer, author)) {
+        if (userBlockService.isBlockedBetween(viewer, author) ||
+                !canViewPrivatePosts(viewer,author)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicações não encontradas");
         }
         List<SocialPost> posts = postRepository.findByAuthorIdAndActivityTypeIsNullOrderByCreatedAtDesc(
@@ -586,6 +594,7 @@ public class SocialFeedService {
         Set<Long> excludedPostIds = hiddenIds;
         posts = posts.stream()
                 .filter(post -> visibleAuthor.test(post.getAuthor())
+                        && canViewPrivatePosts(actor,post.getAuthor())
                         && !excludedPostIds.contains(post.getId()))
                 .toList();
         sessions = sessions.stream().filter(session -> visibleAuthor.test(session.getProfile())).toList();
