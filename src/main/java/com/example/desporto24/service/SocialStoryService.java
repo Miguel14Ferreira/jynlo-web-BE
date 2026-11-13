@@ -114,7 +114,32 @@ public class SocialStoryService {
                                 MultipartFile image, MultipartFile video,
                                 String position, String scale, String style,
                                 String altText, boolean showTime) {
+        return create(username, communityId, caption, image, video,
+                position, scale, style, altText, showTime, null, null);
+    }
+
+    @Transactional
+    public StoryResponse create(String username, Long communityId, String caption,
+                                MultipartFile image, MultipartFile video,
+                                String position, String scale, String style,
+                                String altText, boolean showTime,
+                                String locationLabel, String taggedUsernames) {
         Profile actor = actor(username);
+        String safeLocation = locationLabel == null ? "" : locationLabel.trim();
+        if (safeLocation.length() > 160) throw new IllegalArgumentException("Story location is too long");
+        String safeTags = taggedUsernames == null ? "" : taggedUsernames.trim();
+        if (safeTags.length() > 500) throw new IllegalArgumentException("Too many Story tags");
+        Set<String> tags = new LinkedHashSet<>();
+        for (String tag : safeTags.isBlank() ? new String[0] : safeTags.split(",")) {
+            String normalized = tag.trim().replaceFirst("^@", "").toLowerCase(java.util.Locale.ROOT);
+            if (!normalized.matches("[a-z0-9_.-]{2,45}") || !tags.add(normalized) || tags.size() > 5)
+                throw new IllegalArgumentException("Invalid Story profile tag");
+            Profile target = profiles.findUserByUsernameIgnoreCase(normalized)
+                    .orElseThrow(() -> new IllegalArgumentException("Tagged profile not found"));
+            if (userBlockService.isBlockedBetween(actor, target))
+                throw new AccessDeniedException("Cannot tag a blocked profile");
+        }
+        String serializedTags = String.join(",", tags);
         String safePosition = allowedStoryOption(position, Set.of("top", "center", "bottom"), "bottom");
         String safeScale = allowedStoryOption(scale, Set.of("small", "medium", "large"), "medium");
         String safeStyle = allowedStoryOption(style, Set.of("plain", "pill"), "pill");
@@ -153,6 +178,8 @@ public class SocialStoryService {
                     .author(actor).community(group).caption(text)
                     .textPosition(safePosition).textScale(safeScale).textStyle(safeStyle)
                     .altText(safeAlt == null || safeAlt.isBlank() ? null : safeAlt)
+                    .locationLabel(safeLocation.isBlank() ? null : safeLocation)
+                    .taggedUsernames(serializedTags.isBlank() ? null : serializedTags)
                     .showTime(showTime)
                     .mediaUrl(uri.toString()).mediaStorageKey(objectKey)
                     .video(hasVideo).createdAt(now).expiresAt(now.plus(24, ChronoUnit.HOURS))
@@ -345,7 +372,8 @@ public class SocialStoryService {
                 story.getTextPosition() == null ? "bottom" : story.getTextPosition(),
                 story.getTextScale() == null ? "medium" : story.getTextScale(),
                 story.getTextStyle() == null ? "pill" : story.getTextStyle(),
-                story.getAltText(), story.isShowTime());
+                story.getAltText(), story.isShowTime(),
+                story.getLocationLabel(), story.getTaggedUsernames());
     }
 
     private static String allowedStoryOption(String choice, Set<String> allowed, String fallback) {
