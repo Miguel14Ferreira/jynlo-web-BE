@@ -1,0 +1,50 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-13-social-comment-actions
+      author: jynlo
+      changes:
+        - addColumn:
+            tableName: social_post_comment
+            columns:
+              - column:
+                  name: edited_at
+                  type: timestamp with time zone
+        - createTable:
+            tableName: social_post_comment_like
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: comment_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_comment_like_comment
+                    references: social_post_comment(id)
+              - column:
+                  name: profile_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_comment_like_profile
+                    references: profile(id)
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: social_post_comment_like
+            columnNames: comment_id, profile_id
+            constraintName: uk_social_post_comment_like
+        - createIndex:
+            tableName: social_post_comment_like
+            indexName: idx_comment_like_comment
+            columns:
+              - column:
+                  name: comment_id
