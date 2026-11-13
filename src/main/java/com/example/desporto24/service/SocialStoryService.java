@@ -102,6 +102,7 @@ public class SocialStoryService {
         return create(username, communityId, caption, image, video, null, null, null);
     }
 
+    @Transactional
     public StoryResponse create(String username, Long communityId, String caption,
                                 MultipartFile image, MultipartFile video,
                                 String position, String scale, String style) {
