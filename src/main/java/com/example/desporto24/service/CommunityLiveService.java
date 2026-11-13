@@ -24,6 +24,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.scheduling.annotation.Scheduled;
 
 /**
  * Community broadcasts are NOT DirectCallService rooms. A viewer only gets
@@ -38,6 +42,9 @@ public class CommunityLiveService {
     private final CommunityMemberRepository members;
     private final ProfileRepository profiles;
     private final DirectCallService provider;
+
+    // Failed provider room deletions are retried without exposing a public room.
+    private final ConcurrentHashMap<Long, String> pendingRoomClosures = new ConcurrentHashMap<>();
 
     @Value("${LIVEKIT_URL:}") private String serverUrl;
     @Value("${LIVEKIT_API_KEY:}") private String apiKey;
@@ -143,7 +150,21 @@ public class CommunityLiveService {
         if (event.getStatus() == Status.ENDED) return response(event, organizer);
         event.setStatus(Status.ENDED);
         event.setEndedAt(Instant.now());
-        return response(events.save(event), organizer);
+        LiveEvent finished = response(events.save(event), organizer);
+        String room = "jynlo-live-community-" + communityId + "-" + eventId;
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() {
+                    pendingRoomClosures.put(eventId, room);
+                    closePendingRooms();
+                }
+            });
+        } else {
+            // Fallback for controlled nontransactional invocations and tests.
+            pendingRoomClosures.put(eventId, room);
+            closePendingRooms();
+        }
+        return finished;
     }
 
     @Transactional(readOnly = true)
@@ -171,6 +192,21 @@ public class CommunityLiveService {
                         "canPublishData", false))
                 .sign(Algorithm.HMAC256(apiSecret));
         return new Connection(serverUrl, token, host ? "HOST" : "VIEWER", expiresAt);
+    }
+
+    /** Revoke all active viewers from LiveKit after the end status commits.
+     * A provider outage leaves an entry for the next retry; never log tokens.
+     */
+    @Scheduled(fixedDelay = 5000)
+    public void closePendingRooms() {
+        for (var item : pendingRoomClosures.entrySet()) {
+            try {
+                if (provider.deleteLiveKitRoom(item.getValue()))
+                    pendingRoomClosures.remove(item.getKey(), item.getValue());
+            } catch (Exception ignored) {
+                // Disconnected provider; keep the room in the cleanup queue.
+            }
+        }
     }
 
     private CommunityLiveEvent find(Long communityId, Long eventId) {
