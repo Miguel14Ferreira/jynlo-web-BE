@@ -1,0 +1,23 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-13-story-accessibility
+      author: jynlo
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          columnExists:
+            tableName: social_story
+            columnName: alt_text
+      changes:
+        - addColumn:
+            tableName: social_story
+            columns:
+              - column:
+                  name: alt_text
+                  type: VARCHAR(350)
+              - column:
+                  name: show_time
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
