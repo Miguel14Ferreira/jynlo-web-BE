@@ -137,7 +137,26 @@ public class SocialStoryService {
                                 String altText, boolean showTime,
                                 String locationLabel, String taggedUsernames,
                                 Double textX, Double textY, Double textRotation, Double textZoom) {
+        return create(username, communityId, caption, image, video, position, scale, style,
+                altText, showTime, locationLabel, taggedUsernames,
+                textX, textY, textRotation, textZoom, null, null, null);
+    }
+
+    @Transactional
+    public StoryResponse create(String username, Long communityId, String caption,
+                                MultipartFile image, MultipartFile video,
+                                String position, String scale, String style,
+                                String altText, boolean showTime,
+                                String locationLabel, String taggedUsernames,
+                                Double textX, Double textY, Double textRotation, Double textZoom,
+                                String textColor, String textBackground, String textFont) {
         Profile actor = actor(username);
+        String safeTextColor = allowedStoryOption(textColor,
+                Set.of("white", "black", "yellow", "mint", "pink", "blue"), "white");
+        String safeTextBackground = allowedStoryOption(textBackground,
+                Set.of("dark", "light", "none"), "dark");
+        String safeTextFont = allowedStoryOption(textFont,
+                Set.of("modern", "classic", "mono"), "modern");
         if (!isValidPlacement(textX, 0, 100) || !isValidPlacement(textY, 0, 100)
                 || !isValidPlacement(textRotation, -3600, 3600)
                 || !isValidPlacement(textZoom, .5, 3))
@@ -199,6 +218,7 @@ public class SocialStoryService {
                     .author(actor).community(group).caption(text)
                     .textPosition(safePosition).textScale(safeScale).textStyle(safeStyle)
                     .textX(textX).textY(textY).textRotation(textRotation).textZoom(textZoom)
+                    .textColor(safeTextColor).textBackground(safeTextBackground).textFont(safeTextFont)
                     .altText(safeAlt == null || safeAlt.isBlank() ? null : safeAlt)
                     .locationLabel(safeLocation.isBlank() ? null : safeLocation)
                     .taggedUsernames(serializedTags.isBlank() ? null : serializedTags)
@@ -396,7 +416,8 @@ public class SocialStoryService {
                 story.getTextStyle() == null ? "pill" : story.getTextStyle(),
                 story.getAltText(), story.isShowTime(),
                 story.getLocationLabel(), story.getTaggedUsernames(),
-                story.getTextX(), story.getTextY(), story.getTextRotation(), story.getTextZoom());
+                story.getTextX(), story.getTextY(), story.getTextRotation(), story.getTextZoom(),
+                story.getTextColor(), story.getTextBackground(), story.getTextFont());
     }
 
     private static boolean isValidPlacement(Double value, double min, double max) {
