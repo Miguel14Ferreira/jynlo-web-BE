@@ -1,0 +1,40 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-13-hidden-feed-posts
+      author: jynlo
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          tableExists:
+            tableName: social_post_hidden
+      changes:
+        - createTable:
+            tableName: social_post_hidden
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: viewer_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: post_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: social_post_hidden
+            columnNames: viewer_id, post_id
+            constraintName: uq_social_post_hidden_viewer_post
+        - createIndex:
+            indexName: idx_social_post_hidden_viewer
+            tableName: social_post_hidden
+            columns:
+              - column:
+                  name: viewer_id
