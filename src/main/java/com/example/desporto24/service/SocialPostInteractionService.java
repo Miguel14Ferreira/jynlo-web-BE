@@ -15,6 +15,8 @@ import com.example.desporto24.model.dto.social.PostLikeResponse;
 import com.example.desporto24.model.dto.social.SocialCommentResponse;
 import com.example.desporto24.model.social.SocialPost;
 import com.example.desporto24.model.social.SocialPostComment;
+import com.example.desporto24.model.social.SocialPostCommentLike;
+import com.example.desporto24.repository.social.SocialPostCommentLikeRepository;
 import com.example.desporto24.model.social.SocialPostLike;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.social.SocialPostCommentRepository;
@@ -41,6 +43,7 @@ public class SocialPostInteractionService {
     private final SocialPostRepository postRepository;
     private final SocialPostLikeRepository likeRepository;
     private final SocialPostCommentRepository commentRepository;
+    private final SocialPostCommentLikeRepository commentLikes;
     private final ProfileRepository profileRepository;
     private final UserReportService userReportService;
     private final SessionParticipantRepository participantRepository;
@@ -98,11 +101,20 @@ public class SocialPostInteractionService {
         SocialPost target = post(postId);
         Profile viewer = profile(username);
         userBlockService.ensureInteractionAllowed(viewer, target.getAuthor());
-        return commentRepository.findByPostIdOrderByCreatedAtAsc(postId)
+        List<SocialPostComment> visible = commentRepository.findByPostIdOrderByCreatedAtAsc(postId)
                 .stream()
                 .filter(comment -> !userBlockService.isBlockedBetween(viewer, comment.getAuthor()))
-                .map(this::toResponse)
                 .toList();
+        java.util.Set<Long> ids=visible.stream().map(SocialPostComment::getId)
+                .collect(java.util.stream.Collectors.toSet());
+        if (ids.isEmpty()) return List.of();
+        java.util.Map<Long,Long> counts = new java.util.HashMap<>();
+        for (Object[] row:commentLikes.countsByCommentIds(ids)) {
+            counts.put(((Number)row[0]).longValue(), ((Number)row[1]).longValue());
+        }
+        java.util.Set<Long> liked = commentLikes.likedCommentIds(ids,viewer.getId());
+        return visible.stream().map(comment -> toResponse(comment,
+                counts.getOrDefault(comment.getId(),0L),liked.contains(comment.getId()))).toList();
     }
 
     public SocialCommentResponse comment(
@@ -124,7 +136,50 @@ public class SocialPostInteractionService {
 
         notifySocialAction(post, actor, NotificationType.SOCIAL_POST_COMMENTED);
         signalFeedAfterCommit();
-        return toResponse(comment);
+        return toResponse(comment, 0, false);
+    }
+
+    /** Only the author can alter an existing comment. Preserve its creation date. */
+    public SocialCommentResponse editComment(Long postId,Long commentId,String username,String text) {
+        Profile actor=profile(username);
+        SocialPostComment comment=commentForPost(postId,commentId);
+        if (!comment.getAuthor().getId().equals(actor.getId()))
+            throw new AccessDeniedException("Só o autor pode editar o comentário");
+        if (text==null || text.trim().isEmpty() || text.trim().length()>500)
+            throw new IllegalArgumentException("O comentário deve ter entre 1 e 500 caracteres");
+        userBlockService.ensureInteractionAllowed(actor,comment.getPost().getAuthor());
+        comment.setContent(text.trim());
+        comment.setEditedAt(Instant.now());
+        commentRepository.save(comment);
+        signalFeedAfterCommit();
+        return toResponse(comment, commentLikes.countByCommentId(commentId),
+            commentLikes.existsByCommentIdAndProfileId(commentId,actor.getId()));
+    }
+
+    public SocialCommentResponse setCommentLike(Long postId,Long commentId,String username,boolean like) {
+        Profile actor=profile(username);
+        SocialPostComment comment=commentForPost(postId,commentId);
+        if (like) {
+            userBlockService.ensureInteractionAllowed(actor,comment.getPost().getAuthor());
+            userBlockService.ensureInteractionAllowed(actor,comment.getAuthor());
+            if (!commentLikes.existsByCommentIdAndProfileId(commentId,actor.getId()))
+                commentLikes.save(SocialPostCommentLike.builder().comment(comment)
+                    .profile(actor).createdAt(Instant.now()).build());
+        } else {
+            commentLikes.deleteByCommentIdAndProfileId(commentId,actor.getId());
+        }
+        signalFeedAfterCommit();
+        return toResponse(comment,commentLikes.countByCommentId(commentId),
+            commentLikes.existsByCommentIdAndProfileId(commentId,actor.getId()));
+    }
+
+    private SocialPostComment commentForPost(Long postId,Long commentId) {
+        SocialPostComment comment=commentRepository.findById(commentId)
+            .orElseThrow(() -> new IllegalArgumentException("Comentário não encontrado"));
+        if (!comment.getPost().getId().equals(postId))
+            throw new IllegalArgumentException("O comentário não pertence a esta publicação");
+        post(postId);
+        return comment;
     }
 
     @Transactional(readOnly = true)
@@ -224,6 +279,7 @@ public class SocialPostInteractionService {
             throw new AccessDeniedException("Só podes apagar os teus comentários");
         }
 
+        commentLikes.deleteByCommentId(commentId);
         commentRepository.delete(comment);
         signalFeedAfterCommit();
     }
@@ -250,7 +306,7 @@ public class SocialPostInteractionService {
         );
     }
 
-    private SocialCommentResponse toResponse(SocialPostComment comment) {
+    private SocialCommentResponse toResponse(SocialPostComment comment,long likeCount,boolean likedByMe) {
         Profile author = comment.getAuthor();
         return new SocialCommentResponse(
                 comment.getId(),
@@ -259,7 +315,10 @@ public class SocialPostInteractionService {
                 displayName(author),
                 author.getProfilePicUrl(),
                 comment.getContent(),
-                comment.getCreatedAt()
+                comment.getCreatedAt(),
+                comment.getEditedAt(),
+                likeCount,
+                likedByMe
         );
     }
 
