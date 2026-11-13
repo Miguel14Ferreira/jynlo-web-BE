@@ -156,20 +156,43 @@ public class CommunityLiveService {
         event.setStatus(Status.ENDED);
         event.setEndedAt(Instant.now());
         LiveEvent finished = response(events.save(event), organizer);
-        String room = "jynlo-live-community-" + communityId + "-" + eventId;
+        queueRoomClosure(eventId, "jynlo-live-community-" + communityId + "-" + eventId);
+        return finished;
+    }
+
+    /**
+     * A host can close the browser without clicking End. Bound unattended
+     * broadcasts to six hours so empty LiveKit rooms cannot remain public
+     * indefinitely. The status change commits before provider revocation.
+     */
+    @Scheduled(fixedDelay = 60000)
+    @Transactional
+    public void expireUnattendedStreams() {
+        Instant cutoff = Instant.now().minus(Duration.ofHours(6));
+        for (CommunityLiveEvent event : events.findTop100ByStatusAndStartedAtBefore(
+                Status.LIVE, cutoff)) {
+            if (event.getStatus() != Status.LIVE || event.getStartedAt() == null
+                    || !event.getStartedAt().isBefore(cutoff)) continue;
+            event.setStatus(Status.ENDED);
+            event.setEndedAt(Instant.now());
+            events.save(event);
+            queueRoomClosure(event.getId(), "jynlo-live-community-"
+                    + event.getCommunity().getId() + "-" + event.getId());
+        }
+    }
+
+    private void queueRoomClosure(Long id, String room) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override public void afterCommit() {
-                    pendingRoomClosures.put(eventId, room);
+                    pendingRoomClosures.put(id, room);
                     closePendingRooms();
                 }
             });
         } else {
-            // Fallback for controlled nontransactional invocations and tests.
-            pendingRoomClosures.put(eventId, room);
+            pendingRoomClosures.put(id, room);
             closePendingRooms();
         }
-        return finished;
     }
 
     @Transactional(readOnly = true)
