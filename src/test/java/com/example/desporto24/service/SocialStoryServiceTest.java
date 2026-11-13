@@ -124,6 +124,36 @@ class SocialStoryServiceTest {
     }
 
     @Test
+    void storesAccessibleAltTextAndClockStickerWithPublishedStory() {
+        MockMultipartFile image = new MockMultipartFile("image", "photo.jpg", "image/jpeg",
+                new byte[]{1, 2, 3});
+        when(storage.store(startsWith("stories/19/"), same(image)))
+                .thenReturn(URI.create("/media/stories/19/photo.jpg"));
+        when(stories.save(any(SocialStory.class))).thenAnswer(call -> {
+            SocialStory story = call.getArgument(0);
+            story.setId(99L);
+            return story;
+        });
+        StoryResponse result = service.create("joao", null, null, image, null,
+                "center", "medium", "plain", " Jogadores num campo ", true);
+        assertEquals("Jogadores num campo", result.altText());
+        assertTrue(result.showTime());
+        verify(stories).save(argThat(story -> story.isShowTime()
+                && "Jogadores num campo".equals(story.getAltText())));
+    }
+
+    @Test
+    void rejectsOverlongAccessibilityDescriptionBeforeMediaUpload() {
+        MockMultipartFile image = new MockMultipartFile("image", "photo.jpg", "image/jpeg",
+                new byte[]{1,2,3});
+        String tooLong = "a".repeat(351);
+        assertThrows(IllegalArgumentException.class,
+                () -> service.create("joao", null, "", image, null,
+                        "bottom", "medium", "pill", tooLong, false));
+        verifyNoInteractions(storage, stories);
+    }
+
+    @Test
     void rejectsMissingAndConflictingMediaBeforeSaving() {
         MockMultipartFile image = new MockMultipartFile("image", "a.jpg", "image/jpeg", new byte[]{1});
         MockMultipartFile video = new MockMultipartFile("video", "a.mp4", "video/mp4", new byte[]{1});
