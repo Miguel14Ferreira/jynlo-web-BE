@@ -128,17 +128,17 @@ connection, or through an approved internal operator workflow.
 After the copy-only R2 stage has completed and its JSONL manifest has been
 validated, generate a rollback-only SQL rehearsal locally:
 
-\`\`\`bash
+```bash
 python3 scripts/rehearse_private_profile_media_cutover.py \
   --manifest private-media-verified.jsonl \
   --output private-media-rehearsal.sql
-\`\`\`
+```
 
 The generator rejects duplicate media slots, wrong author IDs, unverified
 copies, invalid protected routes, mismatched file types and malformed checksums.
 Every SQL update matches the original media key, row ID and owner, and requires
 **exactly one row** to match or raises an exception. Album items must also
-match their original position. The SQL ends in \`ROLLBACK\`, not \`COMMIT\`.
+match their original position. The SQL ends in `ROLLBACK`, not `COMMIT`.
 
 This rehearsal is **not a production cutover**. Run it on a restored database
 backup, review the zero-error result, and separately approve a migration plan
