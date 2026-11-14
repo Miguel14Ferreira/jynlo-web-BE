@@ -659,6 +659,7 @@ public class DirectCallService {
                 // joining. Their identity must not remain visible in the roster.
                 requireInviterOriginalAccess(call, guest.inviter());
                 inbox.requireConversationAccess(guest.username(), "direct", guest.inviter());
+                inbox.requireConversationAccess(guest.inviter(), "direct", guest.username());
             } catch (org.springframework.security.access.AccessDeniedException
                      | ResponseStatusException revoked) {
                 continue;
