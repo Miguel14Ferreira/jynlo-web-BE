@@ -540,21 +540,30 @@ public class SocialFeedService {
         postRepository.delete(post);
         postRepository.flush();
 
-        if (
-                mediaStorage != null
-                && post.getImageStorageKey() != null
-                && !post.getImageStorageKey().isBlank()
-        ) {
-            deleteMediaKey(post.getImageStorageKey());
-        }
-        if (mediaStorage != null && post.getVideoStorageKey() != null
-                && !post.getVideoStorageKey().isBlank()) {
-            deleteMediaKey(post.getVideoStorageKey());
-        }
-        if (mediaStorage != null && post.getExtraMedia() != null) {
-            for (var asset : post.getExtraMedia()) {
-                if (asset.getStorageKey() != null) deleteMediaKey(asset.getStorageKey());
-            }
+        // The database must commit before removing objects. If a commit fails,
+        // the post and its attachments must remain available.
+        List<String> keys = new ArrayList<>();
+        if (post.getImageStorageKey() != null && !post.getImageStorageKey().isBlank())
+            keys.add(post.getImageStorageKey());
+        if (post.getVideoStorageKey() != null && !post.getVideoStorageKey().isBlank())
+            keys.add(post.getVideoStorageKey());
+        if (post.getExtraMedia() != null)
+            post.getExtraMedia().stream().map(com.example.desporto24.model.social.PublicPostMedia::getStorageKey)
+                    .filter(java.util.Objects::nonNull).filter(key -> !key.isBlank()).forEach(keys::add);
+        if (!keys.isEmpty()) {
+            if (!TransactionSynchronizationManager.isSynchronizationActive())
+                throw new IllegalStateException("Post deletion requires a transaction");
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() {
+                    for (String key : keys) {
+                        try { deleteMediaKey(key); }
+                        catch (RuntimeException failure) {
+                            org.slf4j.LoggerFactory.getLogger(SocialFeedService.class)
+                                    .warn("Post object cleanup failed after database commit; cleanup required", failure);
+                        }
+                    }
+                }
+            });
         }
     }
 
