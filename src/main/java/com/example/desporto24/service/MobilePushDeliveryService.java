@@ -84,7 +84,7 @@ public class MobilePushDeliveryService {
                     "to", token,
                     "title", "SESSION_CANCELLED".equals(category) ? "Sessão cancelada" : "Jynlo",
                     "body", "SESSION_CANCELLED".equals(category)
-                            ? "O organizador cancelou uma sessão em que estavas inscrito. Abre a Jynlo para consultar os detalhes."
+                            ? "Uma sessão em que estavas inscrito já não se vai realizar. Abre a Jynlo para saberes porquê."
                             : "Tens uma nova notificação.",
                     "sound", "default",
                     "channelId", "jynlo-messages",
