@@ -635,6 +635,33 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void reciprocalPermissionRevocationEvictsAcceptedGuestFromLiveKit() throws Exception {
+        Profile carlos = mock(Profile.class);
+        lenient().when(carlos.getId()).thenReturn(14L);
+        lenient().when(profiles.findUserByUsernameIgnoreCase("carlos"))
+                .thenReturn(Optional.of(carlos));
+        DirectCallService protectedCalls = spy(calls);
+        doReturn(true).when(protectedCalls)
+                .removeFromLiveKit(anyString(), anyString());
+
+        var call = protectedCalls.start("ana", "bea", "voice");
+        protectedCalls.accept(call.callId(), "bea");
+        protectedCalls.invite(call.callId(), "ana", "carlos");
+        protectedCalls.accept(call.callId(), "carlos");
+
+        doThrow(new org.springframework.security.access.AccessDeniedException("Inviter blocked"))
+                .when(inbox).requireConversationAccess("ana", "direct", "carlos");
+
+        protectedCalls.revokeDisconnectedGuests();
+
+        verify(protectedCalls).removeFromLiveKit(eq("jynlo-" + call.callId()),
+                eq("jynlo-user-14"));
+        assertEquals(2, protectedCalls.members(call.callId(), "bea").participants().size());
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
+                () -> protectedCalls.members(call.callId(), "carlos")).getStatusCode());
+    }
+
+    @Test
     void failedProviderRemovalKeepsGuestEligibleForRetry() throws Exception {
         Profile carlos = mock(Profile.class);
         lenient().when(carlos.getId()).thenReturn(14L);
