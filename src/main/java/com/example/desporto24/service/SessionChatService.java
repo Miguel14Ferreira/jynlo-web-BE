@@ -48,6 +48,9 @@ public class SessionChatService {
     @Autowired(required = false)
     private PrivateChatFileStorage privateChatStorage;
 
+    @Autowired(required = false)
+    private PrivateChatDeletionOutbox privateChatDeletionOutbox;
+
     /**
      * Keep guest access separate from the authenticated GET endpoint. A public
      * WhatsApp invitation can never read messages without its own approved RSVP.
@@ -213,7 +216,12 @@ public class SessionChatService {
         messageRepository.saveAndFlush(message);
         messageRepository.redactRepliesToDeleted(sessionId, messageId, "[message deleted]");
         if (!attachmentKeys.isEmpty()) {
-            PrivateChatAttachmentDeletion.afterCommit(privateChatStorage, attachmentKeys);
+            if (privateChatDeletionOutbox == null)
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "Private chat cleanup is unavailable");
+            // Enqueue in the same DB transaction as the tombstone. Rollback
+            // removes the queue rows as well as reverting the message deletion.
+            privateChatDeletionOutbox.enqueueAll(attachmentKeys);
         }
         SessionMessageResponse response = toResponse(message);
         eventPublisher.publishEvent(new SessionChatMessageCreatedEvent(response, realtimeRecipients(session)));
