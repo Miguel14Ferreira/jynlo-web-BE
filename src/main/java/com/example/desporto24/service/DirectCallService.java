@@ -730,6 +730,13 @@ public class DirectCallService {
             if (!guest.accepted()) continue;
             try {
                 requireInviterOriginalAccess(call, guest.username());
+                // The event envelope includes the original caller. A guest who
+                // has lost reciprocal access to either original participant
+                // must not receive that identity via roster notifications.
+                inbox.requireConversationAccess(guest.username(), "direct", call.caller());
+                inbox.requireConversationAccess(call.caller(), "direct", guest.username());
+                inbox.requireConversationAccess(guest.username(), "direct", call.peer());
+                inbox.requireConversationAccess(call.peer(), "direct", guest.username());
             } catch (org.springframework.security.access.AccessDeniedException
                      | ResponseStatusException revoked) {
                 continue;
