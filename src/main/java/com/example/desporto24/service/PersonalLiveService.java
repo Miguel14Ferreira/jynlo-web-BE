@@ -8,6 +8,7 @@ import com.example.desporto24.model.social.PersonalLiveEvent.Status;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.social.PersonalLiveEventRepository;
 import lombok.RequiredArgsConstructor;
+import com.example.desporto24.websocket.ChatRealtimeGateway;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -33,6 +34,15 @@ public class PersonalLiveService {
     private final ProfileRepository profiles;
     private final UserBlockService blocks;
     private final DirectCallService provider;
+    private final ChatRealtimeGateway realtime;
+
+    private void afterCommitLiveChange() {
+        if (TransactionSynchronizationManager.isSynchronizationActive())
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() { realtime.publishPersonalLiveInvalidated(); }
+            });
+        else realtime.publishPersonalLiveInvalidated();
+    }
     private final ConcurrentHashMap<Long,String> pendingClose = new ConcurrentHashMap<>();
 
     @Value("${LIVEKIT_URL:}") private String serverUrl;
@@ -88,6 +98,7 @@ public class PersonalLiveService {
         PersonalLiveEvent event=events.save(PersonalLiveEvent.builder()
             .host(host).title(title.strip()).status(Status.LIVE)
             .createdAt(now).hostHeartbeatAt(now).build());
+        afterCommitLiveChange();
         return view(event,host);
     }
 
@@ -122,6 +133,7 @@ public class PersonalLiveService {
         event.setEndedAt(Instant.now());
         Event ended=view(events.save(event),host);
         queueClose(id);
+        afterCommitLiveChange();
         return ended;
     }
 
@@ -145,6 +157,7 @@ public class PersonalLiveService {
             event.setEndedAt(now);
             events.save(event);
             queueClose(event.getId());
+            afterCommitLiveChange();
         }
     }
     private String room(Long id) {return "jynlo-live-personal-"+id;}
