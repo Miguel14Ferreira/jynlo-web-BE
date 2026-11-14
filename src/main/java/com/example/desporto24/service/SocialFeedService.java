@@ -451,33 +451,38 @@ public class SocialFeedService {
             }
             postRepository.saveAndFlush(post);
             finalizePrivatePostUrls(post);
+            if (replaceMedia && !oldKeys.isEmpty()) {
+                if (mediaDeletionOutbox == null)
+                    throw new IllegalStateException("Durable media cleanup is not configured");
+                // Queue the original objects in the SAME transaction as the
+                // post update. The queue and edit roll back together.
+                for (String key : new java.util.LinkedHashSet<>(oldKeys))
+                    mediaDeletionOutbox.enqueue(key);
+            }
         } catch (RuntimeException failure) {
             for (var asset : stored) deleteFailedUpload(asset.getStorageKey(), failure);
             throw failure;
         }
-        // Defer deletion until the database transaction commits: a failed commit
-        // must not leave the original publication pointing at deleted objects.
-        if (replaceMedia && mediaStorage != null) {
+        // An unsuccessful database commit must not strand newly uploaded objects.
+        // On success, the durable queue handles old keys (even across restarts).
+        if (replaceMedia && !stored.isEmpty()) {
+            if (!TransactionSynchronizationManager.isSynchronizationActive())
+                throw new IllegalStateException("Replacing post media requires a transaction");
             List<String> uploadedKeys = stored.stream()
                     .map(com.example.desporto24.model.social.PublicPostMedia::getStorageKey)
                     .filter(java.util.Objects::nonNull).toList();
-            if (TransactionSynchronizationManager.isSynchronizationActive()) {
-                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                    @Override public void afterCompletion(int status) {
-                        var keys = status == TransactionSynchronization.STATUS_COMMITTED
-                                ? oldKeys : uploadedKeys;
-                        for (String key : keys) {
-                            try { deleteMediaKey(key); }
-                            catch (RuntimeException ignored) { /* retry orphan cleanup independently */ }
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCompletion(int status) {
+                    if (status == TransactionSynchronization.STATUS_COMMITTED) return;
+                    for (String key : uploadedKeys) {
+                        try { deleteMediaKey(key); }
+                        catch (RuntimeException failure) {
+                            org.slf4j.LoggerFactory.getLogger(SocialFeedService.class)
+                                    .warn("New upload cleanup failed after rollback; orphan cleanup required", failure);
                         }
                     }
-                });
-            } else {
-                for (String key : oldKeys) {
-                    try { deleteMediaKey(key); }
-                    catch (RuntimeException ignored) { /* retry orphan cleanup independently */ }
                 }
-            }
+            });
         }
         return postItem(post, actor);
     }
