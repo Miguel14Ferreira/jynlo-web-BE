@@ -154,6 +154,10 @@ also rolled back, leaving the object untouched. The cleanup worker runs
 approximately once per minute, claims up to 25 due rows using PostgreSQL
 `FOR UPDATE SKIP LOCKED`, and retries failed deletes with backoff. The
 row persists across process crashes. Object deletion is idempotent.
+An isolated PostgreSQL 16 integration test validates duplicate insertion,
+concurrent claim exclusion, stale-worker tokens and retry scheduling
+(`scripts/test_profile_media_outbox_pg.sh`). It uses synthetic records,
+not the production R2 bucket or production PostgreSQL database.
 
 - Liquibase: `2026-11-14-profile-media-deletion-outbox.yaml`
 - Service: `ProfileMediaDeletionOutbox`
