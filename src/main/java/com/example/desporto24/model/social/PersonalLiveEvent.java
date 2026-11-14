@@ -29,6 +29,8 @@ public class PersonalLiveEvent {
     private Instant hostHeartbeatAt;
     @Column(name="chat_enabled",nullable=false)
     @Builder.Default private boolean chatEnabled=true;
+    @Column(name="chat_slow_seconds",nullable=false)
+    @Builder.Default private int chatSlowSeconds=0;
     @ManyToOne(fetch=FetchType.LAZY)
     @JoinColumn(name="guest_profile_id")
     private Profile guest;
