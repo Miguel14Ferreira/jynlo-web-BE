@@ -349,6 +349,13 @@ public class SessionChatService {
                 || index > entry.getExtraAttachments().size())
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat attachment not found");
         var item = entry.getExtraAttachments().get(index - 1);
+        if (item == null || item.getStorageKey() == null || item.getStorageKey().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat attachment not found");
+        }
+        if (privateChatStorage == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Private chat attachment storage is unavailable");
+        }
         return new ChatAttachmentContent(privateChatStorage.read(item.getStorageKey()),
                 item.getMimeType(), item.getFilename());
     }
