@@ -95,6 +95,39 @@ class SocialStoryServiceTest {
     }
 
     @Test
+    void expiredProtectedStoryPurgesOnlyPrivateStorage() {
+        // This background task does not resolve a logged-in user.
+        reset(profiles);
+        String key = "private-profile-media/stories/19/expired.jpg";
+        SocialStory story = SocialStory.builder().id(124L).author(actor).mediaStorageKey(key)
+                .expiresAt(Instant.now().minusSeconds(10)).build();
+        when(stories.findByExpiresAtLessThanEqualOrderByIdAsc(any(Instant.class),
+                any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(java.util.List.of(story));
+        when(privateMedia.isConfigured()).thenReturn(true);
+        service.removeExpired();
+        verify(privateMedia).delete(key);
+        verify(stories).delete(story);
+        verify(storage, never()).delete(anyString());
+    }
+
+    @Test
+    void expiredProtectedStoryRemainsForRetryWhenPrivateStorageUnavailable() {
+        reset(profiles);
+        String key = "private-profile-media/stories/19/expired.jpg";
+        SocialStory story = SocialStory.builder().id(124L).author(actor).mediaStorageKey(key)
+                .expiresAt(Instant.now().minusSeconds(10)).build();
+        when(stories.findByExpiresAtLessThanEqualOrderByIdAsc(any(Instant.class),
+                any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(java.util.List.of(story));
+        when(privateMedia.isConfigured()).thenReturn(false);
+        service.removeExpired();
+        verify(stories, never()).delete(story);
+        verify(privateMedia, never()).delete(anyString());
+        verify(storage, never()).delete(anyString());
+    }
+
+    @Test
     void acceptsOnePictureAndExpiresExactly24HoursAfterCreation() {
         MockMultipartFile image = new MockMultipartFile("image", "photo.jpg", "image/jpeg", new byte[] {1,2,3});
         when(storage.store(startsWith("stories/19/"), same(image)))
