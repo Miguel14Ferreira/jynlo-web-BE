@@ -42,6 +42,20 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void rejectsRingWhenRecipientCannotContactCallerEvenIfCallerHasAccess() {
+        doThrow(new org.springframework.security.access.AccessDeniedException("recipient privacy"))
+                .when(inbox).requireConversationAccess("bea", "direct", "ana");
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.start("ana", "bea", "video"));
+
+        verify(inbox).requireConversationAccess("ana", "direct", "bea");
+        verify(inbox).requireConversationAccess("bea", "direct", "ana");
+        verifyNoInteractions(gateway);
+        assertNull(calls.pendingFor("bea"), "Denied rings must not create pending invitations");
+    }
+
+    @Test
     void createsScopedTokensForExactlyTwoAuthorizedMembers() {
         var outgoing = calls.start("ana", "bea", "video");
         verify(inbox).requireConversationAccess("ana", "direct", "bea");
