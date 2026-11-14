@@ -210,6 +210,26 @@ public class ChatRealtimeGateway extends TextWebSocketHandler {
      * like totals or private activity to other authenticated accounts.
      * Clients refresh only data they are authorized to read over HTTP.
      */
+    /**
+     * Content-free notification, dispatched only after a live mutation commits.
+     * Clients fetch messages and moderation through their existing authorized
+     * HTTP endpoints; no live IDs, blocked users or message content leak here.
+     */
+    public void publishPersonalLiveInvalidated() {
+        final String payload = "{\"type\":\"PERSONAL_LIVE_INVALIDATED\"}";
+        for (Set<WebSocketSession> sockets : sessionsByUsername.values()) {
+            for (WebSocketSession socket : sockets) {
+                try {
+                    if (socket.isOpen() && isCurrentAuthenticatedSession(socket)) {
+                        send(socket, payload);
+                    }
+                } catch (IOException | RuntimeException ignored) {
+                    // A transient WebSocket failure cannot roll back a saved chat.
+                }
+            }
+        }
+    }
+
     public void publishSocialFeedInvalidated() {
         final String payload = "{\"type\":\"SOCIAL_FEED_INVALIDATED\"}";
         for (Set<WebSocketSession> sockets : sessionsByUsername.values()) {
