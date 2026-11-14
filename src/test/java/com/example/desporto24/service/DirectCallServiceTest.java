@@ -42,6 +42,24 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void secondGenerationInviteDisappearsWhenAncestorLosesReciprocalAccess() {
+        var call = calls.start("ana", "bea", "video");
+        calls.accept(call.callId(), "bea");
+        calls.invite(call.callId(), "ana", "carlos");
+        calls.accept(call.callId(), "carlos");
+        calls.invite(call.callId(), "carlos", "diana");
+        assertNotNull(calls.pendingFor("diana"));
+
+        doThrow(new org.springframework.security.access.AccessDeniedException("Ancestor blocked"))
+                .when(inbox).requireConversationAccess("ana", "direct", "carlos");
+
+        assertNull(calls.pendingFor("diana"),
+                "A downstream guest invitation must be hidden when an ancestor loses access");
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.accept(call.callId(), "diana"));
+    }
+
+    @Test
     void refusesGroupInvitationWhenRecipientCannotContactInviter() {
         var ringing = calls.start("ana", "bea", "video");
         calls.accept(ringing.callId(), "bea");
