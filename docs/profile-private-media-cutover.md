@@ -145,17 +145,28 @@ backup, review the zero-error result, and separately approve a migration plan
 that covers all records, public-object deletion and Cloudflare CDN purges.
 Never publish the manifest or SQL because they contain storage keys.
 
-## Story expiration and object cleanup
+## Durable media deletion outbox
 
-Automatic expiration now schedules media deletion **only after** the database
-transaction commits. On rollback, no object is removed. Expired private Stories
-whose private storage is not configured are retained in the database for a
-future cleanup attempt; public Story cleanup is not blocked by those entries.
+The backend now records public and private **post and Story** media cleanup in
+`profile_media_deletion_outbox` inside the **same database transaction** as
+removing the parent content. If the transaction rolls back, the queue row is
+also rolled back, leaving the object untouched. The cleanup worker runs
+approximately once per minute, claims up to 25 due rows using PostgreSQL
+`FOR UPDATE SKIP LOCKED`, and retries failed deletes with backoff. The
+row persists across process crashes. Object deletion is idempotent.
 
-**Remaining operational limitation:** if the database commits but R2 deletion
-fails (or the worker crashes between commit and deletion), the deleted Story
-will no longer carry a database reference to its object. The service logs the
-failure, but that object does **not** automatically retry through the Story
-table. Before activating private profiles at scale, implement a durable
-object-deletion outbox/reconciler and verify orphan cleanup. This is not a
-reason to delete R2 objects before their database transaction commits.
+- Liquibase: `2026-11-14-profile-media-deletion-outbox.yaml`
+- Service: `ProfileMediaDeletionOutbox`
+- Verification: `ProfileMediaDeletionOutboxTest`,
+  `SocialFeedMediaDeletionTransactionTest`, `SocialStoryServiceTest`
+
+**Deployment prerequisite:** apply the outbox schema before running these
+service changes. If the table cannot be written, deleting media-bearing posts
+or stories must fail closed and leave their database rows intact. Monitor
+pending and stale outbox rows, failure rates, worker concurrency and R2
+permissions. Do not purge entire buckets as a shortcut.
+
+This queue addresses media cleanup *after content deletion*. It does **not**
+migrate legacy public media for profiles becoming private, revoke CDN links,
+or implement the reverse private-to-public media migration. Those rollout
+steps are still required before enabling the privacy feature flags.
