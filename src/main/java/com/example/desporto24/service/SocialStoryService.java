@@ -386,9 +386,27 @@ public class SocialStoryService {
                 && (story.getCommunity() == null || !canManage(story.getCommunity(), actor))) {
             throw new AccessDeniedException("Cannot delete another person's story");
         }
+        String mediaKey=story.getMediaStorageKey();
+        if (com.example.desporto24.storage.PrivateProfileMediaStorage.isPrivateKey(mediaKey)
+                && (privateMedia == null || !privateMedia.isConfigured()))
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Protected story storage unavailable");
+        if (!org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive())
+            throw new IllegalStateException("Story deletion requires a transaction");
         stories.delete(story);
         stories.flush();
-        deleteStoryMedia(story.getMediaStorageKey());
+        // Do not delete storage before the database transaction has committed.
+        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+            new org.springframework.transaction.support.TransactionSynchronization() {
+                @Override public void afterCommit() {
+                    try {
+                        deleteStoryMedia(mediaKey);
+                    } catch (RuntimeException ex) {
+                        org.slf4j.LoggerFactory.getLogger(SocialStoryService.class)
+                                .warn("Story media cleanup failed after commit; orphan cleanup required", ex);
+                    }
+                }
+            });
     }
 
     // Expiration is enforced on every read, even if scheduled cleanup is delayed.
