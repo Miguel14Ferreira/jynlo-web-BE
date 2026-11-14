@@ -134,6 +134,31 @@ public final class SportsCatalog {
             "Yoga"
     );
 
+    /**
+     * Community and profile sports remain restricted to the official catalog.
+     * Independent sessions may use a proposed sport without claiming that
+     * tournament rankings or official venue compatibility are supported.
+     */
+    public static boolean isCustomSessionSport(String name) {
+        if (name == null || name.length() < 2 || name.length() > 60
+                || !name.equals(name.trim()) || ALLOWED.contains(name)) {
+            return false;
+        }
+        if (!name.matches("^[\\p{L}\\p{M}][\\p{L}\\p{M}\\p{N} .&'’()/-]*$")) {
+            return false;
+        }
+        String normalized = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").toLowerCase(java.util.Locale.ROOT);
+        return ALLOWED.stream().noneMatch(known ->
+                java.text.Normalizer.normalize(known, java.text.Normalizer.Form.NFD)
+                        .replaceAll("\\p{M}", "").toLowerCase(java.util.Locale.ROOT)
+                        .equals(normalized));
+    }
+
+    public static boolean isAllowedSessionSport(String name) {
+        return ALLOWED.contains(name) || isCustomSessionSport(name);
+    }
+
     public static boolean isValidSelection(String favoriteSports) {
         if (favoriteSports == null || favoriteSports.isBlank()) {
             return true;
