@@ -1,0 +1,42 @@
+name: Jynlo protected profile media CI
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/profile-private-media-ci.yml'
+      - 'pom.xml'
+      - 'src/main/java/com/example/desporto24/storage/PrivateProfileMediaStorage.java'
+      - 'src/main/java/com/example/desporto24/controllers/PrivateProfileMediaController.java'
+      - 'src/main/java/com/example/desporto24/controllers/ProfilePrivacyController.java'
+      - 'src/main/java/com/example/desporto24/service/ProfilePrivacyService.java'
+      - 'src/main/java/com/example/desporto24/service/ProfileMediaReadinessService.java'
+      - 'src/main/java/com/example/desporto24/service/SocialFeedService.java'
+      - 'src/main/java/com/example/desporto24/service/SocialStoryService.java'
+      - 'src/main/java/com/example/desporto24/repository/social/SocialStoryRepository.java'
+      - 'src/test/java/com/example/desporto24/controllers/PrivateProfileMediaControllerTest.java'
+      - 'src/test/java/com/example/desporto24/storage/PrivateProfileMediaStorageTest.java'
+      - 'src/test/java/com/example/desporto24/service/ProfileMediaReadinessServiceTest.java'
+      - 'src/test/java/com/example/desporto24/service/ProfilePrivacyServiceTest.java'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: profile-private-media-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  protected-media:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Verify protected media authorization and migration audit
+        env:
+          AES_ENCRYPTION_KEY: ciKey1
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp -Dtest=PrivateProfileMediaStorageTest,PrivateProfileMediaControllerTest,ProfileMediaReadinessServiceTest,ProfilePrivacyServiceTest test
