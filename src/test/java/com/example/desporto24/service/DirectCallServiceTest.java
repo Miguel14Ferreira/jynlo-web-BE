@@ -86,8 +86,8 @@ class DirectCallServiceTest {
 
         String redacted = ReflectionTestUtils.invokeMethod(calls,
                 "rosterEventActor", "bea", "carlos");
-        assertEquals("bea", redacted,
-                "A roster event must not reveal the blocked actor's username");
+        assertEquals("", redacted,
+                "A redacted roster event must not impersonate the recipient or reveal the actor");
         verify(inbox, never()).requireConversationAccess("carlos", "direct", "bea");
     }
 
