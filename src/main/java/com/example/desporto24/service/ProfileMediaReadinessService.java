@@ -62,6 +62,12 @@ public class ProfileMediaReadinessService {
             if (post.getExtraMedia()!=null) {
                 for (int i=0;i<post.getExtraMedia().size();i++) {
                     var asset=post.getExtraMedia().get(i);
+                    // Malformed legacy album entries are not proof of a safe
+                    // private-media migration. Fail closed instead of throwing.
+                    if (asset == null) {
+                        publicRefs++;
+                        continue;
+                    }
                     String expected="/api/profile-media/posts/" + post.getId() + "/extra-" + i;
                     if (protectedReference(asset.getStorageKey(), asset.getUrl(), expected, "posts", profile.getId())) protectedRefs++;
                     else publicRefs++;
