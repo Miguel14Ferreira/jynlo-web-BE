@@ -46,6 +46,9 @@ class DirectCallServiceTest {
         var call = calls.start("ana", "bea", "video");
         calls.accept(call.callId(), "bea");
         calls.invite(call.callId(), "ana", "carlos");
+        Profile carlos = mock(Profile.class);
+        when(carlos.getId()).thenReturn(14L);
+        when(profiles.findUserByUsernameIgnoreCase("carlos")).thenReturn(Optional.of(carlos));
         calls.accept(call.callId(), "carlos");
         calls.invite(call.callId(), "carlos", "diana");
         assertNotNull(calls.pendingFor("diana"));
