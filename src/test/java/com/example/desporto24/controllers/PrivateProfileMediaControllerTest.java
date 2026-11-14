@@ -67,6 +67,16 @@ class PrivateProfileMediaControllerTest {
                         ()->controller.story(8L,viewer)).getStatusCode());
         verifyNoInteractions(storage);
     }
+    @Test void cannotReadAKeyFromAnotherAuthorsPrivateFolder() {
+        Profile owner=author();
+        SocialPost post=SocialPost.builder().id(7L).author(owner)
+                .imageStorageKey("private-profile-media/posts/999/other.jpg").build();
+        when(posts.findById(7L)).thenReturn(Optional.of(post));
+        assertEquals(HttpStatus.NOT_FOUND,
+                assertThrows(ResponseStatusException.class,
+                        ()->controller.post(7L,"image",viewer)).getStatusCode());
+        verifyNoInteractions(storage);
+    }
     @Test void authorizedProtectedPhotosHaveNoStoreCachePolicy() {
         Profile owner = author();
         SocialPost post = SocialPost.builder().id(7L).author(owner)
