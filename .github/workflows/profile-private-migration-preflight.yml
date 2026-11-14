@@ -5,6 +5,8 @@ on:
     paths:
       - 'scripts/stage_private_profile_media.py'
       - 'scripts/test_stage_private_profile_media.py'
+      - 'scripts/rehearse_private_profile_media_cutover.py'
+      - 'scripts/test_rehearse_private_profile_media_cutover.py'
       - '.github/workflows/profile-private-migration-preflight.yml'
   workflow_dispatch:
 permissions:
@@ -19,6 +21,6 @@ jobs:
         with:
           python-version: '3.12'
       - name: Test safe copy-only migration logic
-        run: python -m unittest scripts/test_stage_private_profile_media.py -v
+        run: python -m unittest scripts/test_stage_private_profile_media.py scripts/test_rehearse_private_profile_media_cutover.py -v
       - name: Validate migration utility syntax
-        run: python -m py_compile scripts/stage_private_profile_media.py
+        run: python -m py_compile scripts/stage_private_profile_media.py scripts/rehearse_private_profile_media_cutover.py
