@@ -53,6 +53,7 @@ class SocialStoryServiceTest {
     @Mock private ProfileFollowRepository follows;
     @Mock private MediaStorage storage;
     @Mock private PrivateProfileMediaStorage privateMedia;
+    @Mock private ProfileMediaDeletionOutbox mediaOutbox;
     @InjectMocks private SocialStoryService service;
 
     private Profile actor;
@@ -62,6 +63,7 @@ class SocialStoryServiceTest {
         // Mockito uses constructor injection for @InjectMocks; optional @Autowired
         // fields are not always injected when the constructor succeeds.
         org.springframework.test.util.ReflectionTestUtils.setField(service, "privateMedia", privateMedia);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "mediaDeletionOutbox", mediaOutbox);
         actor = new Profile();
         actor.setId(19L);
         actor.setUsername("joao");
@@ -69,186 +71,68 @@ class SocialStoryServiceTest {
     }
 
     @Test
-    void deletingPrivateStoryUsesPrivateBucketInsteadOfPublicStorage() {
-        String key = "private-profile-media/stories/19/media-123.jpg";
-        SocialStory story = SocialStory.builder().id(123L).author(actor).mediaStorageKey(key)
-                .mediaUrl("/api/profile-media/stories/123")
+    void deletingPrivateStoryQueuesCleanupWithoutDeletingMedia() {
+        String key="private-profile-media/stories/19/media-123.jpg";
+        SocialStory story=SocialStory.builder().id(123L).author(actor).mediaStorageKey(key)
                 .expiresAt(Instant.now().plusSeconds(3600)).build();
         when(stories.findById(123L)).thenReturn(Optional.of(story));
         when(privateMedia.isConfigured()).thenReturn(true);
-        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
-        try {
-            service.delete(123L, "joao");
-            verify(stories).delete(story);
-            verify(stories).flush();
-            verify(privateMedia, never()).delete(anyString());
-            var callbacks=org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations();
-            assertEquals(1,callbacks.size());
-            callbacks.get(0).afterCommit();
-            verify(privateMedia).delete(key);
-            verify(storage, never()).delete(anyString());
-        } finally {
-            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
-        }
+        service.delete(123L,"joao");
+        verify(stories).delete(story);
+        verify(stories).flush();
+        verify(mediaOutbox).enqueue(key);
+        verify(privateMedia,never()).delete(anyString());
+        verify(storage,never()).delete(anyString());
     }
 
     @Test
-    void rolledBackPrivateStoryDeletionRetainsStoredMedia() {
-        String key="private-profile-media/stories/19/retain.jpg";
-        SocialStory story=SocialStory.builder().id(125L).author(actor).mediaStorageKey(key)
-                .expiresAt(Instant.now().plusSeconds(600)).build();
-        when(stories.findById(125L)).thenReturn(Optional.of(story));
-        when(privateMedia.isConfigured()).thenReturn(true);
-        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
-        try {
-            service.delete(125L,"joao");
-            for (var callback:org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations())
-                callback.afterCompletion(org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK);
-            verify(privateMedia,never()).delete(anyString());
-            verify(storage,never()).delete(anyString());
-        } finally {
-            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
-        }
-    }
-
-    @Test
-    void privateStoryIsNotDeletedWhenProtectedStorageIsUnavailable() {
-        String key = "private-profile-media/stories/19/media-123.jpg";
-        SocialStory story = SocialStory.builder().id(123L).author(actor).mediaStorageKey(key)
+    void deletingPrivateStoryFailsClosedWithoutPrivateStorage() {
+        String key="private-profile-media/stories/19/media-123.jpg";
+        SocialStory story=SocialStory.builder().id(123L).author(actor).mediaStorageKey(key)
                 .expiresAt(Instant.now().plusSeconds(3600)).build();
         when(stories.findById(123L)).thenReturn(Optional.of(story));
         when(privateMedia.isConfigured()).thenReturn(false);
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE,
-                assertThrows(ResponseStatusException.class,
-                        () -> service.delete(123L, "joao")).getStatusCode());
-        verify(privateMedia, never()).delete(anyString());
-        verify(storage, never()).delete(anyString());
+                assertThrows(ResponseStatusException.class,()->service.delete(123L,"joao"))
+                    .getStatusCode());
+        verify(mediaOutbox,never()).enqueue(anyString());
+        verify(stories,never()).delete(any());
     }
 
     @Test
-    void expiredProtectedStoryPurgesOnlyPrivateStorage() {
-        // This background task does not resolve a logged-in user.
+    void expiredPrivateAndPublicStoriesQueueDurableCleanup() {
         reset(profiles);
-        String key = "private-profile-media/stories/19/expired.jpg";
-        SocialStory story = SocialStory.builder().id(124L).author(actor).mediaStorageKey(key)
-                .expiresAt(Instant.now().minusSeconds(10)).build();
-        when(stories.findByExpiresAtLessThanEqualOrderByIdAsc(any(Instant.class),
-                any(org.springframework.data.domain.Pageable.class)))
-                .thenReturn(java.util.List.of(story));
-        when(privateMedia.isConfigured()).thenReturn(true);
-        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
-        try {
-            service.removeExpired();
-            verify(stories).delete(story);
-            verify(privateMedia, never()).delete(anyString());
-            var callbacks=org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations();
-            assertEquals(1,callbacks.size());
-            callbacks.get(0).afterCommit();
-            verify(privateMedia).delete(key);
-            verify(storage, never()).delete(anyString());
-        } finally {
-            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
-        }
-    }
-
-    @Test
-    void expiredProtectedStoryCleanupRollbackNeverDeletesStoredObject() {
-        reset(profiles);
-        String key="private-profile-media/stories/19/expired.jpg";
-        SocialStory story=SocialStory.builder().id(124L).author(actor).mediaStorageKey(key)
-                .expiresAt(Instant.now().minusSeconds(10)).build();
-        when(stories.findByExpiresAtLessThanEqualOrderByIdAsc(any(Instant.class),
-                any(org.springframework.data.domain.Pageable.class)))
-                .thenReturn(java.util.List.of(story));
-        when(privateMedia.isConfigured()).thenReturn(true);
-        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
-        try {
-            service.removeExpired();
-            verify(stories).delete(story);
-            for (var callback:org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations())
-                callback.afterCompletion(org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK);
-            verify(privateMedia, never()).delete(anyString());
-            verify(storage, never()).delete(anyString());
-        } finally {
-            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
-        }
-    }
-
-    @Test
-    void expiredProtectedStoryRemainsForRetryWhenPrivateStorageUnavailable() {
-        reset(profiles);
-        String key = "private-profile-media/stories/19/expired.jpg";
-        SocialStory story = SocialStory.builder().id(124L).author(actor).mediaStorageKey(key)
-                .expiresAt(Instant.now().minusSeconds(10)).build();
-        when(stories.findByExpiresAtLessThanEqualOrderByIdAsc(any(Instant.class),
-                any(org.springframework.data.domain.Pageable.class)))
-                .thenReturn(java.util.List.of(story));
-        when(privateMedia.isConfigured()).thenReturn(false);
-        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
-        try {
-            service.removeExpired();
-            verify(stories, never()).delete(story);
-            assertTrue(org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations().isEmpty());
-            verify(privateMedia, never()).delete(anyString());
-            verify(storage, never()).delete(anyString());
-        } finally {
-            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
-        }
-    }
-
-    @Test
-    void expiredStoryBatchContinuesWhenOnePrivateBucketIsUnavailable() {
-        reset(profiles);
-        SocialStory privateStory=SocialStory.builder().id(201L).author(actor)
-                .mediaStorageKey("private-profile-media/stories/19/private.jpg")
+        SocialStory secret=SocialStory.builder().id(201L).author(actor)
+                .mediaStorageKey("private-profile-media/stories/19/secret.jpg")
                 .expiresAt(Instant.now().minusSeconds(60)).build();
         SocialStory publicStory=SocialStory.builder().id(202L).author(actor)
                 .mediaStorageKey("stories/19/public.jpg")
                 .expiresAt(Instant.now().minusSeconds(60)).build();
         when(stories.findByExpiresAtLessThanEqualOrderByIdAsc(any(Instant.class),
                 any(org.springframework.data.domain.Pageable.class)))
-                .thenReturn(java.util.List.of(privateStory,publicStory));
-        when(privateMedia.isConfigured()).thenReturn(false);
-        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
-        try {
-            service.removeExpired();
-            verify(stories, never()).delete(privateStory);
-            verify(stories).delete(publicStory);
-            var callbacks=org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations();
-            assertEquals(1,callbacks.size());
-            callbacks.get(0).afterCommit();
-            verify(storage).delete("stories/19/public.jpg");
-            verify(privateMedia, never()).delete(anyString());
-        } finally {
-            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
-        }
+                .thenReturn(java.util.List.of(secret,publicStory));
+        service.removeExpired();
+        verify(mediaOutbox).enqueue("private-profile-media/stories/19/secret.jpg");
+        verify(mediaOutbox).enqueue("stories/19/public.jpg");
+        verify(stories).delete(secret);
+        verify(stories).delete(publicStory);
+        verifyNoInteractions(storage);
+        verify(privateMedia,never()).delete(anyString());
     }
 
     @Test
-    void expiredStoryObjectFailureDoesNotAbortOtherPostCommitCleanup() {
+    void expiredStoryFailsClosedIfOutboxWriteFails() {
         reset(profiles);
-        SocialStory first=SocialStory.builder().id(211L).author(actor)
-                .mediaStorageKey("stories/19/broken.jpg")
-                .expiresAt(Instant.now().minusSeconds(60)).build();
-        SocialStory second=SocialStory.builder().id(212L).author(actor)
-                .mediaStorageKey("stories/19/other.jpg")
+        String key="private-profile-media/stories/19/secret.jpg";
+        SocialStory story=SocialStory.builder().id(201L).author(actor).mediaStorageKey(key)
                 .expiresAt(Instant.now().minusSeconds(60)).build();
         when(stories.findByExpiresAtLessThanEqualOrderByIdAsc(any(Instant.class),
                 any(org.springframework.data.domain.Pageable.class)))
-                .thenReturn(java.util.List.of(first,second));
-        doThrow(new IllegalStateException("bucket unavailable"))
-                .when(storage).delete("stories/19/broken.jpg");
-        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
-        try {
-            service.removeExpired();
-            var callbacks=org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations();
-            assertEquals(1,callbacks.size());
-            assertDoesNotThrow(()->callbacks.get(0).afterCommit());
-            verify(storage).delete("stories/19/broken.jpg");
-            verify(storage).delete("stories/19/other.jpg");
-        } finally {
-            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
-        }
+                .thenReturn(java.util.List.of(story));
+        doThrow(new IllegalStateException("database unavailable")).when(mediaOutbox).enqueue(key);
+        assertThrows(IllegalStateException.class,service::removeExpired);
+        verify(stories,never()).delete(story);
+        verify(privateMedia,never()).delete(anyString());
     }
 
     @Test
