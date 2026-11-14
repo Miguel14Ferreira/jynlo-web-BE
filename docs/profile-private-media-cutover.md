@@ -56,3 +56,52 @@ all checks below are satisfied.
 **Never enable the private switch based on frontend visibility alone.**
 The current code does NOT perform the copy, deletion or CDN purge in steps
 2–6. These require an explicit audited migration and infrastructure access.
+
+
+## Copy-only migration tool now available
+
+The script `scripts/stage_private_profile_media.py` validates a local CSV
+inventory and performs checksum-verified R2-to-R2 staging **without any SQL
+updates, public object deletion, CDN purge or privacy activation**.
+
+CSV columns (exact names; order optional):
+
+```
+kind,item_id,owner_id,slot,storage_key,mime_type
+post,123,42,image,posts/42/legacy-photo.jpg,image/jpeg
+story,321,42,media,stories/42/legacy-video.mp4,video/mp4
+```
+
+The values above are illustrative only. Export actual rows with a **read-only**
+database query, ensuring that every post main image, main video, album extra,
+and personal story is included. Rows missing an object key must be audited
+separately; never guess a storage key from a public URL.
+
+Run validation first, without R2 credentials:
+
+```bash
+python3 scripts/stage_private_profile_media.py --inventory inventory.csv
+python3 -m unittest scripts/test_stage_private_profile_media.py -v
+```
+
+For authorized copy-only staging, supply all seven environment variables:
+`JYNLO_R2_API_ENDPOINT`, `JYNLO_PUBLIC_MEDIA_BUCKET`,
+`JYNLO_PRIVATE_MEDIA_BUCKET`, `JYNLO_PUBLIC_MEDIA_ACCESS_KEY`,
+`JYNLO_PUBLIC_MEDIA_SECRET_KEY`, `JYNLO_PRIVATE_MEDIA_ACCESS_KEY`,
+`JYNLO_PRIVATE_MEDIA_SECRET_KEY`. Use distinct buckets and credentials.
+Do not paste secret values into chats, PRs or CI logs.
+
+```bash
+python3 scripts/stage_private_profile_media.py --inventory inventory.csv \
+  --manifest private-media-verified.jsonl --copy --confirm-copy-only
+```
+
+The output manifest (file permissions 0600) records verified private keys,
+SHA-256 digests and expected `/api/profile-media/...` URLs for a separately
+reviewed SQL cutover. Keep the manifest outside public folders. The tool
+**does not** update SQL, delete source objects, purge CDN cache or switch
+profile visibility. Do not enable `PRIVATE_MEDIA_CUTOVER_VERIFIED` yet.
+
+Before any SQL update, also verify each legacy URL reference has been removed
+from the corresponding database record, including album entries. The API
+readiness gate now rejects private object keys paired with old public URLs.
