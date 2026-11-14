@@ -75,6 +75,45 @@ public class SocialFeedService {
                     "Protected profile storage unavailable");
         return true;
     }
+    /**
+     * Uploaded objects are assigned before the post gets its generated ID.
+     * Replace transient "pending" URLs with stable authenticated routes in
+     * the same transaction; do not leave unresolvable URLs in the database.
+     */
+    private void finalizePrivatePostUrls(SocialPost post) {
+        if (post.getId() == null) return;
+        String root="/api/profile-media/posts/" + post.getId() + "/";
+        boolean changed=false;
+        if (com.example.desporto24.storage.PrivateProfileMediaStorage.isPrivateKey(post.getImageStorageKey())
+                && post.getImageUrl()!=null && post.getImageUrl().contains("/pending/")) {
+            post.setImageUrl(root + "image");
+            changed=true;
+        }
+        if (com.example.desporto24.storage.PrivateProfileMediaStorage.isPrivateKey(post.getVideoStorageKey())
+                && post.getVideoUrl()!=null && post.getVideoUrl().contains("/pending/")) {
+            post.setVideoUrl(root + "video");
+            changed=true;
+        }
+        var media=post.getExtraMedia();
+        if(media!=null && !media.isEmpty()) {
+            var normalized=new java.util.ArrayList<com.example.desporto24.model.social.PublicPostMedia>();
+            for(int i=0;i<media.size();i++) {
+                var asset=media.get(i);
+                if (com.example.desporto24.storage.PrivateProfileMediaStorage.isPrivateKey(asset.getStorageKey())
+                        && asset.getUrl()!=null && asset.getUrl().contains("/pending/")) {
+                    normalized.add(new com.example.desporto24.model.social.PublicPostMedia(
+                            root + "extra-" + i,asset.getStorageKey(),asset.getMimeType()));
+                    changed=true;
+                } else normalized.add(asset);
+            }
+            if(changed) {
+                media.clear();
+                media.addAll(normalized);
+            }
+        }
+        if(changed) postRepository.saveAndFlush(post);
+    }
+
     private void deleteMediaKey(String key) {
         if (key == null) return;
         if (com.example.desporto24.storage.PrivateProfileMediaStorage.isPrivateKey(key)) {
@@ -154,6 +193,9 @@ public class SocialFeedService {
                     .imageStorageKey(key)
                     .createdAt(Instant.now())
                     .build());
+            finalizePrivatePostUrls(post);
+            finalizePrivatePostUrls(post);
+            finalizePrivatePostUrls(post);
             return postItem(post, author);
         } catch (RuntimeException failure) {
             deleteFailedUpload(key, failure);
@@ -406,6 +448,7 @@ public class SocialFeedService {
                 if (stored.size() > 1) post.getExtraMedia().addAll(stored.subList(1, stored.size()));
             }
             postRepository.saveAndFlush(post);
+            finalizePrivatePostUrls(post);
         } catch (RuntimeException failure) {
             for (var asset : stored) deleteFailedUpload(asset.getStorageKey(), failure);
             throw failure;
