@@ -567,6 +567,7 @@ public class DirectCallService {
                 try {
                     requireInviterOriginalAccess(call, guest.username());
                     inbox.requireConversationAccess(guest.username(), "direct", guest.inviter());
+                    inbox.requireConversationAccess(guest.inviter(), "direct", guest.username());
                 } catch (org.springframework.security.access.AccessDeniedException
                          | ResponseStatusException denied) {
                     revoked = true;
