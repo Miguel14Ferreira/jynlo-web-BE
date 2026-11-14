@@ -667,6 +667,28 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void rosterHidesGuestWhenInviterLosesReciprocalPermission() {
+        Profile carlos = mock(Profile.class);
+        lenient().when(carlos.getId()).thenReturn(14L);
+        lenient().when(profiles.findUserByUsernameIgnoreCase("carlos"))
+                .thenReturn(Optional.of(carlos));
+
+        var call = calls.start("ana", "bea", "voice");
+        calls.accept(call.callId(), "bea");
+        calls.invite(call.callId(), "ana", "carlos");
+        calls.accept(call.callId(), "carlos");
+        assertEquals(3, calls.members(call.callId(), "bea").participants().size());
+
+        doThrow(new org.springframework.security.access.AccessDeniedException("Inviter blocked"))
+                .when(inbox).requireConversationAccess("ana", "direct", "carlos");
+
+        var roster = calls.members(call.callId(), "bea");
+        assertEquals(2, roster.participants().size());
+        assertTrue(roster.participants().stream().noneMatch(p -> p.username().equals("carlos")));
+        verify(inbox, atLeastOnce()).requireConversationAccess("ana", "direct", "carlos");
+    }
+
+    @Test
     void authorizedMembersCannotSeeRevokedGuestsOrPendingInvitations() {
         Profile carlos = mock(Profile.class);
         lenient().when(carlos.getId()).thenReturn(14L);
