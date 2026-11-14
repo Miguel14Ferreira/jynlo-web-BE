@@ -60,6 +60,26 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void invitedGuestCannotSeeOriginalParticipantAfterReciprocalAccessRevoked() {
+        var call = calls.start("ana", "bea", "video");
+        calls.accept(call.callId(), "bea");
+        calls.invite(call.callId(), "ana", "carlos");
+        Profile carlos = mock(Profile.class);
+        when(carlos.getId()).thenReturn(14L);
+        when(profiles.findUserByUsernameIgnoreCase("carlos")).thenReturn(Optional.of(carlos));
+        calls.accept(call.callId(), "carlos");
+
+        doThrow(new org.springframework.security.access.AccessDeniedException("Blocked"))
+                .when(inbox).requireConversationAccess("bea", "direct", "carlos");
+
+        var roster = calls.members(call.callId(), "carlos");
+        assertTrue(roster.participants().stream().anyMatch(p -> p.username().equals("ana")));
+        assertTrue(roster.participants().stream().anyMatch(p -> p.username().equals("carlos")));
+        assertFalse(roster.participants().stream().anyMatch(p -> p.username().equals("bea")),
+                "A guest must not see an original participant who revoked contact");
+    }
+
+    @Test
     void secondGenerationInviteDisappearsWhenAncestorLosesReciprocalAccess() {
         var call = calls.start("ana", "bea", "video");
         calls.accept(call.callId(), "bea");
