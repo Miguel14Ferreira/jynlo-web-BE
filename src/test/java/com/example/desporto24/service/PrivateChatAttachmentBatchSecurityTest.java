@@ -18,14 +18,14 @@ class PrivateChatAttachmentBatchSecurityTest {
         return mock;
     }
 
-    @Test void rejectsFileLargerThanIndividualLimitBeforeReadingBytes() {
+    @Test void rejectsFileLargerThanIndividualLimitBeforeReadingBytes() throws java.io.IOException {
         MultipartFile huge = file(PrivateChatFileStorage.MAX_BYTES + 1);
         assertThrows(ResponseStatusException.class,
                 () -> PrivateChatAttachmentBatch.validate(List.of(huge)));
         verify(huge, never()).getBytes();
     }
 
-    @Test void rejectsOverflowedAdvertisedSizes() {
+    @Test void rejectsOverflowedAdvertisedSizes() throws java.io.IOException {
         MultipartFile first = file(Long.MAX_VALUE);
         MultipartFile second = file(Long.MAX_VALUE);
         assertThrows(ResponseStatusException.class,
