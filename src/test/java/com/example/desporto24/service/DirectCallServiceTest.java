@@ -803,6 +803,32 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void rosterHidesGuestFromViewerWithoutMutualContactPermission() {
+        Profile carlos = mock(Profile.class);
+        lenient().when(carlos.getId()).thenReturn(14L);
+        lenient().when(profiles.findUserByUsernameIgnoreCase("carlos"))
+                .thenReturn(Optional.of(carlos));
+
+        var call = calls.start("ana", "bea", "video");
+        calls.accept(call.callId(), "bea");
+        calls.invite(call.callId(), "ana", "carlos");
+        calls.accept(call.callId(), "carlos");
+        assertEquals(3, calls.members(call.callId(), "bea").participants().size());
+
+        // Ana and Carlos remain mutually authorized, but Bea is blocked by
+        // Carlos. Bea must not discover Carlos through the shared call roster.
+        doThrow(new org.springframework.security.access.AccessDeniedException("Blocked"))
+                .when(inbox).requireConversationAccess("carlos", "direct", "bea");
+
+        var filtered = calls.members(call.callId(), "bea");
+        assertEquals(2, filtered.participants().size());
+        assertTrue(filtered.participants().stream()
+                .noneMatch(member -> member.username().equals("carlos")));
+        assertEquals(3, calls.members(call.callId(), "ana").participants().size(),
+                "The authorized inviter should retain roster visibility");
+    }
+
+    @Test
     void rosterHidesGuestWhenInviterLosesReciprocalPermission() {
         Profile carlos = mock(Profile.class);
         lenient().when(carlos.getId()).thenReturn(14L);
