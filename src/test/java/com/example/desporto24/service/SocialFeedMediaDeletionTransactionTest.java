@@ -50,6 +50,46 @@ class SocialFeedMediaDeletionTransactionTest {
         when(posts.findById(17L)).thenReturn(Optional.of(post));
     }
 
+    @Test void mediaReplacementEnqueuesOldKeysAndDoesNotDeleteNewOnCommit() {
+        prepare();
+        var image=new org.springframework.mock.web.MockMultipartFile(
+                "files","new.jpg","image/jpeg",new byte[]{1,2});
+        when(publicStorage.store(anyString(),same(image)))
+                .thenReturn(java.net.URI.create("/media/posts/42/new.jpg"));
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            feed.editPostWithMedia(17L,"owner","Alterado",null,List.of(image),true);
+            verify(outbox).enqueue("private-profile-media/posts/42/photo.jpg");
+            verify(outbox).enqueue("posts/42/public-video.mp4");
+            verify(outbox).enqueue("private-profile-media/posts/42/album.jpg");
+            verifyNoInteractions(privateStorage);
+            for(var callback:TransactionSynchronizationManager.getSynchronizations())
+                callback.afterCompletion(TransactionSynchronization.STATUS_COMMITTED);
+            verify(publicStorage,never()).delete("posts/42/new.jpg");
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test void mediaReplacementRollbackCleansOnlyNewUpload() {
+        prepare();
+        var image=new org.springframework.mock.web.MockMultipartFile(
+                "files","new.jpg","image/jpeg",new byte[]{1,2});
+        when(publicStorage.store(anyString(),same(image)))
+                .thenReturn(java.net.URI.create("/media/posts/42/new.jpg"));
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            feed.editPostWithMedia(17L,"owner","Alterado",null,List.of(image),true);
+            for(var callback:TransactionSynchronizationManager.getSynchronizations())
+                callback.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+            verify(publicStorage).delete("posts/42/new.jpg");
+            verify(privateStorage,never()).delete(anyString());
+            verify(publicStorage,never()).delete("posts/42/public-video.mp4");
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
     @Test void postDeletionEnqueuesAllObjectsWithinTransaction() {
         prepare();
         TransactionSynchronizationManager.initSynchronization();
