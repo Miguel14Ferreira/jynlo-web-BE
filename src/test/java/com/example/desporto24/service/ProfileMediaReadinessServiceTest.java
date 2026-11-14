@@ -61,6 +61,21 @@ class ProfileMediaReadinessServiceTest {
         assertEquals(0,status.protectedReferences());
         assertTrue(status.databaseReferencesReady());
     }
+    @Test void wrongOwnerOrMediaNamespaceIsNeverConsideredMigrated() {
+        Profile owner=new Profile();
+        owner.setId(29L);
+        when(posts.findByAuthorId(29L)).thenReturn(List.of(SocialPost.builder()
+                .id(201L).imageStorageKey("private-profile-media/posts/30/cross-owner.jpg")
+                .imageUrl("/api/profile-media/posts/201/image")
+                .videoStorageKey("private-profile-media/stories/29/wrong-namespace.mp4")
+                .videoUrl("/api/profile-media/posts/201/video").build()));
+        when(stories.findByAuthorId(29L)).thenReturn(List.of());
+        var readiness=service.count(owner);
+        assertEquals(2,readiness.publicReferences());
+        assertEquals(0,readiness.protectedReferences());
+        assertFalse(readiness.databaseReferencesReady());
+    }
+
     @Test void onlyFullyMigratedReferencesPassDatabaseAudit() {
         Profile owner=new Profile();
         owner.setId(16L);
