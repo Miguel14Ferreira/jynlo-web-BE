@@ -1,0 +1,24 @@
+name: Jynlo private media migration preflight
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'scripts/stage_private_profile_media.py'
+      - 'scripts/test_stage_private_profile_media.py'
+      - '.github/workflows/profile-private-migration-preflight.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  migration-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test safe copy-only migration logic
+        run: python -m unittest scripts/test_stage_private_profile_media.py -v
+      - name: Validate migration utility syntax
+        run: python -m py_compile scripts/stage_private_profile_media.py
