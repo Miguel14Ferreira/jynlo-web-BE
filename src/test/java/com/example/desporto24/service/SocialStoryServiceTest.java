@@ -18,6 +18,7 @@ import com.example.desporto24.repository.social.SocialStoryLikeRepository;
 import com.example.desporto24.repository.social.SocialStoryReplyRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import com.example.desporto24.storage.MediaStorage;
+import com.example.desporto24.storage.PrivateProfileMediaStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +52,7 @@ class SocialStoryServiceTest {
     @Mock private CommunityMemberRepository memberships;
     @Mock private ProfileFollowRepository follows;
     @Mock private MediaStorage storage;
+    @Mock private PrivateProfileMediaStorage privateMedia;
     @InjectMocks private SocialStoryService service;
 
     private Profile actor;
@@ -61,6 +63,35 @@ class SocialStoryServiceTest {
         actor.setId(19L);
         actor.setUsername("joao");
         when(profiles.findUserByUsernameIgnoreCase("joao")).thenReturn(Optional.of(actor));
+    }
+
+    @Test
+    void deletingPrivateStoryUsesPrivateBucketInsteadOfPublicStorage() {
+        String key = "private-profile-media/stories/19/media-123.jpg";
+        SocialStory story = SocialStory.builder().id(123L).author(actor).mediaStorageKey(key)
+                .mediaUrl("/api/profile-media/stories/123")
+                .expiresAt(Instant.now().plusSeconds(3600)).build();
+        when(stories.findById(123L)).thenReturn(Optional.of(story));
+        when(privateMedia.isConfigured()).thenReturn(true);
+        service.delete(123L, "joao");
+        verify(stories).delete(story);
+        verify(stories).flush();
+        verify(privateMedia).delete(key);
+        verify(storage, never()).delete(anyString());
+    }
+
+    @Test
+    void privateStoryIsNotDeletedWhenProtectedStorageIsUnavailable() {
+        String key = "private-profile-media/stories/19/media-123.jpg";
+        SocialStory story = SocialStory.builder().id(123L).author(actor).mediaStorageKey(key)
+                .expiresAt(Instant.now().plusSeconds(3600)).build();
+        when(stories.findById(123L)).thenReturn(Optional.of(story));
+        when(privateMedia.isConfigured()).thenReturn(false);
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE,
+                assertThrows(ResponseStatusException.class,
+                        () -> service.delete(123L, "joao")).getStatusCode());
+        verify(privateMedia, never()).delete(anyString());
+        verify(storage, never()).delete(anyString());
     }
 
     @Test
