@@ -659,8 +659,23 @@ public class DirectCallService {
         // Recheck authorization after a session removal or block before exposing the roster.
         requireInviterOriginalAccess(call, actor);
         List<Member> participants = new ArrayList<>();
-        participants.add(member(call.caller()));
-        participants.add(member(call.peer()));
+        // A guest may have joined through an authorized inviter without having
+        // permission to contact every original participant. Do not disclose
+        // identities to that guest after a block or session-contact revocation.
+        for (String original : List.of(call.caller(), call.peer())) {
+            if (original.equalsIgnoreCase(actor)) {
+                participants.add(member(original));
+                continue;
+            }
+            try {
+                inbox.requireConversationAccess(actor, "direct", original);
+                inbox.requireConversationAccess(original, "direct", actor);
+                participants.add(member(original));
+            } catch (org.springframework.security.access.AccessDeniedException
+                     | ResponseStatusException denied) {
+                // A blocked original participant must not appear in this roster.
+            }
+        }
         List<String> pending = new ArrayList<>();
         var list = guests.get(id);
         if (list != null) for (Guest guest : list.values()) {
