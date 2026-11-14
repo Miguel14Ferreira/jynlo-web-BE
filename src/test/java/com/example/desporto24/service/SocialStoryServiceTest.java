@@ -76,11 +76,39 @@ class SocialStoryServiceTest {
                 .expiresAt(Instant.now().plusSeconds(3600)).build();
         when(stories.findById(123L)).thenReturn(Optional.of(story));
         when(privateMedia.isConfigured()).thenReturn(true);
-        service.delete(123L, "joao");
-        verify(stories).delete(story);
-        verify(stories).flush();
-        verify(privateMedia).delete(key);
-        verify(storage, never()).delete(anyString());
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.delete(123L, "joao");
+            verify(stories).delete(story);
+            verify(stories).flush();
+            verify(privateMedia, never()).delete(anyString());
+            var callbacks=org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations();
+            assertEquals(1,callbacks.size());
+            callbacks.get(0).afterCommit();
+            verify(privateMedia).delete(key);
+            verify(storage, never()).delete(anyString());
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void rolledBackPrivateStoryDeletionRetainsStoredMedia() {
+        String key="private-profile-media/stories/19/retain.jpg";
+        SocialStory story=SocialStory.builder().id(125L).author(actor).mediaStorageKey(key)
+                .expiresAt(Instant.now().plusSeconds(600)).build();
+        when(stories.findById(125L)).thenReturn(Optional.of(story));
+        when(privateMedia.isConfigured()).thenReturn(true);
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.delete(125L,"joao");
+            for (var callback:org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations())
+                callback.afterCompletion(org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK);
+            verify(privateMedia,never()).delete(anyString());
+            verify(storage,never()).delete(anyString());
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test
