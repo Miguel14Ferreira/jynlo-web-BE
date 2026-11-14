@@ -70,6 +70,30 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void pendingDirectRingIsHiddenWhenCallerLosesReciprocalAccess() {
+        calls.start("ana", "bea", "voice");
+        doThrow(new org.springframework.security.access.AccessDeniedException("Caller blocked"))
+                .when(inbox).requireConversationAccess("ana", "direct", "bea");
+
+        assertNull(calls.pendingFor("bea"),
+                "A ringing notification must not be recoverable after reverse access revocation");
+    }
+
+    @Test
+    void pendingGroupInviteIsHiddenWhenInviterLosesReciprocalAccess() {
+        var ringing = calls.start("ana", "bea", "video");
+        calls.accept(ringing.callId(), "bea");
+        calls.invite(ringing.callId(), "ana", "carlos");
+        assertNotNull(calls.pendingFor("carlos"));
+
+        doThrow(new org.springframework.security.access.AccessDeniedException("Inviter blocked"))
+                .when(inbox).requireConversationAccess("ana", "direct", "carlos");
+
+        assertNull(calls.pendingFor("carlos"),
+                "A group invite must not be recovered after reverse access revocation");
+    }
+
+    @Test
     void createsScopedTokensForExactlyTwoAuthorizedMembers() {
         var outgoing = calls.start("ana", "bea", "video");
         verify(inbox).requireConversationAccess("ana", "direct", "bea");
