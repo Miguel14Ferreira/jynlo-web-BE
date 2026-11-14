@@ -198,10 +198,23 @@ public class SessionChatService {
         }
         SessionMessage message = ownedMessage(session, messageId, actor);
         ChatMessageMutationPolicy.requireNotDeleted(message.getDeletedAt());
+        // Capture the server-owned keys before marking the message deleted.
+        // Never delete objects before the DB commit: rollback must retain media.
+        java.util.List<String> attachmentKeys = new java.util.ArrayList<>();
+        if (message.getAttachmentKey() != null) attachmentKeys.add(message.getAttachmentKey());
+        if (message.getExtraAttachments() != null) {
+            for (var attachment : message.getExtraAttachments()) {
+                if (attachment != null && attachment.getStorageKey() != null)
+                    attachmentKeys.add(attachment.getStorageKey());
+            }
+        }
         message.setBody("");
         message.setDeletedAt(Instant.now());
         messageRepository.saveAndFlush(message);
         messageRepository.redactRepliesToDeleted(sessionId, messageId, "[message deleted]");
+        if (!attachmentKeys.isEmpty()) {
+            PrivateChatAttachmentDeletion.afterCommit(privateChatStorage, attachmentKeys);
+        }
         SessionMessageResponse response = toResponse(message);
         eventPublisher.publishEvent(new SessionChatMessageCreatedEvent(response, realtimeRecipients(session)));
         return response;
