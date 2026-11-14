@@ -8,6 +8,7 @@ on:
       - 'scripts/stage_private_profile_media.py'
       - 'scripts/test_profile_media_sql_preflight.sh'
       - 'scripts/test_profile_media_outbox_pg.sh'
+      - 'scripts/audit_profile_media_outbox.sql'
       - 'src/main/java/com/example/desporto24/service/ProfileMediaDeletionOutbox.java'
       - 'src/main/resources/db/changelog/changes/2026-11-14-profile-media-deletion-outbox.yaml'
       - '.github/workflows/profile-private-sql-integration.yml'
