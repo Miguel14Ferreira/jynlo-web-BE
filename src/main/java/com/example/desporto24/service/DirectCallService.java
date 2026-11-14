@@ -135,6 +135,7 @@ public class DirectCallService {
                 try {
                     requireInviterOriginalAccess(call, guest.inviter());
                     inbox.requireConversationAccess(recipient, "direct", guest.inviter());
+                    inbox.requireConversationAccess(guest.inviter(), "direct", recipient);
                 } catch (org.springframework.security.access.AccessDeniedException | ResponseStatusException denied) {
                     // Skip stale group invitations without suppressing valid ones.
                     continue;
@@ -338,6 +339,7 @@ public class DirectCallService {
             // Checking only the guest/inviter pair would let a removed participant extend a room.
             requireInviterOriginalAccess(call, guest.inviter());
             inbox.requireConversationAccess(actor, "direct", guest.inviter());
+            inbox.requireConversationAccess(guest.inviter(), "direct", actor);
             // Mint the join credential before committing acceptance. If token creation
             // fails, leave the invitation pending rather than admitting a guest
             // who never received a usable credential.
@@ -470,6 +472,7 @@ public class DirectCallService {
         // Recheck their original call access before allowing further invitations.
         requireInviterOriginalAccess(call, actor);
         inbox.requireConversationAccess(actor, "direct", recipient);
+        inbox.requireConversationAccess(recipient, "direct", actor);
         for (Call other : calls.values()) {
             if (!other.id().equals(id) && ("RINGING".equals(other.state()) || "ACTIVE".equals(other.state()))
                     && isParticipant(other, recipient))
