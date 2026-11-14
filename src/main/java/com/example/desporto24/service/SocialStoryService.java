@@ -365,6 +365,19 @@ public class SocialStoryService {
         return story;
     }
 
+    /** Protected personal stories must be removed from their private bucket. */
+    private void deleteStoryMedia(String key) {
+        if (com.example.desporto24.storage.PrivateProfileMediaStorage.isPrivateKey(key)) {
+            if (privateMedia == null || !privateMedia.isConfigured())
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                        "Protected story storage unavailable");
+            privateMedia.delete(key);
+        } else {
+            storage.delete(key);
+        }
+    }
+
     @Transactional
     public void delete(Long id, String username) {
         Profile actor = actor(username);
@@ -375,7 +388,7 @@ public class SocialStoryService {
         }
         stories.delete(story);
         stories.flush();
-        storage.delete(story.getMediaStorageKey());
+        deleteStoryMedia(story.getMediaStorageKey());
     }
 
     // Expiration is enforced on every read, even if scheduled cleanup is delayed.
@@ -387,7 +400,7 @@ public class SocialStoryService {
         for (SocialStory story : old) {
             // Never remove the DB reference when media deletion fails: allow retry next hour.
             try {
-                storage.delete(story.getMediaStorageKey());
+                deleteStoryMedia(story.getMediaStorageKey());
                 stories.delete(story);
             } catch (RuntimeException ex) {
                 org.slf4j.LoggerFactory.getLogger(SocialStoryService.class)
