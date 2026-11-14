@@ -39,5 +39,7 @@ public interface SocialStoryRepository extends JpaRepository<SocialStory, Long> 
     // Author-scoped by database, never an unrestricted scan of personal Stories.
     List<SocialStory> findTop20ByAuthorIdAndExpiresAtAfterOrderByCreatedAtDesc(Long authorId, Instant now);
 
+    List<SocialStory> findByAuthorId(Long authorId);
+
     List<SocialStory> findByExpiresAtLessThanEqualOrderByIdAsc(Instant expiresAt, Pageable page);
 }
