@@ -37,7 +37,7 @@ class ManifestCutoverTests(unittest.TestCase):
         self.assertEqual(sql.count("GET DIAGNOSTICS affected = ROW_COUNT"),2)
         self.assertIn("author_id=42",sql)
         self.assertIn("community_id IS NULL",sql)
-        self.assertIn("media_storage_key='posts/42/legacy-file.jpg'",sql)
+        self.assertIn("image_storage_key='posts/42/legacy-file.jpg'",sql)
 
     def test_albums_include_owner_join_and_exact_position(self):
         row=valid(slot="extra-3")
