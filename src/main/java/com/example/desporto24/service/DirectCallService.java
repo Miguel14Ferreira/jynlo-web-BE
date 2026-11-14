@@ -723,7 +723,7 @@ public class DirectCallService {
                 continue;
             }
             gateway.publishDirectCallEventTo(recipient, call.caller(), call.peer(),
-                    call.id().toString(), call.media(), "MEMBERS_CHANGED", actor, call.expiresAt());
+                    call.id().toString(), call.media(), "MEMBERS_CHANGED", rosterEventActor(recipient, actor), call.expiresAt());
         }
         var list = guests.get(call.id());
         if (list != null) for (Guest guest : list.values()) {
@@ -735,7 +735,20 @@ public class DirectCallService {
                 continue;
             }
             gateway.publishDirectCallEventTo(guest.username(), call.caller(), guest.username(),
-                    call.id().toString(), call.media(), "MEMBERS_CHANGED", actor, call.expiresAt());
+                    call.id().toString(), call.media(), "MEMBERS_CHANGED", rosterEventActor(guest.username(), actor), call.expiresAt());
+        }
+    }
+
+    /** Do not leak a blocked guest's username through a roster-change event. */
+    private String rosterEventActor(String recipient, String actor) {
+        if (recipient.equalsIgnoreCase(actor)) return actor;
+        try {
+            inbox.requireConversationAccess(recipient, "direct", actor);
+            inbox.requireConversationAccess(actor, "direct", recipient);
+            return actor;
+        } catch (org.springframework.security.access.AccessDeniedException
+                 | ResponseStatusException denied) {
+            return recipient;
         }
     }
 
