@@ -23,4 +23,18 @@ class SportsCatalogParityTest {
         assertFalse(SportsCatalog.isValidSelection("Bowling, modalidade-inventada"));
         assertFalse(SportsCatalog.isValidSelection("Ténis de praia, Teqball, ??"));
     }
+
+    @Test void customSportNamesAreAcceptedOnlyForSessions() {
+        assertTrue(SportsCatalog.isCustomSessionSport("Bossaball"));
+        assertTrue(SportsCatalog.isAllowedSessionSport("Bossaball"));
+        assertTrue(SportsCatalog.isAllowedSessionSport("Futebol"));
+        assertFalse(SportsCatalog.isCustomSessionSport("Futebol"));
+        assertFalse(SportsCatalog.isCustomSessionSport("FUTEBOL"));
+        assertFalse(SportsCatalog.isCustomSessionSport("Tenis de praia"));
+        assertFalse(SportsCatalog.isCustomSessionSport("A"));
+        assertFalse(SportsCatalog.isCustomSessionSport("<script>"));
+        assertFalse(SportsCatalog.isCustomSessionSport(" Desporto"));
+        assertFalse(SportsCatalog.isValidSelection("Bossaball"),
+                "The profile/community catalog must remain official-only");
+    }
 }
