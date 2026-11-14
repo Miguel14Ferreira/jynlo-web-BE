@@ -476,6 +476,43 @@ class SessionChatServiceTest {
         verifyNoInteractions(eventPublisher);
     }
 
+    @Test
+    void extraAttachmentDownloadFailsClosedWhenStorageIsUnavailable() {
+        Profile creator = profile(1L, "creator");
+        Session session = session(10L, creator);
+        stubActor(session, creator);
+        String key = "private-chat/55555555-5555-5555-5555-555555555555.pdf";
+        var entry = SessionMessage.builder().id(70L).session(session)
+                .senderProfile(creator).attachmentKey(key)
+                .extraAttachments(new java.util.ArrayList<>(List.of(
+                        new com.example.desporto24.model.chat.PrivateChatAttachment(
+                                key, "second.pdf", "application/pdf", 100L))))
+                .build();
+        when(messageRepository.findById(70L)).thenReturn(Optional.of(entry));
+        assertEquals(503, assertThrows(ResponseStatusException.class,
+                () -> service.downloadAttachmentAt(10L, 70L, 1, "creator"))
+                .getStatusCode().value());
+    }
+
+    @Test
+    void malformedExtraAttachmentCannotBeDownloaded() {
+        Profile creator = profile(1L, "creator");
+        Session session = session(10L, creator);
+        stubActor(session, creator);
+        var storage = privateStorage();
+        String key = "private-chat/66666666-6666-6666-6666-666666666666.pdf";
+        var extras = new java.util.ArrayList<com.example.desporto24.model.chat.PrivateChatAttachment>();
+        extras.add(null);
+        var entry = SessionMessage.builder().id(71L).session(session)
+                .senderProfile(creator).attachmentKey(key)
+                .extraAttachments(extras).build();
+        when(messageRepository.findById(71L)).thenReturn(Optional.of(entry));
+        assertEquals(404, assertThrows(ResponseStatusException.class,
+                () -> service.downloadAttachmentAt(10L, 71L, 1, "creator"))
+                .getStatusCode().value());
+        verify(storage, never()).read(anyString());
+    }
+
     private void stubActor(Session session, Profile actor) {
         when(sessionRepository.findById(session.getId())).thenReturn(Optional.of(session));
         when(sessionRepository.findByIdForUpdate(session.getId())).thenReturn(Optional.of(session));
