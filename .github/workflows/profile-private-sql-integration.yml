@@ -7,6 +7,9 @@ on:
       - 'scripts/export_profile_media_inventory.sql'
       - 'scripts/stage_private_profile_media.py'
       - 'scripts/test_profile_media_sql_preflight.sh'
+      - 'scripts/test_profile_media_outbox_pg.sh'
+      - 'src/main/java/com/example/desporto24/service/ProfileMediaDeletionOutbox.java'
+      - 'src/main/resources/db/changelog/changes/2026-11-14-profile-media-deletion-outbox.yaml'
       - '.github/workflows/profile-private-sql-integration.yml'
   workflow_dispatch:
 permissions:
@@ -45,4 +48,6 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client
       - name: Test read-only migration reports and CSV inventory
-        run: bash scripts/test_profile_media_sql_preflight.sh
+        run: |
+          bash scripts/test_profile_media_sql_preflight.sh
+          bash scripts/test_profile_media_outbox_pg.sh
