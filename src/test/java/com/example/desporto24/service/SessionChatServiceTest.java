@@ -524,6 +524,46 @@ class SessionChatServiceTest {
         verify(storage, never()).read(anyString());
     }
 
+    @Test
+    void deletingSessionMessageEnqueuesAllPrivateFilesWithoutImmediateDeletion() {
+        Profile creator = profile(1L, "creator");
+        Session session = session(10L, creator);
+        stubActor(session, creator);
+        var storage = privateStorage();
+        var queue = mock(PrivateChatDeletionOutbox.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                service, "privateChatDeletionOutbox", queue);
+        String first = "private-chat/11111111-1111-1111-1111-111111111111.pdf";
+        String extra = "private-chat/22222222-2222-2222-2222-222222222222.jpg";
+        SessionMessage message = SessionMessage.builder().id(55L).session(session)
+                .senderProfile(creator).body("attachments").createdAt(Instant.now())
+                .attachmentKey(first)
+                .extraAttachments(new java.util.ArrayList<>(List.of(
+                        new com.example.desporto24.model.chat.PrivateChatAttachment(
+                                extra, "photo.jpg", "image/jpeg", 10L))))
+                .build();
+        when(messageRepository.findById(55L)).thenReturn(Optional.of(message));
+        service.deleteMessage(10L, 55L, "creator");
+        verify(queue).enqueueAll(List.of(first, extra));
+        verifyNoInteractions(storage);
+        assertNotNull(message.getDeletedAt());
+    }
+
+    @Test
+    void missingCleanupQueueBlocksDeletionInsteadOfSilentlyOrphaningFiles() {
+        Profile creator = profile(1L, "creator");
+        Session session = session(10L, creator);
+        stubActor(session, creator);
+        String first = "private-chat/11111111-1111-1111-1111-111111111111.pdf";
+        SessionMessage message = SessionMessage.builder().id(56L).session(session)
+                .senderProfile(creator).body("attachment").createdAt(Instant.now())
+                .attachmentKey(first).build();
+        when(messageRepository.findById(56L)).thenReturn(Optional.of(message));
+        assertEquals(503, assertThrows(ResponseStatusException.class,
+                () -> service.deleteMessage(10L, 56L, "creator")).getStatusCode().value());
+        verifyNoInteractions(eventPublisher);
+    }
+
     private void stubActor(Session session, Profile actor) {
         when(sessionRepository.findById(session.getId())).thenReturn(Optional.of(session));
         when(sessionRepository.findByIdForUpdate(session.getId())).thenReturn(Optional.of(session));
