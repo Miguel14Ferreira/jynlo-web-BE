@@ -442,3 +442,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-14-personal-live-slow-mode.yaml
   - include:
       file: db/changelog/changes/2026-11-14-profile-media-deletion-outbox.yaml
+  - include:
+      file: db/changelog/changes/2026-11-14-private-chat-deletion-outbox.yaml
