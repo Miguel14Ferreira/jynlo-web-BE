@@ -257,6 +257,10 @@ public class SocialStoryService {
                     .mediaUrl(uri.toString()).mediaStorageKey(objectKey)
                     .video(hasVideo).createdAt(now).expiresAt(now.plus(24, ChronoUnit.HOURS))
                     .build());
+            if (protectedStory) {
+                story.setMediaUrl("/api/profile-media/stories/" + story.getId());
+                stories.saveAndFlush(story);
+            }
             return response(story, actor);
         } catch (RuntimeException ex) {
             if (protectedStory) privateMedia.delete(objectKey);
