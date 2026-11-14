@@ -26,6 +26,17 @@ public class ProfilePrivacyService {
   // Keep the setting disabled until private media delivery is access-controlled.
   @Value("${jynlo.profile.private-mode-enabled:false}")
   private boolean privateModeEnabled;
+  // Deliberate cutover gate: public R2/CDN files must be migrated, purged and
+  // all post/story uploads switched to protected storage before enabling this.
+  @Value("${jynlo.profile.private-media-cutover-verified:false}")
+  private boolean privateMediaCutoverVerified;
+  @org.springframework.beans.factory.annotation.Autowired(required=false)
+  private com.example.desporto24.storage.PrivateProfileMediaStorage protectedMedia;
+
+  private boolean privateModeAvailable() {
+    return privateModeEnabled && privateMediaCutoverVerified
+        && protectedMedia != null && protectedMedia.isConfigured();
+  }
 
   private Profile profile(String username) {
     return profiles.findUserByUsernameIgnoreCase(username)
@@ -45,17 +56,17 @@ public class ProfilePrivacyService {
   }
   public PrivacyStatus status(String viewerName,String targetName) {
     Profile viewer=profile(viewerName),target=profile(targetName);
-    return new PrivacyStatus(target.isPrivateProfile(),canView(viewer,target),privateModeEnabled);
+    return new PrivacyStatus(target.isPrivateProfile(),canView(viewer,target),privateModeAvailable());
   }
   public PrivacyStatus update(String actorName,boolean privateProfile) {
     Profile actor=profile(actorName);
-    if (privateProfile && !privateModeEnabled)
+    if (privateProfile && !privateModeAvailable())
       throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
         "A proteção de multimédia privado ainda está a ser preparada");
     actor.setPrivateProfile(privateProfile);
     profiles.save(actor);
     if (!privateProfile) requests.deleteByTargetId(actor.getId());
-    return new PrivacyStatus(actor.isPrivateProfile(),true,privateModeEnabled);
+    return new PrivacyStatus(actor.isPrivateProfile(),true,privateModeAvailable());
   }
   public boolean requested(String requesterName,String targetName) {
     Profile requester=profile(requesterName),target=profile(targetName);
