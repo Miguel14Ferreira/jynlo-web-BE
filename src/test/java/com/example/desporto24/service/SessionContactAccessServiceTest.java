@@ -154,6 +154,21 @@ class SessionContactAccessServiceTest {
     }
 
     @Test
+    void repositoryCorrelatesBothConfirmedParticipantsToTheSameSession() throws Exception {
+        var method = SessionRepository.class.getMethod(
+                "existsSharedUpcomingContactSession", Long.class, Long.class, Date.class, Date.class);
+        var query = method.getAnnotation(org.springframework.data.jpa.repository.Query.class).value();
+
+        // Being confirmed in two different sessions must never authorize a DM.
+        // Both independent membership predicates must be correlated to the same
+        // outer session, rather than merely matching either profile somewhere.
+        assertTrue(query.contains("p1.session.id = s.id"));
+        assertTrue(query.contains("p2.session.id = s.id"));
+        assertTrue(query.contains("p1.profile.id = :firstId"));
+        assertTrue(query.contains("p2.profile.id = :secondId"));
+    }
+
+    @Test
     void repositoryRejectsEndedCancelledDisabledAndOutOfWindowSessions() throws Exception {
         var method = SessionRepository.class.getMethod(
                 "existsSharedUpcomingContactSession", Long.class, Long.class, Date.class, Date.class);
