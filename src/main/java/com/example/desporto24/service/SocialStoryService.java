@@ -427,7 +427,10 @@ public class SocialStoryService {
                 author.getProfilePicUrl(), group == null ? null : group.getId(),
                 group == null ? null : group.getName(),
                 group == null ? null : group.getPhotoUrl(),
-                story.getCaption(), story.getMediaUrl(), story.isVideo(),
+                story.getCaption(),
+                com.example.desporto24.storage.PrivateProfileMediaStorage.isPrivateKey(story.getMediaStorageKey())
+                    ? "/api/profile-media/stories/" + story.getId() : story.getMediaUrl(),
+                story.isVideo(),
                 story.getCreatedAt(), story.getExpiresAt(),
                 author.getId().equals(actor.getId()) || (group != null && canManage(group, actor)),
                 likeCount, likedByMe,
