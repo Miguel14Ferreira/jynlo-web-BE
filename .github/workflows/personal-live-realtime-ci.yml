@@ -1,0 +1,34 @@
+name: Jynlo personal live realtime CI
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'src/main/java/com/example/desporto24/service/PersonalLiveService.java'
+      - 'src/main/java/com/example/desporto24/service/PersonalLiveInteractionService.java'
+      - 'src/main/java/com/example/desporto24/websocket/ChatRealtimeGateway.java'
+      - 'src/test/java/com/example/desporto24/service/PersonalLiveServiceTest.java'
+      - 'src/test/java/com/example/desporto24/service/PersonalLiveInteractionServiceTest.java'
+      - '.github/workflows/personal-live-realtime-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: personal-live-realtime-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  live-chat-events:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Test personal live permissions and event delivery
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp -Dtest=PersonalLiveServiceTest,PersonalLiveInteractionServiceTest test
+      - name: Compile production backend
+        run: ./mvnw -B -ntp -DskipTests package
