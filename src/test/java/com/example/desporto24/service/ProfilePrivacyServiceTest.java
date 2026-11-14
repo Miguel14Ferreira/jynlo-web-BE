@@ -36,6 +36,23 @@ class ProfilePrivacyServiceTest {
         assertTrue(service.canView(viewer,owner));
     }
 
+    @Test void revokedFollowImmediatelyRemovesPrivateContentPermission() {
+        when(follows.existsByFollowerIdAndFollowingId(9L,4L))
+                .thenReturn(true,false);
+        assertDoesNotThrow(()->service.requireContentAccess(viewer,owner));
+        assertEquals(org.springframework.http.HttpStatus.NOT_FOUND,
+                assertThrows(ResponseStatusException.class,
+                        ()->service.requireContentAccess(viewer,owner)).getStatusCode());
+    }
+
+    @Test void blockingOverridesExistingFollowPermission() {
+        when(blocks.isBlockedBetween(viewer,owner)).thenReturn(true);
+        assertEquals(org.springframework.http.HttpStatus.NOT_FOUND,
+                assertThrows(ResponseStatusException.class,
+                        ()->service.requireContentAccess(viewer,owner)).getStatusCode());
+        verify(follows,never()).existsByFollowerIdAndFollowingId(anyLong(),anyLong());
+    }
+
     @Test void publicProfilesRemainVisibleWithoutFollowing() {
         owner.setPrivateProfile(false);
         assertTrue(service.canView(viewer,owner));
