@@ -34,13 +34,27 @@ class ProfileMediaReadinessServiceTest {
         assertEquals(0,status.protectedReferences());
         assertFalse(status.databaseReferencesReady());
     }
+    @Test void privateBucketKeyWithOldPublicUrlStillBlocksPrivacy() {
+        Profile owner=new Profile();
+        owner.setId(17L);
+        when(posts.findByAuthorId(17L)).thenReturn(List.of(SocialPost.builder()
+            .id(103L).imageStorageKey("private-profile-media/posts/17/photo.jpg")
+            .imageUrl("https://public.example/posts/17/photo.jpg").build()));
+        when(stories.findByAuthorId(17L)).thenReturn(List.of());
+        var status=service.count(owner);
+        assertEquals(1,status.publicReferences());
+        assertEquals(0,status.protectedReferences());
+        assertFalse(status.databaseReferencesReady());
+    }
     @Test void onlyFullyMigratedReferencesPassDatabaseAudit() {
         Profile owner=new Profile();
         owner.setId(16L);
         when(posts.findByAuthorId(16L)).thenReturn(List.of(SocialPost.builder()
-            .imageStorageKey("private-profile-media/posts/16/photo.jpg").build()));
+            .id(101L).imageStorageKey("private-profile-media/posts/16/photo.jpg")
+            .imageUrl("/api/profile-media/posts/101/image").build()));
         when(stories.findByAuthorId(16L)).thenReturn(List.of(SocialStory.builder()
-            .mediaStorageKey("private-profile-media/stories/16/video.mp4").build()));
+            .id(202L).mediaStorageKey("private-profile-media/stories/16/video.mp4")
+            .mediaUrl("/api/profile-media/stories/202").build()));
         var status=service.count(owner);
         assertEquals(0,status.publicReferences());
         assertEquals(2,status.protectedReferences());
