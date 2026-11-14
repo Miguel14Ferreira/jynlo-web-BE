@@ -56,6 +56,8 @@ public class SocialStoryService {
     private final CommunityMemberRepository memberships;
     private final ProfileFollowRepository follows;
     private final MediaStorage storage;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private com.example.desporto24.storage.PrivateProfileMediaStorage privateMedia;
 
     private boolean canViewPersonalStories(Profile viewer,Profile author) {
         return !author.isPrivateProfile() || viewer.getId().equals(author.getId())
@@ -227,9 +229,20 @@ public class SocialStoryService {
                 throw new AccessDeniedException("Private community stories are not available yet");
             }
         }
-        String key = "stories/" + actor.getId() + "/" + UUID.randomUUID();
-        URI uri = hasVideo ? storage.storeVideo(key, video) : storage.store(key, image);
-        String objectKey = storageKey(uri);
+        boolean protectedStory = group == null && actor.isPrivateProfile();
+        if (protectedStory && (privateMedia == null || !privateMedia.isConfigured()))
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Protected media unavailable");
+        String objectKey;
+        URI uri;
+        if (protectedStory) {
+            objectKey = privateMedia.store("stories", actor.getId(), hasVideo ? video : image, hasVideo);
+            // The response mapper substitutes the authenticated URL once the story ID exists.
+            uri = URI.create("/api/profile-media/stories/pending");
+        } else {
+            String key = "stories/" + actor.getId() + "/" + UUID.randomUUID();
+            uri = hasVideo ? storage.storeVideo(key, video) : storage.store(key, image);
+            objectKey = storageKey(uri);
+        }
         Instant now = Instant.now();
         try {
             SocialStory story = stories.save(SocialStory.builder()
@@ -246,7 +259,8 @@ public class SocialStoryService {
                     .build());
             return response(story, actor);
         } catch (RuntimeException ex) {
-            storage.delete(objectKey);
+            if (protectedStory) privateMedia.delete(objectKey);
+            else storage.delete(objectKey);
             throw ex;
         }
     }
