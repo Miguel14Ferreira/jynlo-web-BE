@@ -105,3 +105,19 @@ profile visibility. Do not enable `PRIVATE_MEDIA_CUTOVER_VERIFIED` yet.
 Before any SQL update, also verify each legacy URL reference has been removed
 from the corresponding database record, including album entries. The API
 readiness gate now rejects private object keys paired with old public URLs.
+
+
+### Gap audit before creating the CSV
+
+Run `scripts/audit_profile_media_inventory_gaps.sql` in an authorized,
+read-only PostgreSQL session **before** exporting `inventory.csv`.
+The query reports only aggregate counts (not URLs/user identities).
+Stop the migration if `missing_keys`, `unsupported_keys`, or
+`protected_keys_with_stale_urls` is nonzero in any category. Rows missing
+keys do not appear in the CSV exporter, so a clean staging run alone is
+**not** evidence of a complete inventory.
+
+The Render-hosted database currently rejected external MCP queries owing to
+its TLS/network restrictions. Do not disable database networking protections;
+run these two read-only SQL files from an existing authorized database
+connection, or through an approved internal operator workflow.
