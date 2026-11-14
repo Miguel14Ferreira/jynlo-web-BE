@@ -42,6 +42,24 @@ class DirectCallServiceTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void prunesExpiredCallerCooldownsWithoutRemovingRecentOnes() {
+        var cooldowns = (java.util.concurrent.ConcurrentHashMap<String, java.time.Instant>)
+                ReflectionTestUtils.getField(calls, "lastStarted");
+        assertNotNull(cooldowns);
+        java.time.Instant now = java.time.Instant.now();
+        for (int i = 0; i < 512; i++) {
+            cooldowns.put("old-user-" + i, now.minusSeconds(60));
+        }
+        cooldowns.put("recent-user", now);
+        calls.start("ana", "bea", "voice");
+        assertFalse(cooldowns.containsKey("old-user-0"));
+        assertFalse(cooldowns.containsKey("old-user-511"));
+        assertTrue(cooldowns.containsKey("recent-user"));
+        assertTrue(cooldowns.containsKey("ana"));
+    }
+
+    @Test
     void secondGenerationInviteDisappearsWhenAncestorLosesReciprocalAccess() {
         var call = calls.start("ana", "bea", "video");
         calls.accept(call.callId(), "bea");
