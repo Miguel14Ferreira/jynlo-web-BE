@@ -4,6 +4,11 @@ on:
     branches: [develop]
     paths:
       - 'src/main/java/com/example/desporto24/service/PersonalLiveService.java'
+      - 'src/main/java/com/example/desporto24/controllers/PersonalLiveController.java'
+      - 'src/main/java/com/example/desporto24/model/social/PersonalLiveEvent.java'
+      - 'src/main/java/com/example/desporto24/repository/social/PersonalLiveChatMessageRepository.java'
+      - 'src/main/resources/db/changelog/changes/2026-11-14-personal-live-slow-mode.yaml'
+      - 'src/main/resources/db/changelog/db.changelog-master.yaml'
       - 'src/main/java/com/example/desporto24/service/PersonalLiveInteractionService.java'
       - 'src/main/java/com/example/desporto24/websocket/ChatRealtimeGateway.java'
       - 'src/test/java/com/example/desporto24/service/PersonalLiveServiceTest.java'
