@@ -147,7 +147,7 @@ Never publish the manifest or SQL because they contain storage keys.
 
 ## Durable media deletion outbox
 
-The backend now records public and private **post and Story** media cleanup in
+The backend now records public and private **post and Story** media cleanup, including **old attachments replaced during a post edit**, in
 `profile_media_deletion_outbox` inside the **same database transaction** as
 removing the parent content. If the transaction rolls back, the queue row is
 also rolled back, leaving the object untouched. The cleanup worker runs
@@ -163,6 +163,13 @@ not the production R2 bucket or production PostgreSQL database.
 - Service: `ProfileMediaDeletionOutbox`
 - Verification: `ProfileMediaDeletionOutboxTest`,
   `SocialFeedMediaDeletionTransactionTest`, `SocialStoryServiceTest`
+
+**Operational verification:** run `scripts/audit_profile_media_outbox.sql` from
+an authorized read-only PostgreSQL session. The report exposes only aggregate
+counts (queued, due, waiting/leased, repeated failures and oldest entries),
+never usernames or storage keys. Alert on prolonged backlog and elevated
+retry counts. The outbox table is explicitly placed in schema `desporto24`
+by Liquibase to match the worker's schema-qualified SQL.
 
 **Deployment prerequisite:** apply the outbox schema before running these
 service changes. If the table cannot be written, deleting media-bearing posts
