@@ -355,6 +355,18 @@ public class SessionChatService {
 
     public record ChatAttachmentContent(byte[] content, String mimeType, String filename) {}
 
+    /**
+     * Resolve from committed session membership immediately before realtime fanout.
+     * Do not deliver new messages to removed players or after kickoff/cancellation.
+     */
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public Set<String> currentRealtimeRecipients(Long sessionId) {
+        if (sessionId == null || sessionId <= 0) return Set.of();
+        Session session = sessionRepository.findById(sessionId).orElse(null);
+        if (session == null || !isChatOpen(session, Instant.now())) return Set.of();
+        return realtimeRecipients(session);
+    }
+
     private Set<String> realtimeRecipients(Session session) {
         Set<String> recipients = new LinkedHashSet<>();
 
