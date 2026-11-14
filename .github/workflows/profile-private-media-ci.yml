@@ -17,6 +17,7 @@ on:
       - 'src/test/java/com/example/desporto24/storage/PrivateProfileMediaStorageTest.java'
       - 'src/test/java/com/example/desporto24/service/ProfileMediaReadinessServiceTest.java'
       - 'src/test/java/com/example/desporto24/service/ProfilePrivacyServiceTest.java'
+      - 'src/test/java/com/example/desporto24/service/SocialFeedMediaDeletionTransactionTest.java'
   workflow_dispatch:
 permissions:
   contents: read
@@ -39,4 +40,4 @@ jobs:
           AES_ENCRYPTION_KEY: ciKey1
         run: |
           chmod +x mvnw
-          ./mvnw -B -ntp -Dtest=PrivateProfileMediaStorageTest,PrivateProfileMediaControllerTest,ProfileMediaReadinessServiceTest,ProfilePrivacyServiceTest test
+          ./mvnw -B -ntp -Dtest=PrivateProfileMediaStorageTest,PrivateProfileMediaControllerTest,ProfileMediaReadinessServiceTest,ProfilePrivacyServiceTest,SocialFeedMediaDeletionTransactionTest test
