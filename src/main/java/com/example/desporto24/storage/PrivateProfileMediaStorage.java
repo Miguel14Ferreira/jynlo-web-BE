@@ -8,6 +8,7 @@ import org.springframework.web.server.ResponseStatusException;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -123,7 +124,8 @@ public class PrivateProfileMediaStorage {
         synchronized (this) {
             if (client == null) {
                 var s3 = settings.getS3();
-                client = S3Client.builder().region(Region.of(s3.getRegion()))
+                client = S3Client.builder().httpClientBuilder(UrlConnectionHttpClient.builder())
+                    .region(Region.of(s3.getRegion()))
                     .endpointOverride(URI.create(s3.getEndpoint()))
                     .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
                     .credentialsProvider(StaticCredentialsProvider.create(
