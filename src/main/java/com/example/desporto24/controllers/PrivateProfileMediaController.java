@@ -47,8 +47,10 @@ public class PrivateProfileMediaController {
     private static ResponseStatusException unavailable() {
         return new ResponseStatusException(HttpStatus.NOT_FOUND, "Media unavailable");
     }
-    private static void requireKey(String key) {
-        if (!PrivateProfileMediaStorage.isPrivateKey(key)) throw unavailable();
+    private static void requireKey(String key, String type, Long authorId) {
+        if (!PrivateProfileMediaStorage.isPrivateKey(key) || authorId == null
+                || !key.startsWith("private-profile-media/" + type + "/" + authorId + "/"))
+            throw unavailable();
     }
     private static MediaType type(String key) {
         if (key.endsWith(".jpg") || key.endsWith(".jpeg")) return MediaType.IMAGE_JPEG;
@@ -74,7 +76,7 @@ public class PrivateProfileMediaController {
             if (post.getExtraMedia() == null || index >= post.getExtraMedia().size()) throw unavailable();
             key = post.getExtraMedia().get(index).getStorageKey();
         } else throw unavailable();
-        requireKey(key);
+        requireKey(key, "posts", post.getAuthor().getId());
         return deliver(key);
     }
 
@@ -88,7 +90,7 @@ public class PrivateProfileMediaController {
             throw unavailable();
         privacy.requireContentAccess(actor, story.getAuthor());
         String key = story.getMediaStorageKey();
-        requireKey(key);
+        requireKey(key, "stories", story.getAuthor().getId());
         return deliver(key);
     }
 
