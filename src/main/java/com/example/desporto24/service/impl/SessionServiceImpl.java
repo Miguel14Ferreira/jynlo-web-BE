@@ -1,6 +1,8 @@
 package com.example.desporto24.service.impl;
 
 import com.example.desporto24.constant.SportsCatalog;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import com.example.desporto24.enumeration.AttendanceStatus;
 import com.example.desporto24.enumeration.ParticipantState;
 import com.example.desporto24.enumeration.JoinState;
@@ -88,6 +90,8 @@ public class SessionServiceImpl implements SessionService {
     private final VenueRepository venueRepository;
     private final SessionParticipantRepository participantRepository;
     private final com.example.desporto24.repository.session.SessionGuestRequestRepository sessionGuestRequests;
+    @Autowired(required = false)
+    private JdbcTemplate sportSuggestionJdbc;
     private final SessionOrganizerExclusionRepository exclusionRepository;
     private final SessionWaitlistRepository waitlistRepository;
     private final SessionViewMapper sessionViewMapper;
@@ -219,8 +223,16 @@ public class SessionServiceImpl implements SessionService {
         }
 
         String sport = request.sport() == null ? "" : request.sport().trim();
-        if (!SportsCatalog.ALLOWED.contains(sport)) {
+        if (!SportsCatalog.isAllowedSessionSport(sport)) {
             throw new IllegalArgumentException("Desporto inválido");
+        }
+        boolean customSport = !SportsCatalog.ALLOWED.contains(sport);
+        if (customSport && (request.communityId() != null || !shareIds.isEmpty()
+                || request.seasonCompetitionCommunityId() != null || request.venueId() != null
+                || request.confirmActivateRankings() || request.playFormat() != null
+                    && request.playFormat() != com.example.desporto24.enumeration.SessionPlayFormat.INDIVIDUAL)) {
+            throw new IllegalArgumentException(
+                    "As modalidades sugeridas só podem ser usadas em sessões independentes, sem recinto oficial ou classificação");
         }
         // Reject incompatible formats before recurring sessions are persisted.
         com.example.desporto24.service.SessionPlayFormatPolicy.resolve(sport, request.playFormat());
@@ -307,6 +319,18 @@ public class SessionServiceImpl implements SessionService {
             }
         }
 
+        if (customSport && sportSuggestionJdbc != null) {
+            String normalized = java.text.Normalizer.normalize(sport, java.text.Normalizer.Form.NFD)
+                    .replaceAll("\\p{M}", "").toLowerCase(java.util.Locale.ROOT);
+            sportSuggestionJdbc.update("""
+                    INSERT INTO custom_sport_suggestion
+                      (name, normalized_name, usage_count, status, first_requested_at, last_requested_at)
+                    VALUES (?, ?, 1, 'PENDING', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT (normalized_name) DO UPDATE SET
+                      usage_count = custom_sport_suggestion.usage_count + 1,
+                      last_requested_at = CURRENT_TIMESTAMP
+                    """, sport, normalized);
+        }
         return sessionViewMapper.toDetail(firstSaved, creator);
     }
 
@@ -872,8 +896,13 @@ public class SessionServiceImpl implements SessionService {
             }
         }
         String selectedSport = sport == null ? "" : sport.trim();
-        if (!SportsCatalog.ALLOWED.contains(selectedSport)) {
+        if (!SportsCatalog.isAllowedSessionSport(selectedSport)) {
             throw new IllegalArgumentException("Modalidade inválida");
+        }
+        if (!SportsCatalog.ALLOWED.contains(selectedSport) && (session.getCommunity() != null
+                || session.getVenue() != null || session.getSeasonCompetition() != null
+                || sessionCommunityShareRepository.existsBySession_Id(sessionId))) {
+            throw new IllegalArgumentException("Modalidades sugeridas só são permitidas em sessões independentes");
         }
         boolean sportChanged = !selectedSport.equals(session.getSport());
         if (sportChanged) {
