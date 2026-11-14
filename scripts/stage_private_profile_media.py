@@ -23,7 +23,7 @@ MIME_EXT = {
     "video/mp4": ".mp4", "video/webm": ".webm",
 }
 HEADER = {"kind", "item_id", "owner_id", "slot", "storage_key", "mime_type"}
-R2_HOST = re.compile(r"^https://[a-z0-9-]+\\.r2\\.cloudflarestorage\\.com/?$", re.I)
+R2_HOST = re.compile(r"^https://[a-z0-9-]+\.r2\.cloudflarestorage\.com/?$", re.I)
 
 
 def validate_row(row):
@@ -45,7 +45,7 @@ def validate_row(row):
         raise ValueError("Video slot has image MIME type")
     if mime.startswith("video/") and slot == "image":
         raise ValueError("Image slot has video MIME type")
-    legacy = rf"^(?:posts|stories)/{owner_id}/[A-Za-z0-9_-]+\\.(?:jpg|jpeg|png|webp|mp4|webm)$"
+    legacy = rf"^(?:posts|stories)/{owner_id}/[A-Za-z0-9_-]+\.(?:jpg|jpeg|png|webp|mp4|webm)$"
     if not re.fullmatch(legacy, key):
         raise ValueError("Legacy key does not belong to the expected owner")
     prefix = "posts" if kind == "post" else "stories"
@@ -154,7 +154,7 @@ def main():
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             for row in rows:
                 manifest_entry = stage(row, public, private, source_bucket, destination_bucket)
-                handle.write(json.dumps(manifest_entry, ensure_ascii=False) + "\\n")
+                handle.write(json.dumps(manifest_entry, ensure_ascii=False) + "\n")
                 handle.flush()
                 os.fsync(handle.fileno())
     except Exception:
