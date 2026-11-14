@@ -1,0 +1,48 @@
+name: Jynlo profile private media SQL preflight
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'scripts/audit_profile_media_inventory_gaps.sql'
+      - 'scripts/export_profile_media_inventory.sql'
+      - 'scripts/stage_private_profile_media.py'
+      - 'scripts/test_profile_media_sql_preflight.sh'
+      - '.github/workflows/profile-private-sql-integration.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sql-inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_PASSWORD: ci-local-only
+          POSTGRES_USER: postgres
+          POSTGRES_DB: jynlo_ci
+        options: >-
+          --health-cmd "pg_isready -U postgres -d jynlo_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: ci-local-only
+      PGDATABASE: jynlo_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare PostgreSQL CLI
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Test read-only migration reports and CSV inventory
+        run: bash scripts/test_profile_media_sql_preflight.sh
