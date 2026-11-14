@@ -18,6 +18,7 @@ public class PersonalLiveController {
     private final com.example.desporto24.service.PersonalLiveInteractionService interaction;
     public record ChatRequest(@NotBlank @Size(max=500) String message) {}
     public record ChatSettings(boolean enabled) {}
+    public record SlowModeSettings(int seconds) {}
     public record MuteSettings(boolean muted) {}
     @GetMapping("/{id}/messages")
     public List<com.example.desporto24.service.PersonalLiveInteractionService.ChatMessage> messages(
@@ -38,6 +39,11 @@ public class PersonalLiveController {
     public com.example.desporto24.service.PersonalLiveInteractionService.LiveControls chatSettings(
         @PathVariable long id,@RequestBody ChatSettings request,Authentication auth) {
         return interaction.toggleChat(auth.getName(),id,request.enabled());
+    }
+    @PutMapping("/{id}/slow-mode")
+    public com.example.desporto24.service.PersonalLiveInteractionService.LiveControls slowMode(
+        @PathVariable long id,@RequestBody SlowModeSettings request,Authentication auth) {
+        return interaction.setSlowMode(auth.getName(),id,request.seconds());
     }
     @PutMapping("/{id}/mute/{username}")
     public com.example.desporto24.service.PersonalLiveInteractionService.LiveControls mute(
