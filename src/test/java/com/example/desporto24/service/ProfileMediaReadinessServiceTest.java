@@ -46,6 +46,21 @@ class ProfileMediaReadinessServiceTest {
         assertEquals(0,status.protectedReferences());
         assertFalse(status.databaseReferencesReady());
     }
+    @Test void communityStoryDoesNotBlockPersonalProfilePrivacy() {
+        Profile owner=new Profile();
+        owner.setId(22L);
+        com.example.desporto24.model.community.Community community =
+                mock(com.example.desporto24.model.community.Community.class);
+        SocialStory groupStory=SocialStory.builder().id(301L).author(owner)
+                .community(community).mediaStorageKey("stories/22/public-community.jpg")
+                .mediaUrl("https://public.example/group.jpg").build();
+        when(posts.findByAuthorId(22L)).thenReturn(List.of());
+        when(stories.findByAuthorId(22L)).thenReturn(List.of(groupStory));
+        var status=service.count(owner);
+        assertEquals(0,status.publicReferences());
+        assertEquals(0,status.protectedReferences());
+        assertTrue(status.databaseReferencesReady());
+    }
     @Test void onlyFullyMigratedReferencesPassDatabaseAudit() {
         Profile owner=new Profile();
         owner.setId(16L);
