@@ -68,6 +68,24 @@ public class PrivateProfileMediaStorage {
         if (!isPrivateKey(key)) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Media unavailable");
         if (!isConfigured()) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Private media unavailable");
     }
+    /**
+     * New private uploads go straight into the non-public bucket.
+     * Never upload to public storage first and relocate later.
+     */
+    public String store(String type, long authorId,
+                        org.springframework.web.multipart.MultipartFile file, boolean video) {
+        if (!"posts".equals(type) && !"stories".equals(type))
+            throw new IllegalArgumentException("Invalid media type");
+        if (authorId <= 0) throw new IllegalArgumentException("Invalid media owner");
+        if (!isConfigured()) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Private media unavailable");
+        MediaStorageSupport.ValidatedMedia media = video
+                ? MediaStorageSupport.validateVideo(file) : MediaStorageSupport.validate(file);
+        String key = PREFIX + type + "/" + authorId + "/"
+                + java.util.UUID.randomUUID() + media.extension();
+        put(key, media.bytes(), media.mimeType());
+        return key;
+    }
+
     public InputStream open(String key) {
         requireReady(key);
         if ("s3".equalsIgnoreCase(settings.getProvider())) {
