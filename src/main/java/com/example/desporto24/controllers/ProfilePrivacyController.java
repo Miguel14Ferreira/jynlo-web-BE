@@ -10,7 +10,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ProfilePrivacyController {
   private final ProfilePrivacyService service;
+  private final com.example.desporto24.service.ProfileMediaReadinessService mediaReadiness;
   public record SettingsRequest(boolean privateProfile) {}
+  /** Audit only; never exposes paths or storage credentials. */
+  @GetMapping("/me/media-readiness")
+  public com.example.desporto24.service.ProfileMediaReadinessService.MediaReadiness mediaReadiness(Authentication auth) {
+    return mediaReadiness.mine(auth.getName());
+  }
   @GetMapping("/me")
   public ProfilePrivacyService.PrivacyStatus mine(Authentication auth) {
     return service.status(auth.getName(),auth.getName());
