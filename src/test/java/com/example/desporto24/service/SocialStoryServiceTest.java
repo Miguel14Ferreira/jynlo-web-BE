@@ -197,6 +197,61 @@ class SocialStoryServiceTest {
     }
 
     @Test
+    void expiredStoryBatchContinuesWhenOnePrivateBucketIsUnavailable() {
+        reset(profiles);
+        SocialStory privateStory=SocialStory.builder().id(201L).author(actor)
+                .mediaStorageKey("private-profile-media/stories/19/private.jpg")
+                .expiresAt(Instant.now().minusSeconds(60)).build();
+        SocialStory publicStory=SocialStory.builder().id(202L).author(actor)
+                .mediaStorageKey("stories/19/public.jpg")
+                .expiresAt(Instant.now().minusSeconds(60)).build();
+        when(stories.findByExpiresAtLessThanEqualOrderByIdAsc(any(Instant.class),
+                any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(java.util.List.of(privateStory,publicStory));
+        when(privateMedia.isConfigured()).thenReturn(false);
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.removeExpired();
+            verify(stories, never()).delete(privateStory);
+            verify(stories).delete(publicStory);
+            var callbacks=org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations();
+            assertEquals(1,callbacks.size());
+            callbacks.get(0).afterCommit();
+            verify(storage).delete("stories/19/public.jpg");
+            verify(privateMedia, never()).delete(anyString());
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void expiredStoryObjectFailureDoesNotAbortOtherPostCommitCleanup() {
+        reset(profiles);
+        SocialStory first=SocialStory.builder().id(211L).author(actor)
+                .mediaStorageKey("stories/19/broken.jpg")
+                .expiresAt(Instant.now().minusSeconds(60)).build();
+        SocialStory second=SocialStory.builder().id(212L).author(actor)
+                .mediaStorageKey("stories/19/other.jpg")
+                .expiresAt(Instant.now().minusSeconds(60)).build();
+        when(stories.findByExpiresAtLessThanEqualOrderByIdAsc(any(Instant.class),
+                any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(java.util.List.of(first,second));
+        doThrow(new IllegalStateException("bucket unavailable"))
+                .when(storage).delete("stories/19/broken.jpg");
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.removeExpired();
+            var callbacks=org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations();
+            assertEquals(1,callbacks.size());
+            assertDoesNotThrow(()->callbacks.get(0).afterCommit());
+            verify(storage).delete("stories/19/broken.jpg");
+            verify(storage).delete("stories/19/other.jpg");
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
     void acceptsOnePictureAndExpiresExactly24HoursAfterCreation() {
         MockMultipartFile image = new MockMultipartFile("image", "photo.jpg", "image/jpeg", new byte[] {1,2,3});
         when(storage.store(startsWith("stories/19/"), same(image)))
