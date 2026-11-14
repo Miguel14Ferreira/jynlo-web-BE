@@ -313,6 +313,12 @@ public class DirectCallService {
                 now.plusSeconds(RING_SECONDS), "RINGING");
         CallSession session = access(call, caller);
         calls.put(id, call);
+        // Bound cooldown bookkeeping: usernames must not accumulate indefinitely
+        // across months of calls on a long-lived backend instance.
+        if (lastStarted.size() >= 512) {
+            lastStarted.entrySet().removeIf(entry ->
+                    !now.isBefore(entry.getValue().plusSeconds(START_COOLDOWN_SECONDS)));
+        }
         lastStarted.put(normalized, now);
         if (directRingBudgets.size() >= 512) {
             directRingBudgets.entrySet().removeIf(entry ->
