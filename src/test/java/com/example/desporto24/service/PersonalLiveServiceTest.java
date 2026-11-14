@@ -21,7 +21,8 @@ class PersonalLiveServiceTest {
     private final ProfileRepository profiles=mock(ProfileRepository.class);
     private final UserBlockService blocks=mock(UserBlockService.class);
     private final DirectCallService provider=mock(DirectCallService.class);
-    private final PersonalLiveService service=new PersonalLiveService(events,profiles,blocks,provider);
+    private final com.example.desporto24.websocket.ChatRealtimeGateway realtime=mock(com.example.desporto24.websocket.ChatRealtimeGateway.class);
+    private final PersonalLiveService service=new PersonalLiveService(events,profiles,blocks,provider,realtime);
     private Profile owner,viewer;
     private PersonalLiveEvent live;
 
