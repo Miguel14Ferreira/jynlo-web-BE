@@ -642,6 +642,13 @@ public class SocialFeedService {
                 .toList();
     }
 
+    /** Return only a relative authorized route for protected objects; never disclose their storage keys. */
+    private static String deliveredMediaUrl(SocialPost post, String key, String slot, String publicUrl) {
+        return com.example.desporto24.storage.PrivateProfileMediaStorage.isPrivateKey(key)
+                ? "/api/profile-media/posts/" + post.getId() + "/" + slot
+                : publicUrl;
+    }
+
     private FeedItemResponse postItem(SocialPost post, Profile viewer) {
         return postItem(post, Map.of(), Map.of(), Set.of());
     }
@@ -664,7 +671,7 @@ public class SocialFeedService {
                 displayName(author),
                 author.getProfilePicUrl(),
                 post.getContent(),
-                post.getImageUrl(),
+                deliveredMediaUrl(post,post.getImageStorageKey(),"image",post.getImageUrl()),
                 post.getCreatedAt(),
                 linkedSession == null ? null : linkedSession.getId(),
                 linkedSession == null ? null : linkedSession.getSport(),
@@ -675,11 +682,15 @@ public class SocialFeedService {
                 likedPostIds.contains(post.getId()),
                 commentCounts.getOrDefault(post.getId(), 0L),
                 publicSessionImage(linkedSession),
-                post.getVideoUrl(),
+                deliveredMediaUrl(post,post.getVideoStorageKey(),"video",post.getVideoUrl()),
                 post.isHideLikers(),
                 post.getExtraMedia() == null ? java.util.List.of() : post.getExtraMedia().stream()
-                    .map(asset -> new com.example.desporto24.model.dto.social.PublicPostMediaResponse(
-                            asset.getUrl(), asset.getMimeType())).toList(),
+                     .map(asset -> {
+                        int index=post.getExtraMedia().indexOf(asset);
+                        return new com.example.desporto24.model.dto.social.PublicPostMediaResponse(
+                          deliveredMediaUrl(post,asset.getStorageKey(),"extra-"+index,asset.getUrl()),
+                          asset.getMimeType());
+                    }).toList(),
                 post.getLocationLabel()
         );
     }
