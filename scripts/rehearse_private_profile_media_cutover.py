@@ -102,7 +102,7 @@ def rehearsal_sql(rows):
     statements = [
         "-- GENERATED REHEARSAL ONLY. Does not commit changes.",
         "-- Source: SHA-256 verified copy manifest. CDN purge is NOT verified here.",
-        "-- Run against a database backup or a read-only-appropriate staging environment first.",
+        "-- Run only on an isolated restored staging database (UPDATE permissions required).",
         "BEGIN;",
         "SET LOCAL lock_timeout = '3s';",
         "SET LOCAL statement_timeout = '30s';",
