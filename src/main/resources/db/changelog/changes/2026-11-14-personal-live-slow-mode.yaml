@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-14-personal-live-slow-mode
+      author: jynlo
+      changes:
+        - addColumn:
+            tableName: personal_live_event
+            columns:
+              - column:
+                  name: chat_slow_seconds
+                  type: integer
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
