@@ -32,10 +32,13 @@ public class ProfilePrivacyService {
   private boolean privateMediaCutoverVerified;
   @org.springframework.beans.factory.annotation.Autowired(required=false)
   private com.example.desporto24.storage.PrivateProfileMediaStorage protectedMedia;
+  @org.springframework.beans.factory.annotation.Autowired(required=false)
+  private ProfileMediaReadinessService mediaReadiness;
 
-  private boolean privateModeAvailable() {
+  private boolean privateModeAvailable(Profile profile) {
     return privateModeEnabled && privateMediaCutoverVerified
-        && protectedMedia != null && protectedMedia.isConfigured();
+        && protectedMedia != null && protectedMedia.isConfigured()
+        && mediaReadiness != null && mediaReadiness.count(profile).databaseReferencesReady();
   }
 
   private Profile profile(String username) {
@@ -56,17 +59,17 @@ public class ProfilePrivacyService {
   }
   public PrivacyStatus status(String viewerName,String targetName) {
     Profile viewer=profile(viewerName),target=profile(targetName);
-    return new PrivacyStatus(target.isPrivateProfile(),canView(viewer,target),privateModeAvailable());
+    return new PrivacyStatus(target.isPrivateProfile(),canView(viewer,target),privateModeAvailable(target));
   }
   public PrivacyStatus update(String actorName,boolean privateProfile) {
     Profile actor=profile(actorName);
-    if (privateProfile && !privateModeAvailable())
+    if (privateProfile && !privateModeAvailable(actor))
       throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
         "A proteção de multimédia privado ainda está a ser preparada");
     actor.setPrivateProfile(privateProfile);
     profiles.save(actor);
     if (!privateProfile) requests.deleteByTargetId(actor.getId());
-    return new PrivacyStatus(actor.isPrivateProfile(),true,privateModeAvailable());
+    return new PrivacyStatus(actor.isPrivateProfile(),true,privateModeAvailable(actor));
   }
   public boolean requested(String requesterName,String targetName) {
     Profile requester=profile(requesterName),target=profile(targetName);
