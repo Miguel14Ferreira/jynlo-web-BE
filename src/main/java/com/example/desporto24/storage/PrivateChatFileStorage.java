@@ -246,6 +246,12 @@ public class PrivateChatFileStorage {
 
     public void delete(String key) {
         validKey(key);
+        // Cleanup jobs must obey the same isolation gate as uploads/downloads:
+        // never attempt object deletion with a misconfigured public bucket.
+        if (!isConfigured()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Private attachment storage is unavailable");
+        }
         if (usesS3()) {
             client().deleteObject(DeleteObjectRequest.builder()
                     .bucket(privateBucket()).key(key).build());
