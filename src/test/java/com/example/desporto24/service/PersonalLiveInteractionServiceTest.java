@@ -56,6 +56,22 @@ class PersonalLiveInteractionServiceTest {
     assertThrows(ResponseStatusException.class,()->service.send("viewer",15L,"teste"));
     assertDoesNotThrow(()->service.send("organizer",15L,"mensagem de organizador"));
   }
+  @Test void slowModeIsHostControlledAndEnforcedOnSpectators() {
+    assertThrows(ResponseStatusException.class,()->service.setSlowMode("viewer",15L,10));
+    assertThrows(ResponseStatusException.class,()->service.setSlowMode("organizer",15L,7));
+    assertEquals(10,service.setSlowMode("organizer",15L,10).slowModeSeconds());
+    verify(realtime).publishPersonalLiveInvalidated();
+    when(chat.findTopByLiveIdAndAuthorIdOrderByCreatedAtDesc(15L,2L))
+      .thenReturn(Optional.of(PersonalLiveChatMessage.builder()
+        .createdAt(Instant.now()).build()));
+    ResponseStatusException denied=assertThrows(ResponseStatusException.class,
+      ()->service.send("viewer",15L,"segunda mensagem"));
+    assertEquals(429,denied.getStatusCode().value());
+    verify(chat,never()).save(any());
+    assertDoesNotThrow(()->service.send("organizer",15L,"anúncio do apresentador"));
+    assertEquals(0,service.setSlowMode("organizer",15L,0).slowModeSeconds());
+  }
+
   @Test void requestsDoNotGrantPublishingUntilHostApproval() {
     when(guests.save(any())).thenAnswer(i->{
       PersonalLiveGuestRequest request=i.getArgument(0);request.setId(30L);return request;
