@@ -59,6 +59,9 @@ class SocialStoryServiceTest {
 
     @BeforeEach
     void init() {
+        // Mockito uses constructor injection for @InjectMocks; optional @Autowired
+        // fields are not always injected when the constructor succeeds.
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "privateMedia", privateMedia);
         actor = new Profile();
         actor.setId(19L);
         actor.setUsername("joao");
