@@ -144,3 +144,18 @@ This rehearsal is **not a production cutover**. Run it on a restored database
 backup, review the zero-error result, and separately approve a migration plan
 that covers all records, public-object deletion and Cloudflare CDN purges.
 Never publish the manifest or SQL because they contain storage keys.
+
+## Story expiration and object cleanup
+
+Automatic expiration now schedules media deletion **only after** the database
+transaction commits. On rollback, no object is removed. Expired private Stories
+whose private storage is not configured are retained in the database for a
+future cleanup attempt; public Story cleanup is not blocked by those entries.
+
+**Remaining operational limitation:** if the database commits but R2 deletion
+fails (or the worker crashes between commit and deletion), the deleted Story
+will no longer carry a database reference to its object. The service logs the
+failure, but that object does **not** automatically retry through the Story
+table. Before activating private profiles at scale, implement a durable
+object-deletion outbox/reconciler and verify orphan cleanup. This is not a
+reason to delete R2 objects before their database transaction commits.
