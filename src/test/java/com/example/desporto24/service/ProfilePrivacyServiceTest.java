@@ -47,6 +47,30 @@ class ProfilePrivacyServiceTest {
         verify(profiles,never()).save(any());
     }
 
+    @Test void switchingPrivateProfileToPublicRequiresReverseMediaMigration() {
+        ProfileMediaReadinessService readiness=mock(ProfileMediaReadinessService.class);
+        ReflectionTestUtils.setField(service,"mediaReadiness",readiness);
+        when(readiness.count(owner)).thenReturn(
+            new ProfileMediaReadinessService.MediaReadiness(0,2,true));
+        var thrown=assertThrows(ResponseStatusException.class,
+            ()->service.update("owner",false));
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT,thrown.getStatusCode());
+        assertTrue(owner.isPrivateProfile());
+        verify(profiles,never()).save(any());
+        verify(requests,never()).deleteByTargetId(anyLong());
+    }
+
+    @Test void emptyPrivateProfileCanReturnToPublicWithoutMediaRelocation() {
+        ProfileMediaReadinessService readiness=mock(ProfileMediaReadinessService.class);
+        ReflectionTestUtils.setField(service,"mediaReadiness",readiness);
+        when(readiness.count(owner)).thenReturn(
+            new ProfileMediaReadinessService.MediaReadiness(0,0,true));
+        service.update("owner",false);
+        assertFalse(owner.isPrivateProfile());
+        verify(profiles).save(owner);
+        verify(requests).deleteByTargetId(4L);
+    }
+
     @Test void aRequestDoesNotAutomaticallyCreateAFollower() {
         service.request("viewer","owner");
         verify(requests).save(any(ProfileFollowRequest.class));
