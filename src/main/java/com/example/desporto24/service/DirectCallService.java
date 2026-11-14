@@ -283,7 +283,10 @@ public class DirectCallService {
                 || !("voice".equals(media) || "video".equals(media))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid call");
         }
+        // A ring is only valid if both participants can access the conversation.
+        // Recheck both directions before emitting any notification or minting a token.
         inbox.requireConversationAccess(caller, "direct", peer);
+        inbox.requireConversationAccess(peer, "direct", caller);
         Instant now = Instant.now();
         expireCalls(now);
         for (Call current : calls.values()) {
