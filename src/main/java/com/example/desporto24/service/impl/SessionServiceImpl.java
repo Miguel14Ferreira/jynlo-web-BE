@@ -1300,6 +1300,9 @@ public class SessionServiceImpl implements SessionService {
         if (session.getStatus() == SessionStatus.COMPLETED) {
             throw new IllegalStateException("Completed sessions cannot be cancelled");
         }
+        // Repeated cancellation requests must never create duplicate player
+        // notifications or duplicate push events.
+        if (session.getStatus() == SessionStatus.CANCELLED) return;
 
         session.setStatus(SessionStatus.CANCELLED);
         session.setUpdatedAt(Instant.now());
