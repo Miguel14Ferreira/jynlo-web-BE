@@ -94,6 +94,20 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void pendingGroupInviteIsHiddenWhenOriginalPeerRevokesReverseAccess() {
+        var ringing = calls.start("ana", "bea", "video");
+        calls.accept(ringing.callId(), "bea");
+        calls.invite(ringing.callId(), "ana", "carlos");
+        assertNotNull(calls.pendingFor("carlos"));
+
+        doThrow(new org.springframework.security.access.AccessDeniedException("Original peer blocked"))
+                .when(inbox).requireConversationAccess("bea", "direct", "ana");
+
+        assertNull(calls.pendingFor("carlos"),
+                "An invitation must not survive reverse revocation in the original call");
+    }
+
+    @Test
     void createsScopedTokensForExactlyTwoAuthorizedMembers() {
         var outgoing = calls.start("ana", "bea", "video");
         verify(inbox).requireConversationAccess("ana", "direct", "bea");
