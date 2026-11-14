@@ -66,6 +66,17 @@ public class ProfilePrivacyService {
     if (privateProfile && !privateModeAvailable(actor))
       throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
         "A proteção de multimédia privado ainda está a ser preparada");
+    if (!privateProfile && actor.isPrivateProfile()) {
+      // Returning to public must not leave photos/videos behind a bearer-only
+      // route. A separately verified reverse migration is required first.
+      if (mediaReadiness == null)
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+            "A publicação pública de multimédia ainda está a ser preparada");
+      var media=mediaReadiness.count(actor);
+      if (media.protectedReferences() > 0)
+        throw new ResponseStatusException(HttpStatus.CONFLICT,
+            "É necessário preparar as fotografias e vídeos antes de tornar o perfil público");
+    }
     actor.setPrivateProfile(privateProfile);
     profiles.save(actor);
     if (!privateProfile) requests.deleteByTargetId(actor.getId());
