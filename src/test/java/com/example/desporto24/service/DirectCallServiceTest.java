@@ -80,6 +80,27 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void rosterChangeActorIsRedactedWhenRecipientBlockedActor() {
+        doThrow(new org.springframework.security.access.AccessDeniedException("Blocked"))
+                .when(inbox).requireConversationAccess("bea", "direct", "carlos");
+
+        String redacted = ReflectionTestUtils.invokeMethod(calls,
+                "rosterEventActor", "bea", "carlos");
+        assertEquals("bea", redacted,
+                "A roster event must not reveal the blocked actor's username");
+        verify(inbox, never()).requireConversationAccess("carlos", "direct", "bea");
+    }
+
+    @Test
+    void rosterChangeActorRemainsVisibleForReciprocallyAuthorizedRecipient() {
+        String visible = ReflectionTestUtils.invokeMethod(calls,
+                "rosterEventActor", "bea", "carlos");
+        assertEquals("carlos", visible);
+        verify(inbox).requireConversationAccess("bea", "direct", "carlos");
+        verify(inbox).requireConversationAccess("carlos", "direct", "bea");
+    }
+
+    @Test
     void secondGenerationInviteDisappearsWhenAncestorLosesReciprocalAccess() {
         var call = calls.start("ana", "bea", "video");
         calls.accept(call.callId(), "bea");
