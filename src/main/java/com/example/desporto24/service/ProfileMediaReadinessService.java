@@ -34,10 +34,12 @@ public class ProfileMediaReadinessService {
         return count(profile);
     }
 
-    private static boolean protectedReference(String key, String url, String expectedRoute) {
-        // A copied object is not enough: the old public URL must also have been
-        // replaced in the database before the owner may enable private mode.
-        return PrivateProfileMediaStorage.isPrivateKey(key)
+    private static boolean protectedReference(String key, String url, String expectedRoute,
+            String type, Long ownerId) {
+        // Require both an authenticated URL and an object belonging to this
+        // author and media type; a copy under another user's prefix is not ready.
+        return ownerId != null && PrivateProfileMediaStorage.isPrivateKey(key)
+                && key.startsWith("private-profile-media/" + type + "/" + ownerId + "/")
                 && expectedRoute.equals(url);
     }
 
@@ -54,14 +56,14 @@ public class ProfileMediaReadinessService {
             };
             for(int i=0;i<keys.length;i++) {
                 if ((keys[i] == null || keys[i].isBlank()) && (urls[i] == null || urls[i].isBlank())) continue;
-                if (protectedReference(keys[i], urls[i], routes[i])) protectedRefs++;
+                if (protectedReference(keys[i], urls[i], routes[i], "posts", profile.getId())) protectedRefs++;
                 else publicRefs++;
             }
             if (post.getExtraMedia()!=null) {
                 for (int i=0;i<post.getExtraMedia().size();i++) {
                     var asset=post.getExtraMedia().get(i);
                     String expected="/api/profile-media/posts/" + post.getId() + "/extra-" + i;
-                    if (protectedReference(asset.getStorageKey(), asset.getUrl(), expected)) protectedRefs++;
+                    if (protectedReference(asset.getStorageKey(), asset.getUrl(), expected, "posts", profile.getId())) protectedRefs++;
                     else publicRefs++;
                 }
             }
@@ -72,7 +74,7 @@ public class ProfileMediaReadinessService {
             // It must not block switching the personal profile to private.
             if (story.getCommunity() != null) continue;
             String route="/api/profile-media/stories/" + story.getId();
-            if (protectedReference(story.getMediaStorageKey(),story.getMediaUrl(),route)) protectedRefs++;
+            if (protectedReference(story.getMediaStorageKey(),story.getMediaUrl(),route, "stories", profile.getId())) protectedRefs++;
             else publicRefs++;
         }
         return new MediaReadiness(publicRefs,protectedRefs,publicRefs==0);
