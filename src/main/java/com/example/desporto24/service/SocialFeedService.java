@@ -67,6 +67,8 @@ public class SocialFeedService {
 
     @Autowired(required = false)
     private com.example.desporto24.storage.PrivateProfileMediaStorage privateMedia;
+    @Autowired(required = false)
+    private ProfileMediaDeletionOutbox mediaDeletionOutbox;
 
     private boolean protectedUploads(Profile author) {
         if (!author.isPrivateProfile()) return false;
@@ -551,19 +553,12 @@ public class SocialFeedService {
             post.getExtraMedia().stream().map(com.example.desporto24.model.social.PublicPostMedia::getStorageKey)
                     .filter(java.util.Objects::nonNull).filter(key -> !key.isBlank()).forEach(keys::add);
         if (!keys.isEmpty()) {
-            if (!TransactionSynchronizationManager.isSynchronizationActive())
-                throw new IllegalStateException("Post deletion requires a transaction");
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override public void afterCommit() {
-                    for (String key : keys) {
-                        try { deleteMediaKey(key); }
-                        catch (RuntimeException failure) {
-                            org.slf4j.LoggerFactory.getLogger(SocialFeedService.class)
-                                    .warn("Post object cleanup failed after database commit; cleanup required", failure);
-                        }
-                    }
-                }
-            });
+            if (mediaDeletionOutbox == null)
+                throw new IllegalStateException("Durable media cleanup is not configured");
+            // Must persist in the SAME transaction as the post deletion. If
+            // the transaction rolls back, both deletion and queue rows revert.
+            for (String key : new java.util.LinkedHashSet<>(keys))
+                mediaDeletionOutbox.enqueue(key);
         }
     }
 
