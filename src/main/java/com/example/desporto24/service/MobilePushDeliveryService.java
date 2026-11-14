@@ -74,16 +74,18 @@ public class MobilePushDeliveryService {
                 devices.findTop20ByUsernameOrderByUpdatedAtDesc(account);
         for (var device : recipients) {
             if (!account.equals(device.getUsername())) continue;
-            deliver(device.getDeviceId(),device.getPushToken(), event.notificationId());
+            deliver(device.getDeviceId(),device.getPushToken(), event.notificationId(), event.category());
         }
     }
 
-    private void deliver(String deviceId,String token, Long notificationId) {
+    private void deliver(String deviceId,String token, Long notificationId, String category) {
         try {
             byte[] body = json.writeValueAsBytes(Map.of(
                     "to", token,
-                    "title", "Jynlo",
-                    "body", "Tens uma nova notificação.",
+                    "title", "SESSION_CANCELLED".equals(category) ? "Sessão cancelada" : "Jynlo",
+                    "body", "SESSION_CANCELLED".equals(category)
+                            ? "O organizador cancelou uma sessão em que estavas inscrito. Abre a Jynlo para consultar os detalhes."
+                            : "Tens uma nova notificação.",
                     "sound", "default",
                     "channelId", "jynlo-messages",
                     "data", Map.of("kind", "notification", "id", notificationId == null ? 0 : notificationId)
