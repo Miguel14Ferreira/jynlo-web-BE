@@ -5,6 +5,9 @@ import com.example.desporto24.model.social.*;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.social.*;
 import lombok.RequiredArgsConstructor;
+import com.example.desporto24.websocket.ChatRealtimeGateway;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +25,15 @@ public class PersonalLiveInteractionService {
   private final ProfileRepository profiles;
   private final UserBlockService blocks;
   private final DirectCallService provider;
+  private final ChatRealtimeGateway realtime;
+
+  private void notifyLiveChanged() {
+    if (TransactionSynchronizationManager.isSynchronizationActive()) {
+      TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+        @Override public void afterCommit() { realtime.publishPersonalLiveInvalidated(); }
+      });
+    } else realtime.publishPersonalLiveInvalidated();
+  }
 
   public record ChatMessage(long id,String username,String message,Instant createdAt) {}
   public record GuestRequest(long id,String username,String status,Instant createdAt) {}
@@ -70,6 +82,7 @@ public class PersonalLiveInteractionService {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Não podes escrever neste direto");
     PersonalLiveChatMessage msg=messages.save(PersonalLiveChatMessage.builder().live(event)
       .author(author).message(value.strip()).createdAt(Instant.now()).build());
+    notifyLiveChanged();
     return new ChatMessage(msg.getId(),username,msg.getMessage(),msg.getCreatedAt());
   }
   @Transactional(readOnly=true)
@@ -96,6 +109,7 @@ public class PersonalLiveInteractionService {
   public LiveControls toggleChat(String username,long liveId,boolean enabled) {
     Profile user=actor(username);PersonalLiveEvent event=visible(liveId,user);
     owner(event,user);event.setChatEnabled(enabled);events.save(event);
+    notifyLiveChanged();
     return controls(username,liveId);
   }
   @Transactional
@@ -109,6 +123,7 @@ public class PersonalLiveInteractionService {
       mutes.save(PersonalLiveMute.builder().live(event).profile(target)
         .createdAt(Instant.now()).build());
     if(!muted)mutes.deleteByLiveIdAndProfileId(liveId,target.getId());
+    notifyLiveChanged();
     return controls(username,liveId);
   }
   @Transactional
@@ -124,7 +139,9 @@ public class PersonalLiveInteractionService {
       req.setStatus(PersonalLiveGuestRequest.Status.PENDING);
       req.setCreatedAt(Instant.now());
     }
-    return view(requests.save(req));
+    GuestRequest saved=view(requests.save(req));
+    notifyLiveChanged();
+    return saved;
   }
   @Transactional
   public GuestRequest decide(String username,long liveId,long requestId,boolean approve) {
@@ -143,7 +160,9 @@ public class PersonalLiveInteractionService {
     }
     req.setStatus(approve?PersonalLiveGuestRequest.Status.APPROVED:
       PersonalLiveGuestRequest.Status.DECLINED);
-    return view(requests.save(req));
+    GuestRequest saved=view(requests.save(req));
+    notifyLiveChanged();
+    return saved;
   }
   @Transactional
   public void removeGuest(String username,long liveId) {
@@ -163,5 +182,6 @@ public class PersonalLiveInteractionService {
     requests.findByLiveIdAndRequesterId(liveId,guest.getId()).ifPresent(req->{
       req.setStatus(PersonalLiveGuestRequest.Status.DECLINED);requests.save(req);
     });
+    notifyLiveChanged();
   }
 }
