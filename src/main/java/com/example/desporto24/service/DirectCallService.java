@@ -382,10 +382,12 @@ public class DirectCallService {
             }
             if (current.equalsIgnoreCase(call.caller())) {
                 inbox.requireConversationAccess(current, "direct", call.peer());
+                inbox.requireConversationAccess(call.peer(), "direct", current);
                 return;
             }
             if (current.equalsIgnoreCase(call.peer())) {
                 inbox.requireConversationAccess(current, "direct", call.caller());
+                inbox.requireConversationAccess(call.caller(), "direct", current);
                 return;
             }
             Guest guest = guestFor(call.id(), current);
@@ -393,6 +395,7 @@ public class DirectCallService {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN);
             }
             inbox.requireConversationAccess(current, "direct", guest.inviter());
+            inbox.requireConversationAccess(guest.inviter(), "direct", current);
             current = guest.inviter();
         }
         throw new ResponseStatusException(HttpStatus.FORBIDDEN);
