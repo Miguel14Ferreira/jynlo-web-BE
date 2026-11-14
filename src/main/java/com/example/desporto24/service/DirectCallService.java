@@ -748,7 +748,8 @@ public class DirectCallService {
             return actor;
         } catch (org.springframework.security.access.AccessDeniedException
                  | ResponseStatusException denied) {
-            return recipient;
+            // A redacted event is not an action by the recipient.
+            return "";
         }
     }
 
