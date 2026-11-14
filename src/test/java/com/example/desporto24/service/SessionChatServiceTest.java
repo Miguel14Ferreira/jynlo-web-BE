@@ -495,6 +495,17 @@ class SessionChatServiceTest {
     }
 
     @Test
+    void invalidExtraAttachmentIdIsRejectedBeforeDatabaseLookup() {
+        assertEquals(404, assertThrows(ResponseStatusException.class,
+                () -> service.downloadAttachmentAt(10L, null, 1, "creator"))
+                .getStatusCode().value());
+        assertEquals(404, assertThrows(ResponseStatusException.class,
+                () -> service.downloadAttachmentAt(10L, -1L, 1, "creator"))
+                .getStatusCode().value());
+        verifyNoInteractions(sessionRepository, profileRepository, messageRepository);
+    }
+
+    @Test
     void malformedExtraAttachmentCannotBeDownloaded() {
         Profile creator = profile(1L, "creator");
         Session session = session(10L, creator);
