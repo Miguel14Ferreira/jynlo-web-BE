@@ -13,6 +13,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -22,6 +25,9 @@ public class SessionNotificationService {
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.service.NotificationPreferencesService preferenceService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher pushEvents;
 
     private final NotificationsRepository notificationsRepository;
     private final SessionParticipantRepository participantRepository;
@@ -62,12 +68,19 @@ public class SessionNotificationService {
             affected.remove(session.getProfile().getUsername());
         }
 
+        String sport = safePublicLabel(session.getSport(), "desporto");
+        String city = safePublicLabel(session.getCity(), "");
+        String when = session.getGameDate() == null ? "" : " de " +
+                DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm", Locale.forLanguageTag("pt-PT"))
+                        .withZone(ZoneId.of("Europe/Lisbon"))
+                        .format(session.getGameDate().toInstant());
+        String where = city.isBlank() ? "" : " em " + city;
         affected.values().forEach(profile -> save(
                 profile,
                 session,
                 NotificationType.SESSION_CANCELLED,
-                "Sessão cancelada",
-                "O criador cancelou esta sessão."
+                "Sessão de " + sport + " cancelada",
+                "O organizador cancelou a sessão" + when + where + ". Esta sessão já não se vai realizar."
         ));
     }
 
@@ -140,6 +153,13 @@ public class SessionNotificationService {
                 "O organizador alterou os detalhes da sessão. Consulta a data, o local e as condições atuais."));
     }
 
+    /** Public labels only: never include the exact address, password, or meeting point. */
+    private static String safePublicLabel(String value, String fallback) {
+        if (value == null || value.isBlank()) return fallback;
+        String cleaned = value.strip().replaceAll("[\\p{Cntrl}]+", " ");
+        return cleaned.length() > 70 ? cleaned.substring(0, 70).strip() : cleaned;
+    }
+
     private void save(
             Profile profile,
             Session session,
@@ -165,7 +185,15 @@ public class SessionNotificationService {
 
         if (preferenceService == null ||
                 preferenceService.allowsInApp(notification.getUsername(), notification)) {
-            notificationsRepository.save(notification);
+            Notifications saved = notificationsRepository.save(notification);
+            // The shared mobile push transport runs AFTER_COMMIT and independently
+            // rechecks device permissions. No push is emitted for suppressed alerts.
+            if (pushEvents != null && saved != null && saved.getId() != null) {
+                pushEvents.publishEvent(new MobilePushDeliveryService.StoredNotification(
+                        saved.getUsername(), saved.getId(),
+                        NotificationPreferencesService.category(saved),
+                        saved.getSessionId(), saved.getCommunityId(), saved.getRelatedUsername(), true));
+            }
         }
     }
 }
