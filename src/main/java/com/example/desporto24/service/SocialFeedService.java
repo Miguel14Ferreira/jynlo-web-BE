@@ -194,8 +194,6 @@ public class SocialFeedService {
                     .createdAt(Instant.now())
                     .build());
             finalizePrivatePostUrls(post);
-            finalizePrivatePostUrls(post);
-            finalizePrivatePostUrls(post);
             return postItem(post, author);
         } catch (RuntimeException failure) {
             deleteFailedUpload(key, failure);
@@ -244,6 +242,7 @@ public class SocialFeedService {
                     .videoStorageKey(key)
                     .createdAt(Instant.now())
                     .build());
+            finalizePrivatePostUrls(post);
             return postItem(post, author);
         } catch (RuntimeException failure) {
             deleteFailedUpload(key, failure);
@@ -309,6 +308,7 @@ public class SocialFeedService {
                     .extraMedia(new java.util.ArrayList<>(stored.subList(1, stored.size())))
                     .createdAt(Instant.now())
                     .build());
+            finalizePrivatePostUrls(post);
             return postItem(post, author);
         } catch (RuntimeException failure) {
             for (var asset : stored) {
