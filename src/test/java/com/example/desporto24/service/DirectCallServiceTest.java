@@ -101,6 +101,27 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void guestWithRevokedOriginalPeerAccessReceivesNoRosterEventEnvelope() {
+        var call = calls.start("ana", "bea", "video");
+        calls.accept(call.callId(), "bea");
+        calls.invite(call.callId(), "ana", "carlos");
+        Profile carlos = mock(Profile.class);
+        when(carlos.getId()).thenReturn(14L);
+        when(profiles.findUserByUsernameIgnoreCase("carlos")).thenReturn(Optional.of(carlos));
+        calls.accept(call.callId(), "carlos");
+        clearInvocations(gateway);
+
+        doThrow(new org.springframework.security.access.AccessDeniedException("Blocked"))
+                .when(inbox).requireConversationAccess("carlos", "direct", "bea");
+
+        calls.invite(call.callId(), "ana", "diana");
+
+        verify(gateway, never()).publishDirectCallEventTo(eq("carlos"), anyString(),
+                anyString(), eq(call.callId().toString()), anyString(),
+                eq("MEMBERS_CHANGED"), anyString(), any());
+    }
+
+    @Test
     void secondGenerationInviteDisappearsWhenAncestorLosesReciprocalAccess() {
         var call = calls.start("ana", "bea", "video");
         calls.accept(call.callId(), "bea");
