@@ -43,6 +43,7 @@ class PersonalLiveInteractionServiceTest {
   @Test void spectatorsMaySendChatMessagesButMutedUsersCannot() {
     assertEquals("Bem jogado!",service.send("viewer",15L," Bem jogado! ").message());
     verify(chat).save(any());
+    verify(realtime).publishPersonalLiveInvalidated();
     when(mutes.existsByLiveIdAndProfileId(15L,2L)).thenReturn(true);
     assertThrows(ResponseStatusException.class,()->service.send("viewer",15L,"teste"));
   }
@@ -51,6 +52,7 @@ class PersonalLiveInteractionServiceTest {
     assertThrows(ResponseStatusException.class,()->service.mute("viewer",15L,"organizer",true));
     service.toggleChat("organizer",15L,false);
     assertFalse(event.isChatEnabled());
+    verify(realtime).publishPersonalLiveInvalidated();
     assertThrows(ResponseStatusException.class,()->service.send("viewer",15L,"teste"));
     assertDoesNotThrow(()->service.send("organizer",15L,"mensagem de organizador"));
   }
