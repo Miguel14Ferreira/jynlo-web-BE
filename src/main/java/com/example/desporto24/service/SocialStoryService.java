@@ -58,6 +58,8 @@ public class SocialStoryService {
     private final MediaStorage storage;
     @org.springframework.beans.factory.annotation.Autowired(required=false)
     private com.example.desporto24.storage.PrivateProfileMediaStorage privateMedia;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private ProfileMediaDeletionOutbox mediaDeletionOutbox;
 
     private boolean canViewPersonalStories(Profile viewer,Profile author) {
         return !author.isPrivateProfile() || viewer.getId().equals(author.getId())
@@ -391,22 +393,12 @@ public class SocialStoryService {
                 && (privateMedia == null || !privateMedia.isConfigured()))
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "Protected story storage unavailable");
-        if (!org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive())
-            throw new IllegalStateException("Story deletion requires a transaction");
+        if (mediaDeletionOutbox == null)
+            throw new IllegalStateException("Durable Story media cleanup is not configured");
         stories.delete(story);
         stories.flush();
-        // Do not delete storage before the database transaction has committed.
-        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-            new org.springframework.transaction.support.TransactionSynchronization() {
-                @Override public void afterCommit() {
-                    try {
-                        deleteStoryMedia(mediaKey);
-                    } catch (RuntimeException ex) {
-                        org.slf4j.LoggerFactory.getLogger(SocialStoryService.class)
-                                .warn("Story media cleanup failed after commit; orphan cleanup required", ex);
-                    }
-                }
-            });
+        // Persist the cleanup row in the same transaction as Story deletion.
+        mediaDeletionOutbox.enqueue(mediaKey);
     }
 
     // Expiration is enforced on every read, even if scheduled cleanup is delayed.
@@ -416,40 +408,15 @@ public class SocialStoryService {
         List<SocialStory> expired = stories.findByExpiresAtLessThanEqualOrderByIdAsc(
                 Instant.now(), PageRequest.of(0, 200));
         if (expired.isEmpty()) return;
-        if (!org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive())
-            throw new IllegalStateException("Expired Story cleanup requires a transaction");
-        List<String> objectKeys = new java.util.ArrayList<>();
+        if (mediaDeletionOutbox == null)
+            throw new IllegalStateException("Durable Story media cleanup is not configured");
         for (SocialStory story : expired) {
-            String key = story.getMediaStorageKey();
-            // Keep the database reference for retry if the private bucket cannot
-            // currently be accessed. Never fall back to the public bucket.
-            if (com.example.desporto24.storage.PrivateProfileMediaStorage.isPrivateKey(key)
-                    && (privateMedia == null || !privateMedia.isConfigured())) {
-                org.slf4j.LoggerFactory.getLogger(SocialStoryService.class)
-                        .warn("Deferring expired private Story {} because private storage is unavailable", story.getId());
-                continue;
-            }
+            String key=story.getMediaStorageKey();
+            // Each outbox entry is committed atomically with removal of the
+            // referencing story. Failed R2 deletes can be retried after a crash.
+            mediaDeletionOutbox.enqueue(key);
             stories.delete(story);
-            objectKeys.add(key);
         }
-        if (objectKeys.isEmpty()) return;
-        // An unsuccessful commit must not leave database rows pointing to
-        // objects already deleted. Object cleanup is strictly after commit.
-        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-            new org.springframework.transaction.support.TransactionSynchronization() {
-                @Override public void afterCommit() {
-                    for (String key : objectKeys) {
-                        try {
-                            deleteStoryMedia(key);
-                        } catch (RuntimeException ex) {
-                            // A separate durable orphan-object reconciliation is
-                            // required if a post-commit delete fails.
-                            org.slf4j.LoggerFactory.getLogger(SocialStoryService.class)
-                                    .warn("Expired Story object cleanup failed after commit; orphan cleanup required", ex);
-                        }
-                    }
-                }
-            });
     }
 
     private SocialStory activeStory(Long id) {
