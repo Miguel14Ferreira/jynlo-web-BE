@@ -25,6 +25,7 @@ class SocialFeedMediaDeletionTransactionTest {
     private final SocialPostRepository posts = mock(SocialPostRepository.class);
     private final MediaStorage publicStorage = mock(MediaStorage.class);
     private final PrivateProfileMediaStorage privateStorage = mock(PrivateProfileMediaStorage.class);
+    private final ProfileMediaDeletionOutbox outbox = mock(ProfileMediaDeletionOutbox.class);
     private final ProfileRepository profiles = mock(ProfileRepository.class);
     private final SocialFeedService feed = new SocialFeedService(
             posts, mock(ProfileFollowRepository.class), mock(SocialPostLikeRepository.class),
@@ -35,6 +36,7 @@ class SocialFeedMediaDeletionTransactionTest {
     private void prepare() {
         ReflectionTestUtils.setField(feed, "mediaStorage", publicStorage);
         ReflectionTestUtils.setField(feed, "privateMedia", privateStorage);
+        ReflectionTestUtils.setField(feed, "mediaDeletionOutbox", outbox);
         Profile owner = new Profile();
         owner.setId(42L);
         owner.setUsername("owner");
@@ -48,36 +50,29 @@ class SocialFeedMediaDeletionTransactionTest {
         when(posts.findById(17L)).thenReturn(Optional.of(post));
     }
 
-    @Test void rollbackDoesNotRemoveReferencedPostMedia() {
+    @Test void postDeletionEnqueuesAllObjectsWithinTransaction() {
         prepare();
         TransactionSynchronizationManager.initSynchronization();
         try {
             feed.deletePost(17L,"owner");
             verify(posts).delete(any(SocialPost.class));
-            verifyNoInteractions(privateStorage,publicStorage);
-            var callbacks=TransactionSynchronizationManager.getSynchronizations();
-            assertEquals(1,callbacks.size());
-            for(var callback: callbacks)
-                callback.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+            verify(outbox).enqueue("private-profile-media/posts/42/photo.jpg");
+            verify(outbox).enqueue("private-profile-media/posts/42/album.jpg");
+            verify(outbox).enqueue("posts/42/public-video.mp4");
             verifyNoInteractions(privateStorage,publicStorage);
         } finally {
             TransactionSynchronizationManager.clearSynchronization();
         }
     }
 
-    @Test void commitDeletesPrivateAndPublicObjectsFromTheirOwnStorage() {
+    @Test void queueFailureAbortsPostDeletionInsteadOfLosingCleanup() {
         prepare();
         TransactionSynchronizationManager.initSynchronization();
         try {
-            feed.deletePost(17L,"owner");
+            doThrow(new IllegalStateException("queue unavailable")).when(outbox)
+                    .enqueue("private-profile-media/posts/42/photo.jpg");
+            assertThrows(IllegalStateException.class,()->feed.deletePost(17L,"owner"));
             verifyNoInteractions(privateStorage,publicStorage);
-            var callbacks=TransactionSynchronizationManager.getSynchronizations();
-            assertEquals(1,callbacks.size());
-            for(var callback:callbacks) callback.afterCommit();
-            verify(privateStorage).delete("private-profile-media/posts/42/photo.jpg");
-            verify(privateStorage).delete("private-profile-media/posts/42/album.jpg");
-            verify(publicStorage).delete("posts/42/public-video.mp4");
-            verifyNoMoreInteractions(privateStorage,publicStorage);
         } finally {
             TransactionSynchronizationManager.clearSynchronization();
         }
