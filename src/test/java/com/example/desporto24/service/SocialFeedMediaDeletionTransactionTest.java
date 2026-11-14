@@ -44,8 +44,8 @@ class SocialFeedMediaDeletionTransactionTest {
         SocialPost post = SocialPost.builder().id(17L).author(owner)
                 .imageStorageKey("private-profile-media/posts/42/photo.jpg")
                 .videoStorageKey("posts/42/public-video.mp4")
-                .extraMedia(List.of(new PublicPostMedia("/api/profile-media/posts/17/extra-0",
-                        "private-profile-media/posts/42/album.jpg", "image/jpeg")))
+                .extraMedia(new java.util.ArrayList<>(List.of(new PublicPostMedia("/api/profile-media/posts/17/extra-0",
+                        "private-profile-media/posts/42/album.jpg", "image/jpeg"))))
                 .build();
         when(posts.findById(17L)).thenReturn(Optional.of(post));
     }
