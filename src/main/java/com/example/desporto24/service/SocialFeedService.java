@@ -66,6 +66,24 @@ public class SocialFeedService {
     private MediaStorage mediaStorage;
 
     @Autowired(required = false)
+    private com.example.desporto24.storage.PrivateProfileMediaStorage privateMedia;
+
+    private boolean protectedUploads(Profile author) {
+        if (!author.isPrivateProfile()) return false;
+        if (privateMedia == null || !privateMedia.isConfigured())
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Protected profile storage unavailable");
+        return true;
+    }
+    private void deleteMediaKey(String key) {
+        if (key == null) return;
+        if (com.example.desporto24.storage.PrivateProfileMediaStorage.isPrivateKey(key)) {
+            if (privateMedia == null) throw new IllegalStateException("Private media storage missing");
+            privateMedia.delete(key);
+        } else if (mediaStorage != null) mediaStorage.delete(key);
+    }
+
+    @Autowired(required = false)
     private com.example.desporto24.repository.social.HiddenFeedPostRepository hiddenFeedPosts;
 
 
@@ -121,8 +139,11 @@ public class SocialFeedService {
         Session linkedSession = resolvePublicSession(sessionId);
         String normalizedLocation = normalizePostLocation(location);
         String baseKey = "posts/" + author.getId() + "/" + UUID.randomUUID();
-        URI uri = mediaStorage.store(baseKey, image);
-        String key = storageKey(uri);
+        boolean protectedPost = protectedUploads(author);
+        URI uri = protectedPost ? URI.create("/api/profile-media/posts/pending/image")
+                : mediaStorage.store(baseKey, image);
+        String key = protectedPost ? privateMedia.store("posts", author.getId(), image, false)
+                : storageKey(uri);
         try {
             SocialPost post = postRepository.save(SocialPost.builder()
                     .author(author)
@@ -166,8 +187,11 @@ public class SocialFeedService {
         Session linkedSession = resolvePublicSession(sessionId);
         String normalizedLocation = normalizePostLocation(location);
         String baseKey = "posts/" + author.getId() + "/" + UUID.randomUUID();
-        URI uri = mediaStorage.storeVideo(baseKey, video);
-        String key = storageKey(uri);
+        boolean protectedPost = protectedUploads(author);
+        URI uri = protectedPost ? URI.create("/api/profile-media/posts/pending/video")
+                : mediaStorage.storeVideo(baseKey, video);
+        String key = protectedPost ? privateMedia.store("posts", author.getId(), video, true)
+                : storageKey(uri);
         try {
             SocialPost post = postRepository.save(SocialPost.builder()
                     .author(author)
@@ -210,17 +234,25 @@ public class SocialFeedService {
         Session linkedSession = resolvePublicSession(sessionId);
         String normalizedLocation = normalizePostLocation(location);
         java.util.List<com.example.desporto24.model.social.PublicPostMedia> stored = new java.util.ArrayList<>();
+        boolean protectedPost = protectedUploads(author);
         try {
             for (MultipartFile file : files) {
                 String mime = file.getContentType() == null ? "" : file.getContentType().toLowerCase(java.util.Locale.ROOT);
                 String base = "posts/" + author.getId() + "/" + UUID.randomUUID();
-                URI uri = switch (mime) {
-                    case "image/jpeg", "image/png", "image/webp" -> mediaStorage.store(base, file);
-                    case "video/mp4", "video/webm" -> mediaStorage.storeVideo(base, file);
-                    default -> throw new IllegalArgumentException("Formato de media não suportado");
-                };
-                stored.add(new com.example.desporto24.model.social.PublicPostMedia(
-                        uri.toString(), storageKey(uri), mime));
+                boolean video = mime.equals("video/mp4") || mime.equals("video/webm");
+                if (!video && !mime.equals("image/jpeg") && !mime.equals("image/png")
+                        && !mime.equals("image/webp"))
+                    throw new IllegalArgumentException("Formato de media não suportado");
+                if (protectedPost) {
+                    String privateKey = privateMedia.store("posts",author.getId(),file,video);
+                    stored.add(new com.example.desporto24.model.social.PublicPostMedia(
+                            "/api/profile-media/posts/pending/" + (video ? "video" : "image"),
+                            privateKey,mime));
+                } else {
+                    URI uri = video ? mediaStorage.storeVideo(base,file) : mediaStorage.store(base,file);
+                    stored.add(new com.example.desporto24.model.social.PublicPostMedia(
+                            uri.toString(),storageKey(uri),mime));
+                }
             }
             var first = stored.get(0);
             SocialPost post = postRepository.save(SocialPost.builder()
@@ -238,7 +270,7 @@ public class SocialFeedService {
             return postItem(post, author);
         } catch (RuntimeException failure) {
             for (var asset : stored) {
-                try { if (asset.getStorageKey() != null) mediaStorage.delete(asset.getStorageKey()); }
+                try { deleteMediaKey(asset.getStorageKey()); }
                 catch (RuntimeException ignored) { failure.addSuppressed(ignored); }
             }
             throw failure;
@@ -246,9 +278,9 @@ public class SocialFeedService {
     }
 
     private void deleteFailedUpload(String key, RuntimeException failure) {
-        if (key == null || mediaStorage == null) return;
+        if (key == null) return;
         try {
-            mediaStorage.delete(key);
+            deleteMediaKey(key);
         } catch (RuntimeException cleanupFailure) {
             failure.addSuppressed(cleanupFailure);
         }
@@ -321,6 +353,7 @@ public class SocialFeedService {
             throw new IllegalStateException("Media storage is not configured");
 
         List<com.example.desporto24.model.social.PublicPostMedia> stored = new ArrayList<>();
+        boolean protectedPost = protectedUploads(actor);
         List<String> oldKeys = new ArrayList<>();
         if (replaceMedia) {
             if (post.getImageStorageKey() != null) oldKeys.add(post.getImageStorageKey());
@@ -334,13 +367,20 @@ public class SocialFeedService {
                 String mime = file.getContentType() == null ? "" :
                         file.getContentType().toLowerCase(java.util.Locale.ROOT);
                 String key = "posts/" + actor.getId() + "/" + UUID.randomUUID();
-                URI url = switch (mime) {
-                    case "image/jpeg", "image/png", "image/webp" -> mediaStorage.store(key, file);
-                    case "video/mp4", "video/webm" -> mediaStorage.storeVideo(key, file);
-                    default -> throw new IllegalArgumentException("Formato de media não suportado");
-                };
-                stored.add(new com.example.desporto24.model.social.PublicPostMedia(
-                        url.toString(), storageKey(url), mime));
+                boolean video = mime.equals("video/mp4") || mime.equals("video/webm");
+                if (!video && !mime.equals("image/jpeg") && !mime.equals("image/png")
+                        && !mime.equals("image/webp"))
+                    throw new IllegalArgumentException("Formato de media não suportado");
+                if (protectedPost) {
+                    String privateKey = privateMedia.store("posts",actor.getId(),file,video);
+                    stored.add(new com.example.desporto24.model.social.PublicPostMedia(
+                            "/api/profile-media/posts/pending/" + (video ? "video" : "image"),
+                            privateKey,mime));
+                } else {
+                    URI url = video ? mediaStorage.storeVideo(key,file) : mediaStorage.store(key,file);
+                    stored.add(new com.example.desporto24.model.social.PublicPostMedia(
+                            url.toString(),storageKey(url),mime));
+                }
             }
 
             post.setContent(normalized);
@@ -382,14 +422,14 @@ public class SocialFeedService {
                         var keys = status == TransactionSynchronization.STATUS_COMMITTED
                                 ? oldKeys : uploadedKeys;
                         for (String key : keys) {
-                            try { mediaStorage.delete(key); }
+                            try { deleteMediaKey(key); }
                             catch (RuntimeException ignored) { /* retry orphan cleanup independently */ }
                         }
                     }
                 });
             } else {
                 for (String key : oldKeys) {
-                    try { mediaStorage.delete(key); }
+                    try { deleteMediaKey(key); }
                     catch (RuntimeException ignored) { /* retry orphan cleanup independently */ }
                 }
             }
@@ -462,15 +502,15 @@ public class SocialFeedService {
                 && post.getImageStorageKey() != null
                 && !post.getImageStorageKey().isBlank()
         ) {
-            mediaStorage.delete(post.getImageStorageKey());
+            deleteMediaKey(post.getImageStorageKey());
         }
         if (mediaStorage != null && post.getVideoStorageKey() != null
                 && !post.getVideoStorageKey().isBlank()) {
-            mediaStorage.delete(post.getVideoStorageKey());
+            deleteMediaKey(post.getVideoStorageKey());
         }
         if (mediaStorage != null && post.getExtraMedia() != null) {
             for (var asset : post.getExtraMedia()) {
-                if (asset.getStorageKey() != null) mediaStorage.delete(asset.getStorageKey());
+                if (asset.getStorageKey() != null) deleteMediaKey(asset.getStorageKey());
             }
         }
     }
