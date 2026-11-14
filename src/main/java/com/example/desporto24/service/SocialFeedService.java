@@ -403,7 +403,8 @@ public class SocialFeedService {
         SocialPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação não encontrada"));
         if (post.getActivityType() != null
-                || userBlockService.isBlockedBetween(viewer, post.getAuthor()))
+                || userBlockService.isBlockedBetween(viewer, post.getAuthor())
+                || !canViewPrivatePosts(viewer,post.getAuthor()))
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publicação indisponível");
         if (hiddenFeedPosts == null) throw new IllegalStateException("Hidden post storage unavailable");
         if (!hiddenFeedPosts.existsByViewerIdAndPostId(viewer.getId(), postId)) {
@@ -423,7 +424,8 @@ public class SocialFeedService {
         if (ids.isEmpty()) return List.of();
         Map<Long, SocialPost> postsById = postRepository.findAllById(ids).stream()
                 .filter(post -> post.getActivityType() == null
-                        && !userBlockService.isBlockedBetween(viewer, post.getAuthor()))
+                         && !userBlockService.isBlockedBetween(viewer, post.getAuthor())
+                         && canViewPrivatePosts(viewer,post.getAuthor()))
                 .collect(Collectors.toMap(SocialPost::getId, Function.identity()));
         return ids.stream().map(postsById::get).filter(java.util.Objects::nonNull)
                 .map(post -> postItem(post, viewer)).toList();
