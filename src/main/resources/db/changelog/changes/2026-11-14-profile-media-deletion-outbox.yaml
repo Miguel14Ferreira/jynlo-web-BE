@@ -5,6 +5,7 @@ databaseChangeLog:
       changes:
         - createTable:
             tableName: profile_media_deletion_outbox
+            schemaName: desporto24
             columns:
               - column:
                   name: id
@@ -33,5 +34,6 @@ databaseChangeLog:
         - createIndex:
             tableName: profile_media_deletion_outbox
             indexName: idx_profile_media_outbox_due
+            schemaName: desporto24
             columns:
               - column: { name: next_attempt_at }
