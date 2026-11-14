@@ -333,7 +333,8 @@ public class SessionChatService {
     public ChatAttachmentContent downloadAttachmentAt(Long sessionId, Long messageId,
             int index, String username) {
         if (index == 0) return downloadAttachment(sessionId, messageId, username);
-        if (index < 1 || index >= PrivateChatAttachmentBatch.MAX_FILES)
+        if (index < 1 || index >= PrivateChatAttachmentBatch.MAX_FILES
+                || messageId == null || messageId <= 0)
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat attachment not found");
         Session session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new SessionNotFound("Session not found"));
