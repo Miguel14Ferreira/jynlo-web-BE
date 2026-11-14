@@ -9,6 +9,8 @@ on:
       - 'src/main/java/com/example/desporto24/controllers/PrivateProfileMediaController.java'
       - 'src/main/java/com/example/desporto24/controllers/ProfilePrivacyController.java'
       - 'src/main/java/com/example/desporto24/service/ProfilePrivacyService.java'
+      - 'src/main/java/com/example/desporto24/service/ProfileMediaDeletionOutbox.java'
+      - 'src/main/resources/db/changelog/changes/2026-11-14-profile-media-deletion-outbox.yaml'
       - 'src/main/java/com/example/desporto24/service/ProfileMediaReadinessService.java'
       - 'src/main/java/com/example/desporto24/service/SocialFeedService.java'
       - 'src/main/java/com/example/desporto24/service/SocialStoryService.java'
@@ -18,6 +20,8 @@ on:
       - 'src/test/java/com/example/desporto24/service/ProfileMediaReadinessServiceTest.java'
       - 'src/test/java/com/example/desporto24/service/ProfilePrivacyServiceTest.java'
       - 'src/test/java/com/example/desporto24/service/SocialFeedMediaDeletionTransactionTest.java'
+      - 'src/test/java/com/example/desporto24/service/ProfileMediaDeletionOutboxTest.java'
+      - 'src/test/java/com/example/desporto24/service/SocialStoryServiceTest.java'
   workflow_dispatch:
 permissions:
   contents: read
@@ -40,4 +44,4 @@ jobs:
           AES_ENCRYPTION_KEY: ciKey1
         run: |
           chmod +x mvnw
-          ./mvnw -B -ntp -Dtest=PrivateProfileMediaStorageTest,PrivateProfileMediaControllerTest,ProfileMediaReadinessServiceTest,ProfilePrivacyServiceTest,SocialFeedMediaDeletionTransactionTest test
+          ./mvnw -B -ntp -Dtest=PrivateProfileMediaStorageTest,PrivateProfileMediaControllerTest,ProfileMediaReadinessServiceTest,ProfilePrivacyServiceTest,SocialFeedMediaDeletionTransactionTest,ProfileMediaDeletionOutboxTest,SocialStoryServiceTest test
