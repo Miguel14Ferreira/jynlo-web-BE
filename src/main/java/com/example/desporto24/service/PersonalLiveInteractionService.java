@@ -39,7 +39,7 @@ public class PersonalLiveInteractionService {
   public record GuestRequest(long id,String username,String status,Instant createdAt) {}
   public record LiveControls(boolean chatEnabled,boolean mutedByHost,String guestUsername,
                              boolean isGuest,String requestStatus,List<GuestRequest> pendingRequests,
-                             List<String> mutedUsernames) {}
+                             List<String> mutedUsernames,int slowModeSeconds) {}
 
   private Profile actor(String username) {
     return profiles.findUserByUsernameIgnoreCase(username)
@@ -80,6 +80,17 @@ public class PersonalLiveInteractionService {
     if(!event.getHost().getId().equals(author.getId()) &&
         mutes.existsByLiveIdAndProfileId(liveId,author.getId()))
       throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Não podes escrever neste direto");
+    // The host may speak freely, but spectators respect a server-side cooldown.
+    if(!event.getHost().getId().equals(author.getId()) && event.getChatSlowSeconds()>0) {
+      var previous=messages.findTopByLiveIdAndAuthorIdOrderByCreatedAtDesc(liveId,author.getId());
+      if(previous.isPresent() && previous.get().getCreatedAt()!=null) {
+        long remaining=event.getChatSlowSeconds()-
+          java.time.Duration.between(previous.get().getCreatedAt(),Instant.now()).toSeconds();
+        if(remaining>0)
+          throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+            "Aguarda "+remaining+" segundos antes de enviar outra mensagem");
+      }
+    }
     PersonalLiveChatMessage msg=messages.save(PersonalLiveChatMessage.builder().live(event)
       .author(author).message(value.strip()).createdAt(Instant.now()).build());
     notifyLiveChanged();
@@ -99,7 +110,8 @@ public class PersonalLiveInteractionService {
        event.getGuest()!=null?event.getGuest().getUsername():null,
        event.getGuest()!=null && event.getGuest().getId().equals(viewer.getId()),
        requested,pending,host?mutes.findByLiveId(liveId).stream()
-         .map(m->m.getProfile().getUsername()).toList():List.of());
+         .map(m->m.getProfile().getUsername()).toList():List.of(),
+       event.getChatSlowSeconds());
   }
   private GuestRequest view(PersonalLiveGuestRequest req) {
     return new GuestRequest(req.getId(),req.getRequester().getUsername(),
@@ -109,6 +121,18 @@ public class PersonalLiveInteractionService {
   public LiveControls toggleChat(String username,long liveId,boolean enabled) {
     Profile user=actor(username);PersonalLiveEvent event=visible(liveId,user);
     owner(event,user);event.setChatEnabled(enabled);events.save(event);
+    notifyLiveChanged();
+    return controls(username,liveId);
+  }
+  @Transactional
+  public LiveControls setSlowMode(String username,long liveId,int seconds) {
+    if(seconds!=0 && seconds!=5 && seconds!=10 && seconds!=30 && seconds!=60)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Intervalo de chat inválido");
+    Profile user=actor(username);
+    PersonalLiveEvent event=visible(liveId,user);
+    owner(event,user);
+    event.setChatSlowSeconds(seconds);
+    events.save(event);
     notifyLiveChanged();
     return controls(username,liveId);
   }
