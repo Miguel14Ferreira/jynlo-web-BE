@@ -136,10 +136,42 @@ class SocialStoryServiceTest {
                 any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(java.util.List.of(story));
         when(privateMedia.isConfigured()).thenReturn(true);
-        service.removeExpired();
-        verify(privateMedia).delete(key);
-        verify(stories).delete(story);
-        verify(storage, never()).delete(anyString());
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.removeExpired();
+            verify(stories).delete(story);
+            verify(privateMedia, never()).delete(anyString());
+            var callbacks=org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations();
+            assertEquals(1,callbacks.size());
+            callbacks.get(0).afterCommit();
+            verify(privateMedia).delete(key);
+            verify(storage, never()).delete(anyString());
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void expiredProtectedStoryCleanupRollbackNeverDeletesStoredObject() {
+        reset(profiles);
+        String key="private-profile-media/stories/19/expired.jpg";
+        SocialStory story=SocialStory.builder().id(124L).author(actor).mediaStorageKey(key)
+                .expiresAt(Instant.now().minusSeconds(10)).build();
+        when(stories.findByExpiresAtLessThanEqualOrderByIdAsc(any(Instant.class),
+                any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(java.util.List.of(story));
+        when(privateMedia.isConfigured()).thenReturn(true);
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.removeExpired();
+            verify(stories).delete(story);
+            for (var callback:org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations())
+                callback.afterCompletion(org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK);
+            verify(privateMedia, never()).delete(anyString());
+            verify(storage, never()).delete(anyString());
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test
@@ -152,10 +184,16 @@ class SocialStoryServiceTest {
                 any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(java.util.List.of(story));
         when(privateMedia.isConfigured()).thenReturn(false);
-        service.removeExpired();
-        verify(stories, never()).delete(story);
-        verify(privateMedia, never()).delete(anyString());
-        verify(storage, never()).delete(anyString());
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.removeExpired();
+            verify(stories, never()).delete(story);
+            assertTrue(org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations().isEmpty());
+            verify(privateMedia, never()).delete(anyString());
+            verify(storage, never()).delete(anyString());
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test
