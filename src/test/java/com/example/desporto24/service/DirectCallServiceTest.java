@@ -332,6 +332,38 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void reverseGuestContactRevocationPreventsAcceptingPendingGroupInvitation() {
+        var outgoing = calls.start("ana", "bea", "video");
+        calls.accept(outgoing.callId(), "bea");
+        calls.invite(outgoing.callId(), "ana", "carlos");
+
+        doThrow(new org.springframework.security.access.AccessDeniedException("Inviter blocked by guest"))
+                .when(inbox).requireConversationAccess("ana", "direct", "carlos");
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.accept(outgoing.callId(), "carlos"));
+        assertNull(calls.pendingFor("carlos"),
+                "Revoked reverse contact must also hide pending group invitations");
+        verify(gateway, never()).publishDirectCallEvent(eq("ana"), eq("carlos"),
+                eq(outgoing.callId().toString()), eq("video"), eq("ACTIVE"), anyString(), any());
+    }
+
+    @Test
+    void reverseOriginalPairRevocationPreventsGuestAcceptance() {
+        var outgoing = calls.start("ana", "bea", "video");
+        calls.accept(outgoing.callId(), "bea");
+        calls.invite(outgoing.callId(), "ana", "carlos");
+
+        doThrow(new org.springframework.security.access.AccessDeniedException("Original peer blocked"))
+                .when(inbox).requireConversationAccess("bea", "direct", "ana");
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.accept(outgoing.callId(), "carlos"));
+        assertNull(calls.pendingFor("carlos"),
+                "A broken original call authorization must invalidate the group invitation");
+    }
+
+    @Test
     void deniesUnknownParticipantAndCallerAcceptance() {
         var outgoing = calls.start("ana", "bea", "voice");
         ResponseStatusException outsider = assertThrows(ResponseStatusException.class,
