@@ -16,10 +16,21 @@ public final class PrivateChatAttachmentBatch {
     public static final long MAX_TOTAL_BYTES = 40L * 1024 * 1024;
 
     public static void validate(List<MultipartFile> files) {
-        if (files == null || files.isEmpty() || files.size() > MAX_FILES
-                || files.stream().anyMatch(f -> f == null || f.isEmpty())
-                || files.stream().mapToLong(MultipartFile::getSize).sum() > MAX_TOTAL_BYTES) {
+        if (files == null || files.isEmpty() || files.size() > MAX_FILES) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose 1–4 files up to 40 MB total");
+        }
+        long remaining = MAX_TOTAL_BYTES;
+        for (MultipartFile file : files) {
+            // Reject invalid and oversized advertised sizes before loading bytes
+            // into memory. Subtract rather than summing untrusted long values,
+            // so overflow cannot bypass the aggregate attachment limit.
+            if (file == null || file.isEmpty() || file.getSize() <= 0
+                    || file.getSize() > PrivateChatFileStorage.MAX_BYTES
+                    || file.getSize() > remaining) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Choose 1–4 files up to 40 MB total");
+            }
+            remaining -= file.getSize();
         }
     }
 
