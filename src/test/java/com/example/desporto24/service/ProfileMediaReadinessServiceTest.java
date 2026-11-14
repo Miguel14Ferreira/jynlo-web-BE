@@ -76,6 +76,20 @@ class ProfileMediaReadinessServiceTest {
         assertFalse(readiness.databaseReferencesReady());
     }
 
+    @Test void malformedAlbumEntryBlocksPrivateCutoverWithoutCrashing() {
+        Profile owner=new Profile();
+        owner.setId(31L);
+        var malformed=new java.util.ArrayList<PublicPostMedia>();
+        malformed.add(null);
+        when(posts.findByAuthorId(31L)).thenReturn(List.of(SocialPost.builder()
+                .id(303L).author(owner).extraMedia(malformed).build()));
+        when(stories.findByAuthorId(31L)).thenReturn(List.of());
+        var result=service.count(owner);
+        assertEquals(1,result.publicReferences());
+        assertEquals(0,result.protectedReferences());
+        assertFalse(result.databaseReferencesReady());
+    }
+
     @Test void onlyFullyMigratedReferencesPassDatabaseAudit() {
         Profile owner=new Profile();
         owner.setId(16L);
