@@ -101,4 +101,16 @@ BEGIN
  END IF;
 END $$;
 SQL
+# The operational report exposes counts only, never object keys.
+psql -X -qAt -v ON_ERROR_STOP=1 -f scripts/audit_profile_media_outbox.sql > /tmp/jynlo-outbox-audit.txt
+python3 - <<'PY'
+from pathlib import Path
+report=Path('/tmp/jynlo-outbox-audit.txt').read_text().strip().split('|')
+assert len(report)==7, report
+queued,due,waiting,repeated,high,oldest,maximum = map(int,report)
+assert queued==2 and waiting==1 and due==1, report
+assert repeated==0 and high==0 and oldest==0 and maximum==2, report
+print("Outbox aggregate observability: PASS")
+PY
+
 echo "PostgreSQL durable deletion queue: duplicate, concurrent claim, stale token and backoff PASS"
