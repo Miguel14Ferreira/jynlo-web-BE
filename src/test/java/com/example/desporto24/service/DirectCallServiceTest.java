@@ -42,6 +42,20 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void refusesGroupInvitationWhenRecipientCannotContactInviter() {
+        var ringing = calls.start("ana", "bea", "video");
+        calls.accept(ringing.callId(), "bea");
+        doThrow(new org.springframework.security.access.AccessDeniedException("recipient privacy"))
+                .when(inbox).requireConversationAccess("carlos", "direct", "ana");
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.invite(ringing.callId(), "ana", "carlos"));
+        verify(inbox).requireConversationAccess("ana", "direct", "carlos");
+        verify(inbox).requireConversationAccess("carlos", "direct", "ana");
+        assertNull(calls.pendingFor("carlos"));
+    }
+
+    @Test
     void rejectsRingWhenRecipientCannotContactCallerEvenIfCallerHasAccess() {
         doThrow(new org.springframework.security.access.AccessDeniedException("recipient privacy"))
                 .when(inbox).requireConversationAccess("bea", "direct", "ana");
