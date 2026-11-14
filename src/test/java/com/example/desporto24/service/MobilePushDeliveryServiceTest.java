@@ -67,6 +67,26 @@ class MobilePushDeliveryServiceTest {
     }
 
     @Test
+    void sessionCancellationRespectsNotificationCategoryOptOut() {
+        ReflectionTestUtils.setField(sender,"enabled",true);
+        ReflectionTestUtils.setField(sender,"accessToken","test-only");
+        when(preferences.get("player")).thenReturn(
+                new NotificationPreferencesRequest(true,true,Set.of("SESSION_CANCELLED"),Set.of()));
+        sender.afterCommit(new MobilePushDeliveryService.StoredNotification(
+                "player",42L,"SESSION_CANCELLED",14L,null,null,true));
+        verifyNoInteractions(devices,mutes);
+    }
+
+    @Test
+    void cancellationPushIsNotSentIfStoredAlertWasDisallowed() {
+        ReflectionTestUtils.setField(sender,"enabled",true);
+        ReflectionTestUtils.setField(sender,"accessToken","test-only");
+        sender.afterCommit(new MobilePushDeliveryService.StoredNotification(
+                "player",42L,"SESSION_CANCELLED",14L,null,null,false));
+        verifyNoInteractions(devices,preferences,mutes);
+    }
+
+    @Test
     void globallyDisabledInAppNotificationsSuppressDelivery() {
         ReflectionTestUtils.setField(sender,"enabled",true);
         ReflectionTestUtils.setField(sender,"accessToken","test-only");
