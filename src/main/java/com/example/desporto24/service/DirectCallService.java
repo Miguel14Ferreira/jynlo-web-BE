@@ -674,6 +674,17 @@ public class DirectCallService {
                      | ResponseStatusException revoked) {
                 continue;
             }
+            // Room membership does not grant permission to discover every other
+            // guest. Filter the roster against the viewer's reciprocal ACL.
+            if (!guest.username().equalsIgnoreCase(actor)) {
+                try {
+                    inbox.requireConversationAccess(actor, "direct", guest.username());
+                    inbox.requireConversationAccess(guest.username(), "direct", actor);
+                } catch (org.springframework.security.access.AccessDeniedException
+                         | ResponseStatusException denied) {
+                    continue;
+                }
+            }
             if (guest.accepted()) participants.add(member(guest.username()));
             else if (Instant.now().isBefore(guest.expiresAt())) pending.add(guest.username());
         }
