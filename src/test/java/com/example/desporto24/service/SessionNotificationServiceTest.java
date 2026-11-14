@@ -16,7 +16,11 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.time.Instant;
+import java.time.ZoneId;
+import java.util.Date;
 import java.util.List;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -136,6 +140,89 @@ class SessionNotificationServiceTest {
         assertTrue(saved.stream().allMatch(n -> n.getType() == NotificationType.SESSION_CANCELLED));
         assertTrue(saved.stream().allMatch(n -> n.getSessionId().equals(10L)));
         assertTrue(saved.stream().noneMatch(n -> n.getUsername().equals("creator")));
+    }
+
+    @Test
+    void cancellationIncludesPublicSportDateAndCityWithoutPrivateAddress() {
+        Profile creator = profile(1L, "creator");
+        Profile player = profile(2L, "player");
+        Session session = session(10L, creator);
+        session.setSport("Futsal");
+        session.setCity("Campo Grande");
+        session.setAddress("MORADA_PRIVADA_773");
+        session.setMeetingPointInstructions("CÓDIGO_PORTA_SECRETO");
+        session.setGameDate(Date.from(java.time.LocalDateTime.of(2026,11,20,21,0)
+                .atZone(ZoneId.of("Europe/Lisbon")).toInstant()));
+        when(participantRepository.findBySessionIdAndStateOrderByJoinedAtAsc(
+                10L, ParticipantState.ACTIVE))
+                .thenReturn(List.of(participant(session, player)));
+        when(waitlistRepository.findBySessionIdOrderByPriorityTierAscCreatedAtAsc(10L))
+                .thenReturn(List.of());
+
+        service.notifySessionCancelled(session);
+
+        ArgumentCaptor<Notifications> captor = ArgumentCaptor.forClass(Notifications.class);
+        verify(notificationsRepository).save(captor.capture());
+        Notifications saved = captor.getValue();
+        assertEquals("Sessão de Futsal cancelada",saved.getSubject());
+        assertTrue(saved.getMessage().contains("20/11/2026 às 21:00"));
+        assertTrue(saved.getMessage().contains("Campo Grande"));
+        assertTrue(saved.getMessage().contains("não se vai realizar"));
+        assertFalse(saved.getMessage().contains("MORADA_PRIVADA_773"));
+        assertFalse(saved.getMessage().contains("CÓDIGO_PORTA_SECRETO"));
+    }
+
+    @Test
+    void storedCancellationEmitsPushEventOnlyForPersistedAllowedNotification() {
+        Profile creator=profile(1L,"creator");
+        Profile player=profile(2L,"player");
+        Session session=session(10L,creator);
+        when(participantRepository.findBySessionIdAndStateOrderByJoinedAtAsc(
+                10L,ParticipantState.ACTIVE))
+                .thenReturn(List.of(participant(session,player)));
+        when(waitlistRepository.findBySessionIdOrderByPriorityTierAscCreatedAtAsc(10L))
+                .thenReturn(List.of());
+        when(notificationsRepository.save(any(Notifications.class))).thenAnswer(invocation -> {
+            Notifications notification=invocation.getArgument(0);
+            notification.setId(99L);
+            return notification;
+        });
+        ApplicationEventPublisher publisher=mock(ApplicationEventPublisher.class);
+        ReflectionTestUtils.setField(service,"pushEvents",publisher);
+
+        service.notifySessionCancelled(session);
+
+        ArgumentCaptor<MobilePushDeliveryService.StoredNotification> captured=
+                ArgumentCaptor.forClass(MobilePushDeliveryService.StoredNotification.class);
+        verify(publisher).publishEvent(captured.capture());
+        var event=captured.getValue();
+        assertEquals("player",event.username());
+        assertEquals(99L,event.notificationId());
+        assertEquals("SESSION_CANCELLED",event.category());
+        assertEquals(10L,event.sessionId());
+        assertTrue(event.permitted());
+    }
+
+    @Test
+    void disabledInAppCancellationPreferenceSuppressesStoredNotificationAndPush() {
+        Profile creator=profile(1L,"creator");
+        Profile player=profile(2L,"player");
+        Session session=session(10L,creator);
+        when(participantRepository.findBySessionIdAndStateOrderByJoinedAtAsc(
+                10L,ParticipantState.ACTIVE))
+                .thenReturn(List.of(participant(session,player)));
+        when(waitlistRepository.findBySessionIdOrderByPriorityTierAscCreatedAtAsc(10L))
+                .thenReturn(List.of());
+        NotificationPreferencesService preferences=mock(NotificationPreferencesService.class);
+        when(preferences.allowsInApp(eq("player"),any(Notifications.class))).thenReturn(false);
+        ReflectionTestUtils.setField(service,"preferenceService",preferences);
+        ApplicationEventPublisher publisher=mock(ApplicationEventPublisher.class);
+        ReflectionTestUtils.setField(service,"pushEvents",publisher);
+
+        service.notifySessionCancelled(session);
+
+        verify(notificationsRepository,never()).save(any());
+        verifyNoInteractions(publisher);
     }
 
     private Profile profile(Long id, String username) {
