@@ -33,7 +33,7 @@ public final class TeamBalancingSportPolicy {
 
     /** Random teams may include approved named guests; ranked teams keep their existing restrictions. */
     public static boolean isEligible(Session session, boolean allowExternal) {
-        if (session == null || session.getCommunity() == null ||
+        if (session == null || (!allowExternal && session.getCommunity() == null) ||
                 session.getMaxParticipants() == null ||
                 (!allowExternal && session.getExternalConfirmedParticipants() != null &&
                         session.getExternalConfirmedParticipants() > 0)) {
