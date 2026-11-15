@@ -42,3 +42,9 @@ NÃO alterar `master`, não publicar, não mudar infra/secrets sem evidência.
 
 ## Política de mudança
 Somente correções com evidência, com testes pequenos de regressão como parte do mesmo conjunto funcional; preservar `develop` e não criar branches. Não fazer deploy nem lançar builds só para uma auditoria estática.
+
+## Validação executada em GitHub Actions — 15 de novembro de 2026
+- **Jynlo private chat multi-attachment CI**: SUCCESS, run https://github.com/Miguel14Ferreira/jynlo-web-BE/actions/runs/43752970163 — Maven executou `DirectChatAttachmentServiceTest`, `SessionChatServiceTest`, `CommunityTimelineServiceTest`, `PrivateChatFileStorageTest`.
+- **Jynlo prelaunch security regressions**: SUCCESS, run https://github.com/Miguel14Ferreira/jynlo-web-BE/actions/runs/43753488384 — Maven executou `ChatRealtimeGatewaySecurityTest`, `SessionGuestRequestControllerValidationTest`, `DirectChatAttachmentServiceTest`, `CommunityTimelineServiceTest`.
+- Cobertura **parcial, mas executada**: estes testes não substituem um teste integrado com PostgreSQL nem um teste com contas reais, e o serviço Render continua com deploy automático desligado.
+- Não ocorreu deploy nem publicação em lojas por esta validação.
