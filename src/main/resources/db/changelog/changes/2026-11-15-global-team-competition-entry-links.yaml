@@ -4,14 +4,17 @@ databaseChangeLog:
       author: jynlo
       changes:
         - addColumn:
+            schemaName: desporto24
             tableName: community_tournament_team
             columns:
               - column: {name: global_team_id, type: bigint}
         - addColumn:
+            schemaName: desporto24
             tableName: community_championship_team
             columns:
               - column: {name: global_team_id, type: bigint}
         - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
             baseTableName: community_tournament_team
             baseColumnNames: global_team_id
             referencedTableSchemaName: desporto24
@@ -20,6 +23,7 @@ databaseChangeLog:
             constraintName: fk_tournament_team_global_team
             onDelete: SET NULL
         - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
             baseTableName: community_championship_team
             baseColumnNames: global_team_id
             referencedTableSchemaName: desporto24
@@ -28,10 +32,12 @@ databaseChangeLog:
             constraintName: fk_championship_team_global_team
             onDelete: SET NULL
         - addUniqueConstraint:
+            schemaName: desporto24
             tableName: community_tournament_team
             columnNames: tournament_id,global_team_id
             constraintName: uk_tournament_global_team
         - addUniqueConstraint:
+            schemaName: desporto24
             tableName: community_championship_team
             columnNames: championship_id,global_team_id
             constraintName: uk_championship_global_team
