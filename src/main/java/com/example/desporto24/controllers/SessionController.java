@@ -160,6 +160,15 @@ public class SessionController {
         }
     }
 
+    public record SessionMapsLinkRequest(
+            @jakarta.validation.constraints.Size(max = 512) String url) {}
+
+    @PatchMapping("/{id}/maps-link")
+    public SessionDetailResponse updateSessionMapsLink(@PathVariable Long id,
+            @RequestBody @Valid SessionMapsLinkRequest request, Authentication authentication) {
+        return sessionService.updateGoogleMapsUrl(id, request.url(), authentication.getName());
+    }
+
     @PatchMapping("/{id}/details")
     public SessionDetailResponse updateDetails(@PathVariable Long id,
             @RequestBody @Valid EditSessionDetailsRequest request, Authentication authentication) {
