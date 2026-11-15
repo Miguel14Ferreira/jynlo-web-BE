@@ -28,5 +28,6 @@ public interface CommunityRoundEntryRepository extends JpaRepository<CommunityRo
     List<Long> findHistoricalPlayerIdsBySeason(
             @Param("communityId") Long communityId, @Param("seasonId") Long seasonId);
 
+    boolean existsByRoundCommunityId(Long communityId);
     boolean existsByCommunityPlayerId(Long playerId);
 }
