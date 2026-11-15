@@ -33,4 +33,22 @@ public class SportsTeamContent {
     private Instant editedAt;
     @Column(name = "deleted_at")
     private Instant deletedAt;
+    // Team attachments are private. Storage keys are never exposed to clients.
+    @Column(name = "attachment_key", length = 240)
+    private String attachmentKey;
+    @Column(name = "attachment_name", length = 160)
+    private String attachmentName;
+    @Column(name = "attachment_mime_type", length = 60)
+    private String attachmentMimeType;
+    @Column(name = "attachment_size")
+    private Long attachmentSize;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "sports_team_content_extra_attachment",
+            schema = "desporto24", joinColumns = @JoinColumn(name = "message_id"))
+    @OrderColumn(name = "position")
+    @Builder.Default
+    private java.util.List<com.example.desporto24.model.chat.PrivateChatAttachment> extraAttachments =
+            new java.util.ArrayList<>();
+
 }
