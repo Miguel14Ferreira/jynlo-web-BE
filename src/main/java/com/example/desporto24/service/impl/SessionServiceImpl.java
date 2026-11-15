@@ -1013,6 +1013,46 @@ public class SessionServiceImpl implements SessionService {
         return sessionViewMapper.toDetail(session, actor);
     }
 
+    /** Optional location pin pasted by the organiser. Only Google Maps destinations are accepted. */
+    @Override
+    @Transactional
+    public SessionDetailResponse updateGoogleMapsUrl(Long sessionId, String mapsUrl, String username) {
+        Session session = sessionRepository.findByIdForUpdate(sessionId)
+                .orElseThrow(() -> new SessionNotFound("Session not found"));
+        Profile actor = profileRepository.findUserByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException(NO_USER_FOUND_BY_USERNAME));
+        requireCreator(session, actor);
+        if ((session.getStatus() != SessionStatus.OPEN && session.getStatus() != SessionStatus.FULL)
+                || session.getGameDate() == null || !session.getGameDate().toInstant().isAfter(Instant.now())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT, "A sessão já não pode ser editada");
+        }
+        String normalized = mapsUrl == null || mapsUrl.isBlank() ? null : mapsUrl.trim();
+        if (normalized != null) {
+            if (normalized.length() > 512 || normalized.codePoints().anyMatch(Character::isISOControl)) {
+                throw new IllegalArgumentException("Link Google Maps inválido");
+            }
+            try {
+                java.net.URI uri = new java.net.URI(normalized);
+                String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(java.util.Locale.ROOT);
+                boolean googleMaps = (host.equals("www.google.com") || host.equals("google.com"))
+                        && uri.getPath() != null && uri.getPath().startsWith("/maps");
+                boolean shortMaps = host.equals("maps.app.goo.gl") && uri.getPath() != null
+                        && uri.getPath().length() > 1;
+                if (!"https".equalsIgnoreCase(uri.getScheme()) || !(googleMaps || shortMaps)
+                        || uri.getUserInfo() != null || uri.getPort() != -1) {
+                    throw new IllegalArgumentException("Link Google Maps inválido");
+                }
+            } catch (java.net.URISyntaxException ex) {
+                throw new IllegalArgumentException("Link Google Maps inválido", ex);
+            }
+        }
+        session.setGoogleMapsUrl(normalized);
+        session.setUpdatedAt(Instant.now());
+        sessionRepository.save(session);
+        return sessionViewMapper.toDetail(session, actor);
+    }
+
     /**
      * Correct the maximum number of places without touching registrations.
      * The session row lock is shared with join(), so concurrent joins cannot
