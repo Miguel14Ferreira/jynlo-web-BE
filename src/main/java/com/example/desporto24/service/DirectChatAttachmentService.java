@@ -87,7 +87,8 @@ public class DirectChatAttachmentService {
                 || messageId == null || messageId <= 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found");
         }
-        chats.getChatInfo(actor, peer);
+        var friendship = chats.getChatInfo(actor, peer);
+        if (friendship.isChatBlocked()) throw new AccessDeniedException("Chat is blocked");
         Chat msg = messages.findById(messageId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found"));
         boolean direct = (msg.getUsername1().equalsIgnoreCase(actor)
