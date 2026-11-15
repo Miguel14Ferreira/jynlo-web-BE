@@ -15,6 +15,7 @@ public interface CommunityTournamentTeamRepository extends JpaRepository<Communi
           join fetch entry.tournament tournament
           join fetch tournament.community
         where entry.globalTeam.id = :teamId
+          and tournament.community.visibility = com.example.desporto24.enumeration.CommunityVisibility.PUBLIC
         order by entry.id desc
         """)
     List<CommunityTournamentTeam> historyForGlobalTeam(
