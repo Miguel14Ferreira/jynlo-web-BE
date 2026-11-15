@@ -6,6 +6,7 @@ import java.util.List;
 
 public interface CommunityTournamentTeamRepository extends JpaRepository<CommunityTournamentTeam, Long> {
     List<CommunityTournamentTeam> findByTournamentIdOrderByIdAsc(Long tournamentId);
+    boolean existsByTournamentIdAndGlobalTeamId(Long tournamentId, Long globalTeamId);
     boolean existsByTournamentIdAndNormalizedName(Long tournamentId, String normalizedName);
     long countByTournamentId(Long tournamentId);
 }
