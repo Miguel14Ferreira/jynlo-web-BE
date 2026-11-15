@@ -87,7 +87,7 @@ public class SportsTeamReactionService {
                     String emoji, String username) {
         var viewer = actor(username);
         requireTeam(teamId, kind, viewer);
-        if (!ALLOWED.contains(emoji))
+        if (emoji == null || !ALLOWED.contains(emoji))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Reação inválida");
         var item = requireContent(teamId, kind, contentId);
         var existing = reactions.findByContent_IdAndProfile_Id(contentId, viewer.getId());
