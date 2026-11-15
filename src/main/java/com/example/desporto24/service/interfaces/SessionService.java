@@ -41,6 +41,7 @@ public interface SessionService {
                 priceAmount, city, address, meetingPointInstructions, null, username);
     }
 
+    SessionDetailResponse updateGoogleMapsUrl(Long sessionId, String mapsUrl, String username);
     SessionDetailResponse updateMeetingPoint(Long sessionId, String instructions, String username);
     SessionDetailResponse updateExternalConfirmations(Long sessionId, int externalConfirmed, String username);
     SessionDetailResponse openRegistration(Long sessionId, String username);
