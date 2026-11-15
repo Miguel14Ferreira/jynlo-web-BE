@@ -457,6 +457,20 @@ public class CommunityTimelineService {
                    .map(member -> member.getRole() == CommunityRole.ADMIN || member.getRole() == CommunityRole.OWNER)
                    .orElse(false);
         if (!author && !manager) throw new AccessDeniedException("Only the author or a community manager can delete");
+        // Queue every private chat object before removing the database row.
+        // The queued job commits or rolls back atomically with the deletion.
+        if (kind == CommunityTimelineEntry.Kind.CHAT) {
+            List<String> keys = new ArrayList<>();
+            if (entry.getAttachmentKey() != null) keys.add(entry.getAttachmentKey());
+            if (entry.getExtraAttachments() != null)
+                for (var file : entry.getExtraAttachments())
+                    if (file != null && file.getStorageKey() != null) keys.add(file.getStorageKey());
+            if (!keys.isEmpty()) {
+                if (privateChatDeletionOutbox == null)
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Private chat cleanup unavailable");
+                privateChatDeletionOutbox.enqueueAll(keys);
+            }
+        }
         timelineRepository.delete(entry);
         timelineRepository.flush();
         if (kind == CommunityTimelineEntry.Kind.POST && mediaStorage != null) {
@@ -467,10 +481,6 @@ public class CommunityTimelineService {
                     if (asset.getStorageKey() != null) mediaStorage.delete(asset.getStorageKey());
                 }
             }
-        }
-        if (kind == CommunityTimelineEntry.Kind.CHAT
-                && entry.getAttachmentKey() != null && privateChatStorage != null) {
-            privateChatStorage.delete(entry.getAttachmentKey());
         }
     }
 
