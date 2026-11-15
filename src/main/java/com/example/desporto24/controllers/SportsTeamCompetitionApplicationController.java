@@ -35,6 +35,13 @@ public class SportsTeamCompetitionApplicationController {
         @PathVariable Long competitionId,Authentication auth) {
         return service.forCompetition(communityId,type,competitionId,auth.getName());
     }
+    @GetMapping("/communities/{communityId}/{type}/{competitionId}/settings")
+    @PreAuthorize("isAuthenticated()")
+    public SportsTeamCompetitionApplicationService.CompetitionView settings(
+        @PathVariable Long communityId,@PathVariable String type,@PathVariable Long competitionId,
+        Authentication auth) {
+        return service.settings(communityId,type,competitionId,auth.getName());
+    }
     @PutMapping("/communities/{communityId}/{type}/{competitionId}/open")
     @PreAuthorize("isAuthenticated()")
     public SportsTeamCompetitionApplicationService.CompetitionView configure(
