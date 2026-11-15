@@ -51,8 +51,33 @@ public record CreateSessionRequest(
         String meetingPointInstructions,
         @Min(2) @Max(100) Integer minParticipants,
         com.example.desporto24.enumeration.AirsoftGameType airsoftGameType,
-        @Size(max = 1000) String description
+        @Size(max = 1000) String description,
+        @Size(max = 512) String googleMapsUrl
 ) {
+    /** Former canonical signature: preserve all Java callers while allowing Maps URLs in new requests. */
+    public CreateSessionRequest(
+            String sport, Instant gameDate, String city, String address,
+            Integer maxParticipants, BigDecimal priceAmount, boolean privateGame,
+            String password, Double latitude, Double longitude, Long communityId,
+            Long venueId, SessionRecurrence recurrence, Integer recurrenceOccurrences,
+            Integer externalConfirmedParticipants,
+            com.example.desporto24.enumeration.RegistrationOpeningMode registrationOpeningMode,
+            Instant registrationOpensAt, java.util.List<Instant> additionalWeeklyGameDates,
+            String recurrenceTimeZone,
+            com.example.desporto24.enumeration.SessionPlayFormat playFormat,
+            java.util.List<Long> communityShareIds,
+            Long seasonCompetitionCommunityId, boolean confirmActivateRankings,
+            String meetingPointInstructions, Integer minParticipants,
+            com.example.desporto24.enumeration.AirsoftGameType airsoftGameType,
+            String description) {
+        this(sport, gameDate, city, address, maxParticipants, priceAmount, privateGame,
+                password, latitude, longitude, communityId, venueId, recurrence,
+                recurrenceOccurrences, externalConfirmedParticipants, registrationOpeningMode,
+                registrationOpensAt, additionalWeeklyGameDates, recurrenceTimeZone, playFormat,
+                communityShareIds, seasonCompetitionCommunityId, confirmActivateRankings,
+                meetingPointInstructions, minParticipants, airsoftGameType, description, null);
+    }
+
     /** Existing clients and tests using the previous canonical constructor remain compatible. */
     public CreateSessionRequest(
             String sport, Instant gameDate, String city, String address,
