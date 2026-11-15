@@ -362,6 +362,8 @@ public class SessionServiceImpl implements SessionService {
         session.setCity(linkedVenue == null ? request.city() : linkedVenue.getCity());
         session.setAddress(linkedVenue == null ? request.address() : linkedVenue.getAddress());
         session.setGoogleMapsUrl(com.example.desporto24.service.SessionGoogleMapsLink.normalize(request.googleMapsUrl()));
+        session.setGoogleMapsPinVerified(session.getGoogleMapsUrl() != null
+                && request.latitude() != null && request.longitude() != null);
         String overview = request.description();
         if (overview != null && (overview.length() > 1000
                 || overview.codePoints().anyMatch(cp -> Character.isISOControl(cp)
@@ -1032,6 +1034,9 @@ public class SessionServiceImpl implements SessionService {
         boolean changed = !java.util.Objects.equals(session.getGoogleMapsUrl(), normalized);
         if (changed) {
             session.setGoogleMapsUrl(normalized);
+            // A manually replaced link has not been geocoded to the existing GPS pin.
+            // Never misrepresent the old pin as its destination.
+            session.setGoogleMapsPinVerified(false);
             session.setUpdatedAt(Instant.now());
             sessionRepository.save(session);
             sessionNotificationService.notifySessionDetailsUpdated(session);
