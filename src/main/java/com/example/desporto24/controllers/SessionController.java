@@ -163,6 +163,7 @@ public class SessionController {
     public record SessionMapsLinkRequest(
             @jakarta.validation.constraints.Size(max = 512) String url) {}
 
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     @PatchMapping("/{id}/maps-link")
     public SessionDetailResponse updateSessionMapsLink(@PathVariable Long id,
             @RequestBody @Valid SessionMapsLinkRequest request, Authentication authentication) {
