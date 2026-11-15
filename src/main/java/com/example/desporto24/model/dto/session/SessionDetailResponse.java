@@ -41,8 +41,35 @@ public record SessionDetailResponse(
         String meetingPointInstructions,
         int minParticipants,
         com.example.desporto24.enumeration.AirsoftGameType airsoftGameType,
-        String description
+        String description,
+        String googleMapsUrl
 ) {
+    /** Retain compatibility with existing projections and tests. */
+    public SessionDetailResponse(
+            Long id, String sport, String city, Instant gameDate, Double distanceKm,
+            int participantCount, int maxParticipants, BigDecimal priceAmount,
+            boolean privateGame, SessionStatus status, String creatorUsername,
+            String address, boolean canSeeExactAddress, boolean joined, boolean waitlisted,
+            Integer waitlistPosition, String gamePhoto, VenueResponse venue,
+            SessionAudience audience, String recurrenceSeriesId, SessionProblemType problemType,
+            String problemDetails, Long communityId, boolean canSharePublicly,
+            int externalConfirmedParticipants,
+            com.example.desporto24.enumeration.RegistrationOpeningMode registrationOpeningMode,
+            Instant registrationOpensAt, boolean teamBalanceSupported,
+            com.example.desporto24.enumeration.SessionPlayFormat playFormat,
+            String meetingPointInstructions, int minParticipants,
+            com.example.desporto24.enumeration.AirsoftGameType airsoftGameType,
+            String description) {
+        this(id, sport, city, gameDate, distanceKm, participantCount, maxParticipants,
+                priceAmount, privateGame, status, creatorUsername, address,
+                canSeeExactAddress, joined, waitlisted, waitlistPosition, gamePhoto,
+                venue, audience, recurrenceSeriesId, problemType, problemDetails,
+                communityId, canSharePublicly, externalConfirmedParticipants,
+                registrationOpeningMode, registrationOpensAt, teamBalanceSupported,
+                playFormat, meetingPointInstructions, minParticipants, airsoftGameType,
+                description, null);
+    }
+
     /** Keep the previous full response constructor source-compatible. */
     public SessionDetailResponse(
             Long id, String sport, String city, Instant gameDate, Double distanceKm,
