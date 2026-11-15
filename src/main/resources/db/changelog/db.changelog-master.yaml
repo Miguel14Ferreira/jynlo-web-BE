@@ -454,3 +454,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-15-team-competition-applications.yaml
   - include:
       file: db/changelog/changes/2026-11-15-team-community-memberships.yaml
+  - include:
+      file: db/changelog/changes/2026-11-15-team-community-memberships-deletion-safety.yaml
