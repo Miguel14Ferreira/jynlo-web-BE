@@ -48,6 +48,9 @@ public class CommunityTimelineService {
     @Autowired(required = false)
     private PrivateChatFileStorage privateChatStorage;
 
+    @Autowired(required = false)
+    private PrivateChatDeletionOutbox privateChatDeletionOutbox;
+
     @Transactional(readOnly = true)
     public List<CommunityTimelineEntryResponse> list(Long communityId, CommunityTimelineEntry.Kind kind, String username) {
         requireMember(communityId, username);
@@ -406,10 +409,19 @@ public class CommunityTimelineService {
         Access access = requireMember(communityId, username);
         CommunityTimelineEntry entry = ownedChatEntry(communityId, entryId, access);
         ChatMessageMutationPolicy.requireNotDeleted(entry.getDeletedAt());
+        List<String> keys = new ArrayList<>();
+        if (entry.getAttachmentKey() != null) keys.add(entry.getAttachmentKey());
+        if (entry.getExtraAttachments() != null) {
+            for (var file : entry.getExtraAttachments())
+                if (file != null && file.getStorageKey() != null) keys.add(file.getStorageKey());
+        }
+        if (!keys.isEmpty() && privateChatDeletionOutbox == null)
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Private chat cleanup unavailable");
         entry.setBody("");
         entry.setDeletedAt(Instant.now());
         timelineRepository.saveAndFlush(entry);
         timelineRepository.redactRepliesToDeleted(communityId, entryId, "[message deleted]");
+        if (!keys.isEmpty()) privateChatDeletionOutbox.enqueueAll(keys);
         CommunityTimelineEntryResponse response = toResponse(entry);
         publishChatEvent(access, communityId, response);
         return response;
