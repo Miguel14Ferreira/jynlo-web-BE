@@ -48,3 +48,9 @@ Somente correções com evidência, com testes pequenos de regressão como parte
 - **Jynlo prelaunch security regressions**: SUCCESS, run https://github.com/Miguel14Ferreira/jynlo-web-BE/actions/runs/43753488384 — Maven executou `ChatRealtimeGatewaySecurityTest`, `SessionGuestRequestControllerValidationTest`, `DirectChatAttachmentServiceTest`, `CommunityTimelineServiceTest`.
 - Cobertura **parcial, mas executada**: estes testes não substituem um teste integrado com PostgreSQL nem um teste com contas reais, e o serviço Render continua com deploy automático desligado.
 - Não ocorreu deploy nem publicação em lojas por esta validação.
+
+## Bloqueio adicional identificado: chamadas privadas / LiveKit (2026-11-15)
+- GitHub Actions `Jynlo Connect backend safety CI` run [43752081554](https://github.com/Miguel14Ferreira/jynlo-web-BE/actions/runs/43752081554), sobre commit `575dc996`, terminou **FAILURE**: 56 testes executados, 11 failures e 11 errors em `DirectCallServiceTest`.
+- Os logs mostram múltiplos `PotentialStubbingProblem` (Mockito strict stubbing) em `requireConversationAccess`, frequentemente porque a lógica atual verifica permissões **nos dois sentidos** (caller->peer e peer->caller), ao passo que stubs/testes antigos pressupõem a direção única; há também expectativas de contagem `verify` e exceções `AccessDeniedException` que precisam de reavaliação.
+- **Não está demonstrado que todas as 22 falhas sejam bugs de produção**, nem é seguro classificar todas como testes obsoletos. Não relaxar ACL, nem desativar testes, nem marcar calls como aprovadas sem revalidar os cenários um a um. Não efetuar deploy por esta validação parcial.
+- **Gate para lançamento**: restaurar `DirectCallServiceTest` a verde com stubs explícitos e asserts de autorização recíproca, e executar integração com servidor real para revogação de convidados e sessão/LiveKit.
