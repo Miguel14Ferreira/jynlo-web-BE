@@ -8,4 +8,17 @@ import java.util.List;
 public interface SportsTeamContentRepository extends JpaRepository<SportsTeamContent, Long> {
     List<SportsTeamContent> findByTeamIdAndKindOrderByIdDesc(
             Long teamId, SportsTeamContent.Kind kind, Pageable pageable);
+    /** Server-side search is scoped to the requested team and content type. */
+    @org.springframework.data.jpa.repository.Query("""
+        select content from SportsTeamContent content
+        where content.team.id = :teamId and content.kind = :kind
+          and content.deletedAt is null
+          and lower(content.body) like lower(concat('%', :term, '%'))
+        order by content.id desc
+        """)
+    List<SportsTeamContent> searchVisible(
+            @org.springframework.data.repository.query.Param("teamId") Long teamId,
+            @org.springframework.data.repository.query.Param("kind") SportsTeamContent.Kind kind,
+            @org.springframework.data.repository.query.Param("term") String term, Pageable pageable);
+
 }
