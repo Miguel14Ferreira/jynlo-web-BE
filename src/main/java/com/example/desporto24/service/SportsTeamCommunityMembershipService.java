@@ -96,10 +96,15 @@ public class SportsTeamCommunityMembershipService {
     }
     private MembershipView create(SportsTeam team,Community community,Profile actor,
                                    SportsTeamCommunityMembership.Status pending) {
-        if(memberships.findByTeamIdAndCommunityId(team.getId(),community.getId()).isPresent())
+        var existing=memberships.findByTeamIdAndCommunityId(team.getId(),community.getId());
+        if(existing.isPresent() && existing.get().getStatus()!=SportsTeamCommunityMembership.Status.DECLINED)
             throw new ResponseStatusException(HttpStatus.CONFLICT,"A relação ou pedido já existe");
-        var m=SportsTeamCommunityMembership.builder().team(team).community(community)
-            .requestedBy(actor).status(pending).requestedAt(Instant.now()).build();
+        var m=existing.orElseGet(()->SportsTeamCommunityMembership.builder()
+            .team(team).community(community).build());
+        m.setRequestedBy(actor);
+        m.setStatus(pending);
+        m.setRequestedAt(Instant.now());
+        m.setDecidedAt(null);
         return view(memberships.saveAndFlush(m));
     }
     @Transactional
