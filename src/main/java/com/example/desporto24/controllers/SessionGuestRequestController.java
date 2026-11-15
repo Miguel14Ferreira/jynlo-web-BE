@@ -2,6 +2,8 @@ package com.example.desporto24.controllers;
 
 import com.example.desporto24.service.SessionGuestRequestService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +17,12 @@ import java.util.Map;
 public class SessionGuestRequestController {
     private final SessionGuestRequestService guests;
     private final com.example.desporto24.service.interfaces.SessionService sessionService;
+
+    /** Malformed guest POST bodies are client errors, not backend exceptions. */
+    private static <T> T required(T value) {
+        if (value == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pedido inválido");
+        return value;
+    }
 
     @PostMapping("/guest-join-account")
     public com.example.desporto24.model.dto.session.JoinSessionResponse joinWithAccount(
@@ -38,12 +46,12 @@ public class SessionGuestRequestController {
     @PostMapping("/guest-preview")
     public com.example.desporto24.model.dto.session.SessionPublicPreviewResponse preview(
             @PathVariable Long sessionId,@RequestBody Map<String,String> body){
-        return guests.preview(sessionId,body.get("token"));
+        return guests.preview(sessionId,required(body).get("token"));
     }
     @PostMapping("/guest-roster")
     public SessionGuestRequestService.GuestRoster roster(
             @PathVariable Long sessionId,@RequestBody Map<String,String> body){
-        return guests.roster(sessionId,body.get("token"));
+        return guests.roster(sessionId,required(body).get("token"));
     }
     /** Participant display roster only, never the organizer's guest administration DTO. */
     @GetMapping("/guest-confirmed-guests")
@@ -108,6 +116,9 @@ public class SessionGuestRequestController {
     public SessionGuestRequestService.GuestView review(
             @PathVariable Long sessionId,@PathVariable Long requestId,
             @RequestBody Map<String,Boolean> body,Authentication auth){
-        return guests.review(sessionId,requestId,Boolean.TRUE.equals(body.get("approve")),auth.getName());
+        Map<String, Boolean> decision = required(body);
+        if (!decision.containsKey("approve") || decision.get("approve") == null)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Decisão obrigatória");
+        return guests.review(sessionId,requestId,decision.get("approve"),auth.getName());
     }
 }
