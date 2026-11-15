@@ -168,6 +168,13 @@ public class CommunityTournamentTeamController {
         return service.administration(communityId, tournamentId, teamId, authentication.getName());
     }
 
+    @GetMapping("/{teamId}/promotion")
+    public CommunityTournamentTeamService.TeamPromotionStatus promotionStatus(
+            @PathVariable Long communityId, @PathVariable Long tournamentId,
+            @PathVariable Long teamId, Authentication authentication) {
+        return service.promotionStatus(communityId, tournamentId, teamId, authentication.getName());
+    }
+
     /** Captain opt-in: a tournament-only team becomes a permanent Jynlo identity. */
     @PostMapping("/{teamId}/promote")
     public com.example.desporto24.service.SportsTeamService.TeamView promoteTeam(
