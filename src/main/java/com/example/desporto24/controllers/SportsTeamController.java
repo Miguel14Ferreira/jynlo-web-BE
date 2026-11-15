@@ -14,6 +14,7 @@ import java.util.List;
 @RequestMapping("/api/teams")
 public class SportsTeamController {
     private final SportsTeamService service;
+    private final com.example.desporto24.service.SportsTeamChampionshipHonoursService championshipHonours;
 
     @GetMapping
     public List<SportsTeamService.TeamView> discover(@RequestParam(defaultValue = "") String q) {
@@ -23,6 +24,12 @@ public class SportsTeamController {
     @GetMapping("/{id}")
     public SportsTeamService.TeamView get(@PathVariable Long id) {
         return service.get(id);
+    }
+
+    @GetMapping("/{id}/honours")
+    public List<com.example.desporto24.service.SportsTeamChampionshipHonoursService.Honour> honours(
+            @PathVariable Long id) {
+        return championshipHonours.honours(id);
     }
 
     @GetMapping("/{id}/history")
