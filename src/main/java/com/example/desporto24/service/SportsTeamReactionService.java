@@ -69,7 +69,7 @@ public class SportsTeamReactionService {
         if (valid.isEmpty()) return Map.of();
         Map<Long, Map<String, Long>> counts = new HashMap<>();
         Map<Long, String> myChoice = new HashMap<>();
-        for (var reaction : reactions.findByContentIdIn(valid)) {
+        for (var reaction : reactions.findByContent_IdIn(valid)) {
             var id = reaction.getContent().getId();
             counts.computeIfAbsent(id, ignored -> new HashMap<>())
                     .merge(reaction.getEmoji(), 1L, Long::sum);
@@ -90,7 +90,7 @@ public class SportsTeamReactionService {
         if (!ALLOWED.contains(emoji))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Reação inválida");
         var item = requireContent(teamId, kind, contentId);
-        var existing = reactions.findByContentIdAndProfileId(contentId, viewer.getId());
+        var existing = reactions.findByContent_IdAndProfile_Id(contentId, viewer.getId());
         if (existing.isPresent()) {
             var reaction = existing.get();
             if (!emoji.equals(reaction.getEmoji())) {
@@ -109,7 +109,7 @@ public class SportsTeamReactionService {
         var viewer = actor(username);
         requireTeam(teamId, kind, viewer);
         requireContent(teamId, kind, contentId);
-        reactions.findByContentIdAndProfileId(contentId, viewer.getId())
+        reactions.findByContent_IdAndProfile_Id(contentId, viewer.getId())
                 .ifPresent(reactions::delete);
     }
 }
