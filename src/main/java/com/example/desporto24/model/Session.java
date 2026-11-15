@@ -41,6 +41,9 @@ public class Session {
     /** Organiser-provided exact Google Maps destination; never exposed before location access. */
     @Column(name = "google_maps_url", length = 512)
     private String googleMapsUrl;
+    /** True only when the stored GPS pin was resolved from this exact Maps URL. */
+    @Column(name = "google_maps_pin_verified")
+    private Boolean googleMapsPinVerified;
     /** Public, optional session overview. Never used for confidential arrival instructions. */
     @Column(name = "description", length = 1000)
     private String description;
