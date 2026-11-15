@@ -176,7 +176,9 @@ public class SessionViewMapper {
                 SessionMinimumPlayers.required(session),
                 session.getAirsoftGameType(),
                 session.getDescription(),
-                canSeeExactAddress ? session.getGoogleMapsUrl() : null
+                canSeeExactAddress ? session.getGoogleMapsUrl() : null,
+                canSeeExactAddress ? session.getLatitude() : null,
+                canSeeExactAddress ? session.getLongitude() : null
         );
     }
 }
