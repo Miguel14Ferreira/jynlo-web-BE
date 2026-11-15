@@ -38,6 +38,9 @@ public class Session {
     private Date gameDate;
     private String city;
     private String address;
+    /** Organiser-provided exact Google Maps destination; never exposed before location access. */
+    @Column(name = "google_maps_url", length = 512)
+    private String googleMapsUrl;
     /** Public, optional session overview. Never used for confidential arrival instructions. */
     @Column(name = "description", length = 1000)
     private String description;
