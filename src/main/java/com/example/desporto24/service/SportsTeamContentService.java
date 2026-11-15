@@ -27,8 +27,12 @@ public class SportsTeamContentService {
     private final SportsTeamContentRepository content;
     private final ProfileRepository profiles;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.storage.PrivateChatFileStorage privateFiles;
+
     public record Entry(Long id, Long teamId, String username, String body, Instant createdAt,
-                        Long replyToId, Instant editedAt, boolean deleted, boolean canManage, boolean canEdit) {}
+                        Long replyToId, Instant editedAt, boolean deleted, boolean canManage, boolean canEdit,
+                        List<PrivateChatAttachmentBatch.PublicMetadata> attachments) {}
     public record Submit(String body, Long replyToId) {
         public Submit(String body) { this(body, null); }
     }
@@ -66,7 +70,10 @@ public class SportsTeamContentService {
                 entry.getDeletedAt() == null ? entry.getBody() : "",
                 entry.getCreatedAt(), entry.getReplyToId(), entry.getEditedAt(),
                 entry.getDeletedAt() != null, canManage,
-                viewer.getId().equals(entry.getAuthor().getId()));
+                viewer.getId().equals(entry.getAuthor().getId()),
+                entry.getDeletedAt() == null ? PrivateChatAttachmentBatch.metadata(
+                        entry.getAttachmentName(), entry.getAttachmentMimeType(),
+                        entry.getAttachmentSize(), entry.getExtraAttachments()) : List.of());
     }
 
     @Transactional(readOnly = true)
@@ -119,6 +126,86 @@ public class SportsTeamContentService {
                 .team(team).author(sender).kind(kind).body(body).replyToId(replyToId)
                 .createdAt(Instant.now()).build()), sender, team);
     }
+    /** Probe is member-only, matching the other private chat surfaces. */
+    @Transactional(readOnly = true)
+    public boolean attachmentsAvailable(Long teamId, SportsTeamContent.Kind kind, String username) {
+        var team = team(teamId);
+        requireActiveMember(team, actor(username));
+        requireFeature(team, kind);
+        return privateFiles != null && privateFiles.isConfigured();
+    }
+
+    @Transactional
+    public Entry upload(Long teamId, SportsTeamContent.Kind kind,
+            List<org.springframework.web.multipart.MultipartFile> uploads,
+            String caption, Long replyToId, String username) {
+        var team = team(teamId);
+        var sender = actor(username);
+        requireActiveMember(team, sender);
+        requireFeature(team, kind);
+        if (privateFiles == null || !privateFiles.isConfigured())
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Armazenamento privado indisponível");
+        String body = caption == null ? "" : caption.trim();
+        if (body.length() > 2000)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Legenda demasiado longa");
+        if (replyToId != null) {
+            var original = content.findById(replyToId).orElseThrow(() ->
+                    new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resposta inválida"));
+            if (!original.getTeam().getId().equals(teamId)
+                    || original.getKind() != kind || original.getDeletedAt() != null)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resposta inválida");
+        }
+        var batch = PrivateChatAttachmentBatch.store(privateFiles, uploads);
+        var first = batch.first();
+        try {
+            var saved = content.saveAndFlush(SportsTeamContent.builder()
+                    .team(team).author(sender).kind(kind)
+                    .body(body.isBlank() ? "📎 " + first.name() : body)
+                    .replyToId(replyToId).createdAt(Instant.now())
+                    .attachmentKey(first.key()).attachmentName(first.name())
+                    .attachmentMimeType(first.mime()).attachmentSize(first.size())
+                    .extraAttachments(new java.util.ArrayList<>(batch.extras())).build());
+            return view(saved, sender, team);
+        } catch (RuntimeException failure) {
+            PrivateChatAttachmentBatch.cleanup(privateFiles, batch.files(), failure);
+            throw failure;
+        }
+    }
+
+    public record AttachmentContent(byte[] content, String mimeType, String filename) {}
+
+    @Transactional(readOnly = true)
+    public AttachmentContent download(Long teamId, SportsTeamContent.Kind kind,
+                                      Long messageId, int index, String username) {
+        var team = team(teamId);
+        requireActiveMember(team, actor(username));
+        requireFeature(team, kind);
+        if (privateFiles == null || !privateFiles.isConfigured())
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Armazenamento privado indisponível");
+        if (messageId == null || messageId <= 0 || index < 0
+                || index >= PrivateChatAttachmentBatch.MAX_FILES)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Ficheiro não encontrado");
+        var entry = content.findById(messageId).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Ficheiro não encontrado"));
+        if (!entry.getTeam().getId().equals(teamId)
+                || entry.getKind() != kind || entry.getDeletedAt() != null
+                || entry.getAttachmentKey() == null)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Ficheiro não encontrado");
+        if (index == 0)
+            return new AttachmentContent(privateFiles.read(entry.getAttachmentKey()),
+                    entry.getAttachmentMimeType(), entry.getAttachmentName());
+        var extras = entry.getExtraAttachments();
+        if (extras == null || extras.size() < index)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Ficheiro não encontrado");
+        var extra = extras.get(index - 1);
+        if (extra == null || extra.getStorageKey() == null || extra.getStorageKey().isBlank())
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Ficheiro não encontrado");
+        return new AttachmentContent(privateFiles.read(extra.getStorageKey()),
+                extra.getMimeType(), extra.getFilename());
+    }
+
     private SportsTeamContent writable(Long teamId, Long contentId, SportsTeamContent.Kind kind,
                                        Profile actor, SportsTeam team) {
         requireActiveMember(team, actor);
