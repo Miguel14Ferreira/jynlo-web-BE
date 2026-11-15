@@ -13,6 +13,11 @@ NÃO alterar `master`, não publicar, não mudar infra/secrets sem evidência.
 **Testes adicionados:** `ChatRealtimeGatewaySecurityTest` cobre frame excessivo, JSON malformado, estruturas não objeto e `type` inválido, garantindo que não há chamadas ao fornecedor JWT nem ao repositório de perfis nesses casos.
 **Limitação:** testes Java ainda precisam de execução num runner Maven para confirmar build e regressões. A correção está apenas em `develop`.
 
+## Segunda passagem — pedidos de convidados de sessões (2026-11-15)
+**Achado confirmado em código:** `SessionGuestRequestController` acedia a `body.get("token")` no `guest-preview` e `guest-roster` sem validar `null`. A decisão `guest-requests/{requestId}/decision` também aceitava um mapa sem `approve` e interpretava silenciosamente a omissão como `false`, podendo rejeitar um pedido involuntariamente caso um cliente enviasse um JSON incompleto.
+**Correção em `develop`:** corpo `null` rejeitado como HTTP 400; decisão do organizador exige `approve` booleano explícito, preservando `true`/ `false` legítimos; não se alteraram regras de acesso nem os serviços de reserva.
+**Testes acrescentados:** `SessionGuestRequestControllerValidationTest`: corpo ausente, `approve` ausente e pass-through das duas decisões. Estes testes precisam de Maven antes de um release.
+
 ## Controlos inspecionados, não equivalentes a pentest completo
 - **BE:** `SecurityConfiguration` exige autenticação por defeito e `/api/admin/**` exige roles; `WebSocketConfiguration` restringe origens com configuração CORS; `ChatRealtimeGateway` valida JWT, estado e tokenVersion, incluindo nas emissões privadas via `send`.
 - **BE:** `PrivateProfileMediaController` verifica permissões do seguidor e usa `CacheControl.noStore`; `DirectChatAttachmentController` entrega anexos autenticados como `attachment`, usa `nosniff` e não cache.
