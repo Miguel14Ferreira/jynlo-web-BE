@@ -1,0 +1,36 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-15-team-private-attachments
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: sports_team_content
+            columns:
+              - column: {name: attachment_key, type: varchar(240)}
+              - column: {name: attachment_name, type: varchar(160)}
+              - column: {name: attachment_mime_type, type: varchar(60)}
+              - column: {name: attachment_size, type: bigint}
+        - createTable:
+            schemaName: desporto24
+            tableName: sports_team_content_extra_attachment
+            columns:
+              - column: {name: message_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: position, type: integer, constraints: {nullable: false}}
+              - column: {name: storage_key, type: varchar(240), constraints: {nullable: false}}
+              - column: {name: file_name, type: varchar(160), constraints: {nullable: false}}
+              - column: {name: mime_type, type: varchar(60), constraints: {nullable: false}}
+              - column: {name: file_size, type: bigint, constraints: {nullable: false}}
+        - addPrimaryKey:
+            schemaName: desporto24
+            tableName: sports_team_content_extra_attachment
+            columnNames: message_id, position
+            constraintName: pk_sports_team_extra_file
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_content_extra_attachment
+            baseColumnNames: message_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: sports_team_content
+            referencedColumnNames: id
+            constraintName: fk_sports_team_extra_file_message
