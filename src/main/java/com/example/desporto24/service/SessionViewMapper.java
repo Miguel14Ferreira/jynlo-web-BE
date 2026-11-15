@@ -177,8 +177,12 @@ public class SessionViewMapper {
                 session.getAirsoftGameType(),
                 session.getDescription(),
                 canSeeExactAddress ? session.getGoogleMapsUrl() : null,
-                canSeeExactAddress ? session.getLatitude() : null,
-                canSeeExactAddress ? session.getLongitude() : null
+                canSeeExactAddress && (session.getGoogleMapsUrl() == null
+                        || Boolean.TRUE.equals(session.getGoogleMapsPinVerified()))
+                        ? session.getLatitude() : null,
+                canSeeExactAddress && (session.getGoogleMapsUrl() == null
+                        || Boolean.TRUE.equals(session.getGoogleMapsPinVerified()))
+                        ? session.getLongitude() : null
         );
     }
 }
