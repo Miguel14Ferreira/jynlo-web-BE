@@ -1,0 +1,36 @@
+name: Jynlo session cancellation notifications
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'src/main/java/com/example/desporto24/service/SessionNotificationService.java'
+      - 'src/main/java/com/example/desporto24/service/MobilePushDeliveryService.java'
+      - 'src/main/java/com/example/desporto24/service/impl/SessionServiceImpl.java'
+      - 'src/main/java/com/example/desporto24/service/NotificationPreferencesService.java'
+      - 'src/test/java/com/example/desporto24/service/SessionNotificationServiceTest.java'
+      - 'src/test/java/com/example/desporto24/service/MobilePushDeliveryServiceTest.java'
+      - '.github/workflows/session-cancellation-notifications.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: session-cancellation-notifications-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cancel-notifications:
+    name: Compile backend and verify session alerts / push
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Compile and test owner cancellation notifications
+        run: mvn --batch-mode --no-transfer-progress -Dtest=SessionNotificationServiceTest,MobilePushDeliveryServiceTest test
