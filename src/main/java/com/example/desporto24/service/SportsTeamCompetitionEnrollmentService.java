@@ -35,6 +35,8 @@ public class SportsTeamCompetitionEnrollmentService {
     private final CommunityChampionshipTeamRepository championshipTeams;
     private final CommunityMemberRepository communityMembers;
     private final ProfileRepository profiles;
+    private final CommunityTournamentTeamService tournamentRosters;
+    private final CommunityChampionshipTeamsService championshipRosters;
 
     public record EntryView(Long id,Long globalTeamId,Long communityId,Long competitionId,
                             String competitionType,String name,int confirmedGlobalPlayers,
@@ -108,18 +110,87 @@ public class SportsTeamCompetitionEnrollmentService {
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Tipo de competição inválido");
     }
 
+    /** The confirmed global roster is offered as candidates, never enrolled automatically.
+     * Organizer access requires a recorded accepted invite or approved application. */
     @Transactional(readOnly=true)
-    public List<RosterCandidate> globalRoster(Long globalTeamId,String username) {
+    public List<RosterCandidate> globalRoster(Long communityId,String type,Long competitionId,
+                                               Long globalTeamId,String username) {
         var actor=profiles.findUserByUsername(username)
             .orElseThrow(()->new AccessDeniedException("Utilizador desconhecido"));
         var team=teams.findById(globalTeamId)
             .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Equipa não encontrada"));
-        if(!team.getOwner().getId().equals(actor.getId()))
-            throw new AccessDeniedException("Só o capitão pode consultar o plantel para inscrição");
-        return globalMembers.findByTeamIdAndStatusOrderByIdAsc(globalTeamId,
-            SportsTeamMember.Status.ACTIVE).stream()
-            .map(m->new RosterCandidate(m.getProfile().getId(),m.getProfile().getUsername(),false))
-            .toList();
+        var role=communityMembers.findByCommunityIdAndProfileId(communityId,actor.getId())
+            .map(CommunityMember::getRole).orElse(null);
+        if(!team.getOwner().getId().equals(actor.getId())
+           &&role!=CommunityRole.OWNER&&role!=CommunityRole.ADMIN)
+            throw new AccessDeniedException("Só o capitão ou organizador pode consultar o plantel");
+        requireConsent(globalTeamId,communityId,type.toUpperCase(Locale.ROOT),competitionId);
+        var players=new java.util.ArrayList<RosterCandidate>();
+        var owner=team.getOwner();
+        players.add(new RosterCandidate(owner.getId(),owner.getUsername(),
+            communityMembers.existsByCommunityIdAndProfileId(communityId,owner.getId())));
+        for(var member:globalMembers.findByTeamIdAndStatusOrderByIdAsc(globalTeamId,
+            SportsTeamMember.Status.ACTIVE)) {
+            var p=member.getProfile();
+            if(!p.getId().equals(owner.getId()))
+                players.add(new RosterCandidate(p.getId(),p.getUsername(),
+                    communityMembers.existsByCommunityIdAndProfileId(communityId,p.getId())));
+        }
+        return players;
+    }
+
+    /**
+     * The organizer selects already confirmed global team members. Existing competition
+     * services send individual invitations (player acceptance is still required).
+     * Entire selection is atomic: one ineligible player rolls back the batch.
+     */
+    @Transactional
+    public int inviteSelected(Long communityId,String type,Long competitionId,
+                              Long globalTeamId,List<Long> profileIds,String username) {
+        var actor=profiles.findUserByUsername(username)
+            .orElseThrow(()->new AccessDeniedException("Utilizador desconhecido"));
+        var role=communityMembers.findByCommunityIdAndProfileId(communityId,actor.getId())
+            .map(CommunityMember::getRole).orElse(null);
+        if(role!=CommunityRole.OWNER&&role!=CommunityRole.ADMIN)
+            throw new AccessDeniedException("Só o organizador pode convidar os jogadores");
+        if(profileIds==null||profileIds.isEmpty()||profileIds.size()>30
+           ||profileIds.stream().anyMatch(id->id==null||id<=0)
+           ||profileIds.stream().distinct().count()!=profileIds.size())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Seleciona até 30 jogadores diferentes");
+        String kind=type==null?"":type.toUpperCase(Locale.ROOT);
+        requireConsent(globalTeamId,communityId,kind,competitionId);
+        var globalTeam=teams.findById(globalTeamId)
+            .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Equipa inexistente"));
+        java.util.Set<Long> accepted=new java.util.HashSet<>();
+        accepted.add(globalTeam.getOwner().getId());
+        for(var m:globalMembers.findByTeamIdAndStatusOrderByIdAsc(globalTeamId,
+            SportsTeamMember.Status.ACTIVE)) accepted.add(m.getProfile().getId());
+        for(Long id:profileIds) {
+            if(!accepted.contains(id)||
+               !communityMembers.existsByCommunityIdAndProfileId(communityId,id))
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Todos os jogadores escolhidos devem pertencer à equipa e à comunidade");
+        }
+        if("TOURNAMENT".equals(kind)) {
+            var registered=tournamentTeams.findByTournamentIdOrderByIdAsc(competitionId).stream()
+                .filter(t->t.getGlobalTeam()!=null
+                   &&globalTeamId.equals(t.getGlobalTeam().getId())).findFirst()
+                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Finaliza primeiro a inscrição da equipa no torneio"));
+            for(Long id:profileIds)
+                tournamentRosters.invitePlayer(communityId,competitionId,registered.getId(),username,id);
+        } else if("CHAMPIONSHIP".equals(kind)) {
+            var registered=championshipTeams.findByChampionshipIdOrderByNameAscIdAsc(competitionId)
+                .stream().filter(t->t.getGlobalTeam()!=null
+                    &&globalTeamId.equals(t.getGlobalTeam().getId())).findFirst()
+                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Finaliza primeiro a inscrição da equipa no campeonato"));
+            for(Long id:profileIds)
+                championshipRosters.invitePlayer(communityId,competitionId,registered.getId(),id,username);
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Tipo de competição inválido");
+        }
+        return profileIds.size();
     }
 
     private void requireConsent(Long globalTeamId,Long communityId,String type,Long competitionId) {
