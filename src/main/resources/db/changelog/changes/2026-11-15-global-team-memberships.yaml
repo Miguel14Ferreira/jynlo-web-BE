@@ -1,0 +1,43 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-15-global-team-memberships
+      author: jynlo
+      changes:
+        - createTable:
+            schemaName: desporto24
+            tableName: sports_team_member
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: team_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: profile_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: status, type: varchar(16), constraints: {nullable: false}}
+              - column: {name: invited_at, type: timestamp with time zone, constraints: {nullable: false}}
+              - column: {name: responded_at, type: timestamp with time zone}
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_member
+            baseColumnNames: team_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: sports_team
+            referencedColumnNames: id
+            constraintName: fk_sports_team_member_team
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_member
+            baseColumnNames: profile_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_sports_team_member_profile
+        - addUniqueConstraint:
+            schemaName: desporto24
+            tableName: sports_team_member
+            columnNames: team_id,profile_id
+            constraintName: uk_sports_team_member
+        - createIndex:
+            schemaName: desporto24
+            tableName: sports_team_member
+            indexName: idx_sports_team_member_profile_status
+            columns:
+              - column: {name: profile_id}
+              - column: {name: status}
