@@ -1027,29 +1027,14 @@ public class SessionServiceImpl implements SessionService {
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.CONFLICT, "A sessão já não pode ser editada");
         }
-        String normalized = mapsUrl == null || mapsUrl.isBlank() ? null : mapsUrl.trim();
-        if (normalized != null) {
-            if (normalized.length() > 512 || normalized.codePoints().anyMatch(Character::isISOControl)) {
-                throw new IllegalArgumentException("Link Google Maps inválido");
-            }
-            try {
-                java.net.URI uri = new java.net.URI(normalized);
-                String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(java.util.Locale.ROOT);
-                boolean googleMaps = (host.equals("www.google.com") || host.equals("google.com"))
-                        && uri.getPath() != null && uri.getPath().startsWith("/maps");
-                boolean shortMaps = host.equals("maps.app.goo.gl") && uri.getPath() != null
-                        && uri.getPath().length() > 1;
-                if (!"https".equalsIgnoreCase(uri.getScheme()) || !(googleMaps || shortMaps)
-                        || uri.getUserInfo() != null || uri.getPort() != -1) {
-                    throw new IllegalArgumentException("Link Google Maps inválido");
-                }
-            } catch (java.net.URISyntaxException ex) {
-                throw new IllegalArgumentException("Link Google Maps inválido", ex);
-            }
+        String normalized = com.example.desporto24.service.SessionGoogleMapsLink.normalize(mapsUrl);
+        boolean changed = !java.util.Objects.equals(session.getGoogleMapsUrl(), normalized);
+        if (changed) {
+            session.setGoogleMapsUrl(normalized);
+            session.setUpdatedAt(Instant.now());
+            sessionRepository.save(session);
+            sessionNotificationService.notifySessionDetailsUpdated(session);
         }
-        session.setGoogleMapsUrl(normalized);
-        session.setUpdatedAt(Instant.now());
-        sessionRepository.save(session);
         return sessionViewMapper.toDetail(session, actor);
     }
 
