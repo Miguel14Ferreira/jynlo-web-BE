@@ -106,6 +106,9 @@ public class SessionServiceImpl implements SessionService {
     @Autowired(required = false)
     private MediaStorage mediaStorage;
 
+    @Autowired(required = false)
+    private com.example.desporto24.service.VenueMapLinkService venueMapLinkService;
+
     /** Invitation verification is deliberately scoped to its named recipient. */
     @Autowired(required = false)
     private SessionInviteRepository directInviteRepository;
@@ -1034,9 +1037,24 @@ public class SessionServiceImpl implements SessionService {
         boolean changed = !java.util.Objects.equals(session.getGoogleMapsUrl(), normalized);
         if (changed) {
             session.setGoogleMapsUrl(normalized);
-            // A manually replaced link has not been geocoded to the existing GPS pin.
-            // Never misrepresent the old pin as its destination.
+            // Re-resolve the exact saved destination. Only replace the session pin
+            // when the trusted Maps resolver confirms the new coordinates.
             session.setGoogleMapsPinVerified(false);
+            if (normalized != null && venueMapLinkService != null) {
+                try {
+                    var resolved = venueMapLinkService.resolve(normalized);
+                    if (resolved.latitude() != null && resolved.longitude() != null
+                            && Double.isFinite(resolved.latitude())
+                            && Double.isFinite(resolved.longitude())) {
+                        session.setLatitude(resolved.latitude());
+                        session.setLongitude(resolved.longitude());
+                        session.setGoogleMapsPinVerified(true);
+                    }
+                } catch (IllegalArgumentException ignored) {
+                    // Keep the organiser's exact URL, but never display stale
+                    // venue or previous pin coordinates as this destination.
+                }
+            }
             session.setUpdatedAt(Instant.now());
             sessionRepository.save(session);
             sessionNotificationService.notifySessionDetailsUpdated(session);
