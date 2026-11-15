@@ -28,7 +28,7 @@ public class SportsTeamContentService {
     private final ProfileRepository profiles;
 
     public record Entry(Long id, Long teamId, String username, String body, Instant createdAt,
-                        Long replyToId, Instant editedAt, boolean deleted, boolean canManage) {}
+                        Long replyToId, Instant editedAt, boolean deleted, boolean canManage, boolean canEdit) {}
     public record Submit(String body, Long replyToId) {
         public Submit(String body) { this(body, null); }
     }
@@ -65,7 +65,8 @@ public class SportsTeamContentService {
                 entry.getAuthor().getUsername(),
                 entry.getDeletedAt() == null ? entry.getBody() : "",
                 entry.getCreatedAt(), entry.getReplyToId(), entry.getEditedAt(),
-                entry.getDeletedAt() != null, canManage);
+                entry.getDeletedAt() != null, canManage,
+                viewer.getId().equals(entry.getAuthor().getId()));
     }
 
     @Transactional(readOnly = true)
