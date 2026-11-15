@@ -546,6 +546,37 @@ class CommunityTimelineServiceTest {
     }
 
     @Test
+    void indexedCommunityAttachmentsRejectMissingMediaWithoutAccessingPrivateStorage() {
+        setup(member, true);
+        var storage = stubPrivateChatStorage();
+        var chat = entry(81L, Kind.CHAT, owner);
+        chat.setAttachmentKey("private-chat/first.pdf");
+        chat.setExtraAttachments(new java.util.ArrayList<>());
+        chat.getExtraAttachments().add(null);
+        when(timelines.findById(81L)).thenReturn(Optional.of(chat));
+
+        assertEquals(404, assertThrows(ResponseStatusException.class,
+                () -> service.downloadChatAttachmentAt(7L, 81L, 1, "member"))
+                .getStatusCode().value());
+        verifyNoInteractions(storage);
+    }
+
+    @Test
+    void indexedCommunityAttachmentsFailClosedWhenPrivateStorageIsUnavailable() {
+        setup(member, true);
+        var chat = entry(82L, Kind.CHAT, owner);
+        chat.setAttachmentKey("private-chat/first.pdf");
+        chat.setExtraAttachments(java.util.List.of(
+                new com.example.desporto24.model.chat.PrivateChatAttachment(
+                        "private-chat/second.pdf", "second.pdf", "application/pdf", 20L)));
+        when(timelines.findById(82L)).thenReturn(Optional.of(chat));
+
+        assertEquals(503, assertThrows(ResponseStatusException.class,
+                () -> service.downloadChatAttachmentAt(7L, 82L, 1, "member"))
+                .getStatusCode().value());
+    }
+
+    @Test
     void moderatorDeletingChatQueuesPrivateObjectOnlyAfterDatabaseDeletion() {
         setup(owner, true);
         var storage = stubPrivateChatStorage();
