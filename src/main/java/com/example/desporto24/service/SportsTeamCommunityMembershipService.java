@@ -50,6 +50,15 @@ public class SportsTeamCommunityMembershipService {
             .map(m->m.getRole()==CommunityRole.ADMIN||m.getRole()==CommunityRole.OWNER)
             .orElse(false);
     }
+    public record PublicCommunityView(Long id,String name,String sport) {}
+    @Transactional(readOnly=true)
+    public List<PublicCommunityView> discoverCommunities(String query) {
+        String q=query==null?"":query.trim();
+        if(q.length()>100)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Pesquisa demasiado longa");
+        return communities.discoverPublicForTeamRequests(q,
+            org.springframework.data.domain.PageRequest.of(0,30)).stream()
+            .map(c->new PublicCommunityView(c.getId(),c.getName(),c.getSport())).toList();
+    }
     @Transactional(readOnly=true)
     public List<MembershipView> communityTeams(Long communityId,String username) {
         var person=actor(username);
