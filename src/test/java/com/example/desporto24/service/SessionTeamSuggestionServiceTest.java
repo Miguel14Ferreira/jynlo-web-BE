@@ -34,7 +34,7 @@ class SessionTeamSuggestionServiceTest {
         CommunityRoundEntryRepository rounds = mock(CommunityRoundEntryRepository.class);
         SessionTeamSuggestionService service =
                 new SessionTeamSuggestionService(sessions, profiles, participants, rounds,
-                        mock(CommunityExcelTeamBalancer.class), mock(com.example.desporto24.repository.session.SessionGuestRequestRepository.class), mock(SessionGuestTeamBalancer.class));
+                        mock(com.example.desporto24.repository.community.CommunitySeasonRepository.class), mock(CommunityStandingsArchiveRepository.class), mock(CommunityExcelTeamBalancer.class), mock(com.example.desporto24.repository.session.SessionGuestRequestRepository.class), mock(SessionGuestTeamBalancer.class));
 
         Session session = new Session();
         session.setId(42L);
@@ -102,7 +102,7 @@ class SessionTeamSuggestionServiceTest {
 
         SessionTeamSuggestionService service =
                 new SessionTeamSuggestionService(sessions, profiles, participants, rounds,
-                        mock(CommunityExcelTeamBalancer.class), mock(com.example.desporto24.repository.session.SessionGuestRequestRepository.class), mock(SessionGuestTeamBalancer.class));
+                        mock(com.example.desporto24.repository.community.CommunitySeasonRepository.class), mock(CommunityStandingsArchiveRepository.class), mock(CommunityExcelTeamBalancer.class), mock(com.example.desporto24.repository.session.SessionGuestRequestRepository.class), mock(SessionGuestTeamBalancer.class));
 
         assertThrows(com.example.desporto24.exception.SessionNotFound.class,
                 () -> service.confirm(42L, "organizer"));
@@ -120,7 +120,7 @@ class SessionTeamSuggestionServiceTest {
         CommunityExcelTeamBalancer balancer =
                 new CommunityExcelTeamBalancer(archives, rows, communityPlayers);
         SessionTeamSuggestionService service =
-                new SessionTeamSuggestionService(sessions, profiles, participants, rounds, balancer, mock(com.example.desporto24.repository.session.SessionGuestRequestRepository.class), mock(SessionGuestTeamBalancer.class));
+                new SessionTeamSuggestionService(sessions, profiles, participants, rounds, mock(com.example.desporto24.repository.community.CommunitySeasonRepository.class), mock(CommunityStandingsArchiveRepository.class), balancer, mock(com.example.desporto24.repository.session.SessionGuestRequestRepository.class), mock(SessionGuestTeamBalancer.class));
 
         Session session = new Session();
         session.setId(42L);
@@ -193,7 +193,7 @@ class SessionTeamSuggestionServiceTest {
         CommunityRoundEntryRepository rounds = mock(CommunityRoundEntryRepository.class);
         var guests = mock(com.example.desporto24.repository.session.SessionGuestRequestRepository.class);
         var service = new SessionTeamSuggestionService(sessions, profiles, participants, rounds,
-                mock(CommunityExcelTeamBalancer.class), guests, mock(SessionGuestTeamBalancer.class));
+                mock(com.example.desporto24.repository.community.CommunitySeasonRepository.class), mock(CommunityStandingsArchiveRepository.class), mock(CommunityExcelTeamBalancer.class), guests, mock(SessionGuestTeamBalancer.class));
         Session session = new Session();
         session.setId(42L);
         session.setSport("Futebol");
