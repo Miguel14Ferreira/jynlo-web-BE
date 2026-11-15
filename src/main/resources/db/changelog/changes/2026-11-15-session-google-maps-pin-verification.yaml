@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-15-session-google-maps-pin-verification
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: session
+            columns:
+              - column:
+                  name: google_maps_pin_verified
+                  type: boolean
