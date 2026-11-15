@@ -1,0 +1,41 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-15-team-chat-reactions
+      author: jynlo
+      changes:
+        - createTable:
+            schemaName: desporto24
+            tableName: sports_team_content_reaction
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: content_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: profile_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: emoji, type: varchar(16), constraints: {nullable: false}}
+              - column: {name: created_at, type: timestamp with time zone, constraints: {nullable: false}}
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_content_reaction
+            baseColumnNames: content_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: sports_team_content
+            referencedColumnNames: id
+            constraintName: fk_team_content_reaction_content
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_content_reaction
+            baseColumnNames: profile_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_team_content_reaction_profile
+        - addUniqueConstraint:
+            schemaName: desporto24
+            tableName: sports_team_content_reaction
+            columnNames: content_id, profile_id
+            constraintName: uk_team_content_reaction_person
+        - createIndex:
+            schemaName: desporto24
+            tableName: sports_team_content_reaction
+            indexName: idx_team_content_reaction_content
+            columns:
+              - column: {name: content_id}
