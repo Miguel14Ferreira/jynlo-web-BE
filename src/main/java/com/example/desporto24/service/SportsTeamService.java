@@ -18,6 +18,7 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class SportsTeamService {
     private final SportsTeamRepository teams;
+    private final com.example.desporto24.repository.community.CommunityTournamentTeamRepository tournamentTeams;
     private final ProfileRepository profiles;
 
     public record TeamView(Long id, String slug, String name, String sport, String location,
@@ -36,6 +37,27 @@ public class SportsTeamService {
     public List<TeamView> discover(String query) {
         return teams.findByNameContainingIgnoreCaseOrderByIdDesc(query == null ? "" : query.trim(),
                 org.springframework.data.domain.PageRequest.of(0, 30)).stream().map(this::view).toList();
+    }
+
+    /** Results are derived from officially finalized tournaments; never user-editable. */
+    public record TeamCompetitionHistory(Long tournamentId, String tournamentName,
+            Long communityId, String communityName, String sport, String status,
+            Instant completedAt, boolean champion, boolean archived) {}
+
+    @Transactional(readOnly = true)
+    public List<TeamCompetitionHistory> competitionHistory(Long id) {
+        required(id);
+        return tournamentTeams.historyForGlobalTeam(id).stream().map(entry -> {
+            var tournament = entry.getTournament();
+            boolean completed = tournament.getStatus() ==
+                    com.example.desporto24.enumeration.TournamentStatus.COMPLETED;
+            boolean winner = completed && !tournament.isChampionTied()
+                    && java.util.Objects.equals(tournament.getChampionTeamId(), entry.getId());
+            return new TeamCompetitionHistory(tournament.getId(), tournament.getName(),
+                    tournament.getCommunity().getId(), tournament.getCommunity().getName(),
+                    tournament.getSport(), tournament.getStatus().name(),
+                    tournament.getCompletedAt(), winner, completed);
+        }).toList();
     }
 
     @Transactional(readOnly = true)
