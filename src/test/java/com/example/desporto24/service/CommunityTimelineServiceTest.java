@@ -546,17 +546,19 @@ class CommunityTimelineServiceTest {
     }
 
     @Test
-    void moderatorDeletingChatAlsoDeletesItsPrivateObject() {
+    void moderatorDeletingChatQueuesPrivateObjectOnlyAfterDatabaseDeletion() {
         setup(owner, true);
         var storage = stubPrivateChatStorage();
+        var queue = mock(PrivateChatDeletionOutbox.class);
+        ReflectionTestUtils.setField(service, "privateChatDeletionOutbox", queue);
         var chat = entry(75L, Kind.CHAT, member);
         chat.setAttachmentKey("private-chat/12345678-1111-2222-3333-666666666666.pdf");
         when(timelines.findById(75L)).thenReturn(Optional.of(chat));
         service.delete(7L, Kind.CHAT, 75L, "owner");
-        var order = inOrder(timelines, storage);
-        order.verify(timelines).delete(chat);
-        order.verify(timelines).flush();
-        order.verify(storage).delete(chat.getAttachmentKey());
+        verify(queue).enqueueAll(List.of(chat.getAttachmentKey()));
+        verify(timelines).delete(chat);
+        verify(timelines).flush();
+        verify(storage, never()).delete(anyString());
     }
 
     @Test
