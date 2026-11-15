@@ -70,7 +70,7 @@ public class CommunityTournamentTeamService {
         return toResponse(team, tournament.getPlayersPerTeam(), List.of());
     }
 
-    public record TeamPromotionStatus(Long globalTeamId, boolean canPromote) {}
+    public record TeamPromotionStatus(Long globalTeamId, boolean canPromote, boolean archived) {}
 
     @Transactional(readOnly = true)
     public TeamPromotionStatus promotionStatus(
@@ -83,7 +83,8 @@ public class CommunityTournamentTeamService {
         Long globalId = selected.getGlobalTeam() == null ? null : selected.getGlobalTeam().getId();
         boolean captain = selected.getAdminProfile() != null
                 && Objects.equals(selected.getAdminProfile().getId(), actor.getId());
-        return new TeamPromotionStatus(globalId, captain && globalId == null);
+        boolean archived = tournament.getStatus() == TournamentStatus.COMPLETED;
+        return new TeamPromotionStatus(globalId, captain && globalId == null && !archived, archived);
     }
 
     /**
@@ -97,6 +98,10 @@ public class CommunityTournamentTeamService {
         requireMember(communityId, actor);
         CommunityTournament tournament = lockedTeamTournament(communityId, tournamentId);
         CommunityTournamentTeam selected = team(tournamentId, teamId);
+        if (tournament.getStatus() == TournamentStatus.COMPLETED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "O torneio terminou; a equipa temporária ficou arquivada");
+        }
         if (selected.getAdminProfile() == null
                 || !Objects.equals(selected.getAdminProfile().getId(), actor.getId())) {
             throw new AccessDeniedException("Apenas o capitão confirmado pode tornar a equipa permanente");
