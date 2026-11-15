@@ -1,0 +1,39 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-15-sports-team-content
+      author: jynlo
+      changes:
+        - createTable:
+            schemaName: desporto24
+            tableName: sports_team_content
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: team_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: author_profile_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: kind, type: varchar(8), constraints: {nullable: false}}
+              - column: {name: body, type: varchar(2000), constraints: {nullable: false}}
+              - column: {name: created_at, type: timestamp with time zone, constraints: {nullable: false}}
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_content
+            baseColumnNames: team_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: sports_team
+            referencedColumnNames: id
+            constraintName: fk_sports_team_content_team
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_content
+            baseColumnNames: author_profile_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_sports_team_content_author
+        - createIndex:
+            schemaName: desporto24
+            tableName: sports_team_content
+            indexName: idx_sports_team_content_feed
+            columns:
+              - column: {name: team_id}
+              - column: {name: kind}
+              - column: {name: id}
