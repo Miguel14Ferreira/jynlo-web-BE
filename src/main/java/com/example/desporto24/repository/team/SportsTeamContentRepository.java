@@ -13,7 +13,7 @@ public interface SportsTeamContentRepository extends JpaRepository<SportsTeamCon
         select content from SportsTeamContent content
         where content.team.id = :teamId and content.kind = :kind
           and content.deletedAt is null
-          and lower(content.body) like lower(concat('%', :term, '%'))
+          and locate(lower(:term), lower(content.body)) > 0
         order by content.id desc
         """)
     List<SportsTeamContent> searchVisible(
