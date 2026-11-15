@@ -28,6 +28,13 @@ public class SportsTeamCompetitionEnrollmentController {
         return service.finalizeEntry(communityId,type,competitionId,request.globalTeamId(),auth.getName());
     }
 
+    @GetMapping("/communities/{communityId}/{type}/{competitionId}/teams/{globalTeamId}/entry")
+    public SportsTeamCompetitionEnrollmentService.EntryView existingEntry(
+        @PathVariable Long communityId,@PathVariable String type,@PathVariable Long competitionId,
+        @PathVariable Long globalTeamId,Authentication auth) {
+        return service.existingEntry(communityId,type,competitionId,globalTeamId,auth.getName());
+    }
+
     @GetMapping("/communities/{communityId}/{type}/{competitionId}/teams/{globalTeamId}/roster")
     public List<SportsTeamCompetitionEnrollmentService.RosterCandidate> roster(
         @PathVariable Long communityId,@PathVariable String type,@PathVariable Long competitionId,
