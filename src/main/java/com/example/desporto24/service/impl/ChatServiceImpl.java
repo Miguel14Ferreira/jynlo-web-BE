@@ -47,6 +47,9 @@ public class ChatServiceImpl implements ChatService {
     private final ApplicationEventPublisher eventPublisher;
     private final UserBlockService userBlockService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.service.PrivateChatDeletionOutbox privateChatDeletionOutbox;
+
     /** Session-scoped contact permission is additive to normal friendship. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.service.SessionContactAccessService sessionContactAccess;
@@ -172,11 +175,21 @@ public class ChatServiceImpl implements ChatService {
     public Chat deleteMessage(String actor, String peer, Long messageId) {
         Chat message = ownedMessage(actor, peer, messageId);
         com.example.desporto24.service.ChatMessageMutationPolicy.requireNotDeleted(message.getDeletedAt());
+        java.util.List<String> keys = new java.util.ArrayList<>();
+        if (message.getAttachmentKey() != null) keys.add(message.getAttachmentKey());
+        if (message.getExtraAttachments() != null) {
+            for (var file : message.getExtraAttachments())
+                if (file != null && file.getStorageKey() != null) keys.add(file.getStorageKey());
+        }
+        if (!keys.isEmpty() && privateChatDeletionOutbox == null)
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Private chat cleanup unavailable");
         message.setText("");
         message.setDeletedAt(Instant.now());
         chatRepository.saveAndFlush(message);
         // Historical reply snapshots may quote this text. Redact them too.
         chatRepository.redactRepliesToDeleted(message.getId(), "[message deleted]");
+        // In the same transaction as the tombstone; never lose a deletion on crash.
+        if (!keys.isEmpty()) privateChatDeletionOutbox.enqueueAll(keys);
         eventPublisher.publishEvent(new ChatMessageCreatedEvent(message));
         return message;
     }
