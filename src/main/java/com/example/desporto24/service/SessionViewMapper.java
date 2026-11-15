@@ -175,7 +175,8 @@ public class SessionViewMapper {
                 canSeeExactAddress ? session.getMeetingPointInstructions() : null,
                 SessionMinimumPlayers.required(session),
                 session.getAirsoftGameType(),
-                session.getDescription()
+                session.getDescription(),
+                canSeeExactAddress ? session.getGoogleMapsUrl() : null
         );
     }
 }
