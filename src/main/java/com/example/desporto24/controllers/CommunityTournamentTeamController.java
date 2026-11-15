@@ -168,6 +168,14 @@ public class CommunityTournamentTeamController {
         return service.administration(communityId, tournamentId, teamId, authentication.getName());
     }
 
+    /** Captain opt-in: a tournament-only team becomes a permanent Jynlo identity. */
+    @PostMapping("/{teamId}/promote")
+    public com.example.desporto24.service.SportsTeamService.TeamView promoteTeam(
+            @PathVariable Long communityId, @PathVariable Long tournamentId,
+            @PathVariable Long teamId, Authentication authentication) {
+        return service.promoteToPermanentTeam(communityId, tournamentId, teamId, authentication.getName());
+    }
+
     @PostMapping("/{teamId}/administrator/transfer")
     public CommunityTournamentTeamService.TeamAdministration transferTeamAdministrator(
             @PathVariable Long communityId, @PathVariable Long tournamentId,
