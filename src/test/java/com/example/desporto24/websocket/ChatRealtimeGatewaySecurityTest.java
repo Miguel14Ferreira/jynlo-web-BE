@@ -25,6 +25,37 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class ChatRealtimeGatewaySecurityTest {
 
     @Test
+    void oversizedFrameIsRejectedBeforeTokenParsingOrAuthentication() throws Exception {
+        JWTokenProvider tokens = mock(JWTokenProvider.class);
+        ProfileRepository profiles = mock(ProfileRepository.class);
+        ChatRealtimeGateway gateway = new ChatRealtimeGateway(
+                tokens, profiles, mock(ChatTypingService.class));
+        WebSocketSession session = mock(WebSocketSession.class);
+
+        gateway.handleTextMessage(session, new TextMessage(
+                "{\"type\":\"AUTH\",\"token\":\"" + "x".repeat(8192) + "\"}"));
+
+        verify(session).close(CloseStatus.TOO_BIG_TO_PROCESS);
+        verifyNoInteractions(tokens, profiles);
+    }
+
+    @Test
+    void malformedJsonAndNonObjectPayloadsAreRejectedWithoutAuthentication() throws Exception {
+        JWTokenProvider tokens = mock(JWTokenProvider.class);
+        ProfileRepository profiles = mock(ProfileRepository.class);
+        ChatRealtimeGateway gateway = new ChatRealtimeGateway(
+                tokens, profiles, mock(ChatTypingService.class));
+        WebSocketSession session = mock(WebSocketSession.class);
+
+        gateway.handleTextMessage(session, new TextMessage("{not-json"));
+        gateway.handleTextMessage(session, new TextMessage("[]"));
+        gateway.handleTextMessage(session, new TextMessage("{\"type\":17}"));
+
+        verify(session, times(3)).close(CloseStatus.BAD_DATA);
+        verifyNoInteractions(tokens, profiles);
+    }
+
+    @Test
     void suspendedAccountCannotAuthenticateRealtimeChat() throws Exception {
         JWTokenProvider tokens = mock(JWTokenProvider.class);
         ProfileRepository profiles = mock(ProfileRepository.class);
