@@ -1,0 +1,47 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-15-team-competition-invitations
+      author: jynlo
+      changes:
+        - createTable:
+            schemaName: desporto24
+            tableName: sports_team_competition_invitation
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: team_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: invited_by_profile_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: community_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: competition_type, type: varchar(20), constraints: {nullable: false}}
+              - column: {name: competition_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: status, type: varchar(16), constraints: {nullable: false}}
+              - column: {name: created_at, type: timestamp with time zone, constraints: {nullable: false}}
+              - column: {name: responded_at, type: timestamp with time zone}
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_competition_invitation
+            baseColumnNames: team_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: sports_team
+            referencedColumnNames: id
+            constraintName: fk_team_competition_invitation_team
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_competition_invitation
+            baseColumnNames: invited_by_profile_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_team_competition_invitation_inviter
+        - addUniqueConstraint:
+            schemaName: desporto24
+            tableName: sports_team_competition_invitation
+            columnNames: team_id,competition_type,competition_id
+            constraintName: uk_sports_team_competition_invite
+        - createIndex:
+            schemaName: desporto24
+            tableName: sports_team_competition_invitation
+            indexName: idx_team_competition_invitations
+            columns:
+              - column: {name: community_id}
+              - column: {name: competition_type}
+              - column: {name: competition_id}
