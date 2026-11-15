@@ -127,6 +127,11 @@ public class CommunityTournament {
     @Column(name = "historical_archive_id", unique = true)
     private Long historicalArchiveId;
 
+    /** Opt-in: only public-community, draft team tournaments may accept outside team requests. */
+    @Builder.Default
+    @Column(name = "team_applications_open", nullable = false)
+    private boolean teamApplicationsOpen = false;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
