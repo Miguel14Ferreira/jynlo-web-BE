@@ -59,7 +59,8 @@ public class SportsTeamCommunityMembershipService {
         if(target.getVisibility()==CommunityVisibility.PRIVATE&&!isMember)
             throw new AccessDeniedException("Comunidade privada");
         return memberships.findByCommunityIdOrderByIdAsc(communityId).stream()
-            .filter(m->canManage||m.getStatus()==SportsTeamCommunityMembership.Status.ACTIVE)
+            .filter(m->canManage||m.getStatus()==SportsTeamCommunityMembership.Status.ACTIVE
+                ||m.getTeam().getOwner().getId().equals(person.getId()))
             .map(this::view).toList();
     }
     @Transactional(readOnly=true)
