@@ -67,6 +67,8 @@ class SportsTeamReactionServiceTest {
     void rejectsInvalidEmojiAndCrossTeamMessage() {
         assertThrows(ResponseStatusException.class, () ->
                 service.set(42L, SportsTeamContent.Kind.CHAT, 99L, "<script>", "captain"));
+        assertThrows(ResponseStatusException.class, () ->
+                service.set(42L, SportsTeamContent.Kind.CHAT, 99L, null, "captain"));
         message.setTeam(SportsTeam.builder().id(50L).build());
         assertThrows(ResponseStatusException.class, () ->
                 service.set(42L, SportsTeamContent.Kind.CHAT, 99L, "👍", "captain"));
