@@ -13,6 +13,20 @@ import java.util.Optional;
 import java.util.List;
 
 public interface CommunityTournamentRepository extends JpaRepository<CommunityTournament, Long> {
+    @org.springframework.data.jpa.repository.Query("""
+      select t from CommunityTournament t
+      where t.entryType = com.example.desporto24.enumeration.TournamentEntryType.TEAM
+        and t.status = com.example.desporto24.enumeration.TournamentStatus.DRAFT
+        and t.teamApplicationsOpen = true
+        and t.community.visibility = com.example.desporto24.enumeration.CommunityVisibility.PUBLIC
+        and (:sport = '' or lower(t.sport) like concat('%', lower(:sport), '%'))
+        and (:q = '' or lower(t.name) like concat('%', lower(:q), '%')
+          or lower(t.community.name) like concat('%', lower(:q), '%'))
+      order by t.createdAt desc
+      """)
+    java.util.List<CommunityTournament> discoverOpenTeams(@org.springframework.data.repository.query.Param("q") String q,
+      @org.springframework.data.repository.query.Param("sport") String sport, Pageable pageable);
+
     long countByStatus(com.example.desporto24.enumeration.TournamentStatus status);
 
 
