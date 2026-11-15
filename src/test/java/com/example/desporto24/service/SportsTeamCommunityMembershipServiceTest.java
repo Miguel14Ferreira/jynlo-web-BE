@@ -66,7 +66,7 @@ class SportsTeamCommunityMembershipServiceTest {
 
         var invite=service.invite(7L,5L,"organizer");
         assertEquals("PENDING_TEAM",invite.status());
-        verifyNoMoreInteractions(communityMembers);
+        verify(communityMembers).findByCommunityIdAndProfileId(7L,2L);
     }
 
     @Test void unrelatedProfileCannotAcceptInvite() {
