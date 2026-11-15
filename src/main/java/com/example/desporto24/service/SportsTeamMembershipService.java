@@ -23,6 +23,18 @@ public class SportsTeamMembershipService {
 
     public record RosterPlayer(Long profileId, String username, String role) {}
     public record Invitation(Long teamId, String teamName, String status) {}
+    public record PlayerCandidate(Long profileId, String username, String fullName) {}
+
+    @Transactional(readOnly = true)
+    public List<PlayerCandidate> searchPlayers(String query, String username) {
+        actor(username);
+        String q = query == null ? "" : query.trim().toLowerCase(java.util.Locale.ROOT);
+        if (q.length() < 2 || q.length() > 80) return List.of();
+        return profiles.searchPublicCandidates(username, q, "", "", "",
+                org.springframework.data.domain.PageRequest.of(0, 12)).stream()
+                .map(p -> new PlayerCandidate(p.getId(), p.getUsername(), p.getFullName()))
+                .toList();
+    }
 
     private SportsTeam team(Long id) {
         return teams.findById(id).orElseThrow(
