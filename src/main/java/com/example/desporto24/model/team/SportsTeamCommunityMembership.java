@@ -22,8 +22,8 @@ public class SportsTeamCommunityMembership {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "community_id", nullable = false)
     private Community community;
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "requested_by_profile_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "requested_by_profile_id")
     private Profile requestedBy;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 24)
