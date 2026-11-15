@@ -37,3 +37,15 @@ Equipa permanente Jynlo → membros convidados e aceites → pesquisa/convite/ca
 6. Testes reais em PostgreSQL e dispositivo; não executar operações destrutivas nos dados de utilizadores.
 
 Não houve alteração do modelo de dados, da `master` nem deploy em produção nesta passagem.
+
+## QA real com contas existentes — 2026-11-15
+- Contas estritamente allowlisted: `jynloteste01` e `jynloteste02`; credenciais mantidas em secrets do GitHub Actions.
+- **PASS:** https://github.com/Miguel14Ferreira/jynlo-web-FE/actions/runs/43755620118 — na comunidade QA privada, ativação temporária controlada de torneios de equipa, criação de torneio temporário e equipa, browser autenticado pela conta 2, convite aceite, plantel confirmado por ambas as contas; o torneio e respetivo plantel foram eliminados e as flags anteriores restauradas.
+- **FAIL/BLOQUEIO DE VERSÃO:** https://github.com/Miguel14Ferreira/jynlo-web-FE/actions/runs/43756299722 — verificação read-only de equipas permanentes encontrou HTTP 400 em `GET /api/team-competition-applications/mine`. A rota está implementada em `develop`, mas o Render LIVE está no commit `0c7457d` (deploy de 2026-11-14), anterior às alterações de equipas globais de 2026-11-15. Não atribuir automaticamente o HTTP 400 a uma falha do código novo; retestar após deploy controlado e migrations quando restantes gates de segurança estiverem verdes.
+- Um E2E global completo não foi executado: não criar uma equipa permanente descartável no LIVE enquanto não houver cleanup seguro de equipa global. Os testes de serviços Maven para esse percurso passaram na suite prelaunch.
+
+## Primeira impressão mobile — primeira intervenção
+- `jynlo-mobile/app/teams/index.tsx`: hero de identidade desportiva, criação de equipa recolhida por defeito, cartões de equipas com ícone e metadados, estado vazio útil, pesquisa explícita (sem chamada API por cada carácter).
+- `jynlo-mobile/app/tournaments/[communityId]/[id]/teams.tsx`: cabeçalho de torneio por equipas, contador, cartões de plantel, progresso de vagas e estado sem equipas.
+- `jynlo-mobile/tests/mobile-team-first-impression.test.cjs`: contratos de interface adicionados. TypeScript, render em dispositivo e acessibilidade ainda por validar no runner mobile; a APK 0.16.6 em revisão não contém estas alterações.
+- Sem rebuild, sem alteração à master, sem deploy nesta passagem.
