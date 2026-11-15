@@ -1,0 +1,33 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-15-global-sports-team-foundation
+      author: jynlo
+      changes:
+        - createTable:
+            schemaName: desporto24
+            tableName: sports_team
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: owner_profile_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: name, type: varchar(100), constraints: {nullable: false}}
+              - column: {name: slug, type: varchar(100), constraints: {nullable: false, unique: true}}
+              - column: {name: sport, type: varchar(100)}
+              - column: {name: location, type: varchar(100)}
+              - column: {name: description, type: varchar(500)}
+              - column: {name: feed_enabled, type: boolean, defaultValueBoolean: false, constraints: {nullable: false}}
+              - column: {name: chat_enabled, type: boolean, defaultValueBoolean: false, constraints: {nullable: false}}
+              - column: {name: created_at, type: timestamp with time zone, constraints: {nullable: false}}
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team
+            baseColumnNames: owner_profile_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_sports_team_owner
+        - createIndex:
+            schemaName: desporto24
+            tableName: sports_team
+            indexName: idx_sports_team_owner
+            columns:
+              - column: {name: owner_profile_id}
