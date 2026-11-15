@@ -66,7 +66,8 @@ public class DirectChatAttachmentService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found");
         }
         // Friendship/block checks are identical to fetching text history.
-        chats.getChatInfo(actor, peer);
+        var friendship = chats.getChatInfo(actor, peer);
+        if (friendship.isChatBlocked()) throw new AccessDeniedException("Chat is blocked");
         Chat msg = messages.findById(messageId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found"));
         boolean direct = (msg.getUsername1().equalsIgnoreCase(actor)
@@ -82,7 +83,8 @@ public class DirectChatAttachmentService {
 
     public AttachmentContent downloadAt(String actor, String peer, Long messageId, int index) {
         if (index == 0) return download(actor, peer, messageId);
-        if (index < 1 || index >= PrivateChatAttachmentBatch.MAX_FILES) {
+        if (index < 1 || index >= PrivateChatAttachmentBatch.MAX_FILES
+                || messageId == null || messageId <= 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found");
         }
         chats.getChatInfo(actor, peer);
@@ -97,6 +99,8 @@ public class DirectChatAttachmentService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found");
         }
         var extra = msg.getExtraAttachments().get(index - 1);
+        if (extra == null || extra.getStorageKey() == null || extra.getStorageKey().isBlank())
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found");
         return new AttachmentContent(files.read(extra.getStorageKey()), extra.getMimeType(), extra.getFilename());
     }
 
