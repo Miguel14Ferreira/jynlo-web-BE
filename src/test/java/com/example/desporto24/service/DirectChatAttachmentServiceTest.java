@@ -29,6 +29,11 @@ class DirectChatAttachmentServiceTest {
     @Mock MultipartFile file;
     @InjectMocks DirectChatAttachmentService service;
 
+    private static void validUpload(MultipartFile upload) {
+        when(upload.isEmpty()).thenReturn(false);
+        when(upload.getSize()).thenReturn(100L);
+    }
+
     @Test
     void nonFriendsCannotStoreAttachments() {
         when(chats.getChatInfo("ana", "bea")).thenThrow(new AccessDeniedException("Not friends"));
@@ -49,6 +54,7 @@ class DirectChatAttachmentServiceTest {
 
     @Test
     void sendsAuthorizedMessageWithServerOwnedAttachmentMetadata() {
+        validUpload(file);
         when(chats.getChatInfo("ana", "bea")).thenReturn(new Friend());
         when(files.store(file)).thenReturn(new PrivateChatFileStorage.StoredFile(
                 "private-chat/11111111-1111-1111-1111-111111111111.pdf",
@@ -66,6 +72,7 @@ class DirectChatAttachmentServiceTest {
 
     @Test
     void failedMessagePersistenceRemovesOrphanedFile() {
+        validUpload(file);
         when(chats.getChatInfo("ana", "bea")).thenReturn(new Friend());
         when(files.store(file)).thenReturn(new PrivateChatFileStorage.StoredFile(
                 "private-chat/22222222-2222-2222-2222-222222222222.gif",
@@ -79,6 +86,8 @@ class DirectChatAttachmentServiceTest {
     @Test
     void batchCreatesOneMessageWithTwoPrivateAttachmentsAndNoStorageKeysInPublicMetadata() {
         MultipartFile second = mock(MultipartFile.class);
+        validUpload(file);
+        validUpload(second);
         when(chats.getChatInfo("ana", "bea")).thenReturn(new Friend());
         when(files.store(file)).thenReturn(new PrivateChatFileStorage.StoredFile(
                 "private-chat/11111111-1111-1111-1111-111111111111.jpg", "jogo.jpg", "image/jpeg", 100L));
@@ -98,6 +107,8 @@ class DirectChatAttachmentServiceTest {
     @Test
     void batchCleanupDeletesEveryStoredObjectWhenMessageFails() {
         MultipartFile second = mock(MultipartFile.class);
+        validUpload(file);
+        validUpload(second);
         when(chats.getChatInfo("ana", "bea")).thenReturn(new Friend());
         when(files.store(file)).thenReturn(new PrivateChatFileStorage.StoredFile("first", "jogo.jpg", "image/jpeg", 100L));
         when(files.store(second)).thenReturn(new PrivateChatFileStorage.StoredFile("second", "golo.jpg", "image/jpeg", 100L));
