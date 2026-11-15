@@ -27,6 +27,11 @@ public class CommunityChampionship {
     @Column(name = "season_label", nullable = false, length = 50)
     private String seasonLabel;
 
+    /** Off for existing seasons: recruitment must be enabled explicitly by an organizer. */
+    @Builder.Default
+    @Column(name = "team_applications_open", nullable = false)
+    private boolean teamApplicationsOpen = false;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
