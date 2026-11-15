@@ -1,0 +1,37 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-15-global-team-competition-entry-links
+      author: jynlo
+      changes:
+        - addColumn:
+            tableName: community_tournament_team
+            columns:
+              - column: {name: global_team_id, type: bigint}
+        - addColumn:
+            tableName: community_championship_team
+            columns:
+              - column: {name: global_team_id, type: bigint}
+        - addForeignKeyConstraint:
+            baseTableName: community_tournament_team
+            baseColumnNames: global_team_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: sports_team
+            referencedColumnNames: id
+            constraintName: fk_tournament_team_global_team
+            onDelete: SET NULL
+        - addForeignKeyConstraint:
+            baseTableName: community_championship_team
+            baseColumnNames: global_team_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: sports_team
+            referencedColumnNames: id
+            constraintName: fk_championship_team_global_team
+            onDelete: SET NULL
+        - addUniqueConstraint:
+            tableName: community_tournament_team
+            columnNames: tournament_id,global_team_id
+            constraintName: uk_tournament_global_team
+        - addUniqueConstraint:
+            tableName: community_championship_team
+            columnNames: championship_id,global_team_id
+            constraintName: uk_championship_global_team
