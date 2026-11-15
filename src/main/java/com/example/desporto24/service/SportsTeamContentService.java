@@ -81,6 +81,23 @@ public class SportsTeamContentService {
                 .sorted(Comparator.comparing(Entry::id)).toList();
     }
 
+    /** Search uses a literal bounded query and never returns deleted content. */
+    @Transactional(readOnly = true)
+    public List<Entry> search(Long teamId, SportsTeamContent.Kind kind, String term, String username) {
+        var team = team(teamId);
+        var viewer = actor(username);
+        requireActiveMember(team, viewer);
+        requireFeature(team, kind);
+        String normalized = term == null ? "" : term.strip();
+        if (normalized.length() < 2 || normalized.length() > 80
+                || normalized.codePoints().anyMatch(Character::isISOControl))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Pesquisa deve ter entre 2 e 80 caracteres");
+        return content.searchVisible(teamId, kind, normalized, PageRequest.of(0, 100))
+                .stream().map(item -> view(item, viewer, team))
+                .sorted(Comparator.comparing(Entry::id)).toList();
+    }
+
     @Transactional
     public Entry post(Long teamId, SportsTeamContent.Kind kind, Submit request, String username) {
         var team = team(teamId);
