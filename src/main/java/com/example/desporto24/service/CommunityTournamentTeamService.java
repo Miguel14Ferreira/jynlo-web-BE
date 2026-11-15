@@ -41,6 +41,7 @@ public class CommunityTournamentTeamService {
     private final CommunityTournamentTeamPlayerRepository playerRepository;
     private final CommunityTournamentTeamInviteRepository inviteRepository;
     private final CommunityTournamentSuspensionService suspensionService;
+    private final SportsTeamService globalTeams;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private TeamInvitationNotificationService teamNotifications;
 
@@ -67,6 +68,34 @@ public class CommunityTournamentTeamService {
                 .tournament(tournament).name(cleaned).normalizedName(normalized)
                 .createdAt(Instant.now()).build());
         return toResponse(team, tournament.getPlayersPerTeam(), List.of());
+    }
+
+    /**
+     * Optional promotion by the accepted team captain. The competition roster,
+     * results and invitation history remain in the tournament; no player is
+     * silently enrolled into the new permanent team.
+     */
+    public SportsTeamService.TeamView promoteToPermanentTeam(
+            Long communityId, Long tournamentId, Long teamId, String username) {
+        Profile actor = actor(username);
+        requireMember(communityId, actor);
+        CommunityTournament tournament = lockedTeamTournament(communityId, tournamentId);
+        CommunityTournamentTeam selected = team(tournamentId, teamId);
+        if (selected.getAdminProfile() == null
+                || !Objects.equals(selected.getAdminProfile().getId(), actor.getId())) {
+            throw new AccessDeniedException("Apenas o capitão confirmado pode tornar a equipa permanente");
+        }
+        if (selected.getGlobalTeam() != null) {
+            if (!Objects.equals(selected.getGlobalTeam().getOwner().getId(), actor.getId()))
+                throw new AccessDeniedException("Esta equipa permanente pertence a outro responsável");
+            return globalTeams.get(selected.getGlobalTeam().getId());
+        }
+        SportsTeamService.TeamView permanent = globalTeams.create(
+                new SportsTeamService.CreateTeam(selected.getName(), tournament.getSport(), null,
+                        "Equipa criada a partir do torneio " + tournament.getName()), username);
+        selected.setGlobalTeam(globalTeams.entity(permanent.id()));
+        teamRepository.saveAndFlush(selected);
+        return permanent;
     }
 
     /** Invite a specific community member without altering the confirmed roster. */
