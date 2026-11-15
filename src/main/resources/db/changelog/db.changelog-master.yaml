@@ -462,3 +462,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-15-session-google-maps-url.yaml
   - include:
       file: db/changelog/changes/2026-11-15-session-google-maps-pin-verification.yaml
+  - include:
+      file: db/changelog/changes/2026-11-15-sports-team-content.yaml
