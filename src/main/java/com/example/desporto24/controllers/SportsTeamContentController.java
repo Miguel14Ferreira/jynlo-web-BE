@@ -1,0 +1,42 @@
+package com.example.desporto24.controllers;
+
+import com.example.desporto24.model.team.SportsTeamContent.Kind;
+import com.example.desporto24.service.SportsTeamContentService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/teams/{teamId}")
+@PreAuthorize("isAuthenticated()")
+public class SportsTeamContentController {
+    private final SportsTeamContentService service;
+
+    @GetMapping("/chat")
+    public List<SportsTeamContentService.Entry> chat(@PathVariable Long teamId, Authentication auth) {
+        return service.recent(teamId, Kind.CHAT, auth.getName());
+    }
+
+    @PostMapping("/chat")
+    @ResponseStatus(HttpStatus.CREATED)
+    public SportsTeamContentService.Entry send(@PathVariable Long teamId,
+            @RequestBody SportsTeamContentService.Submit request, Authentication auth) {
+        return service.post(teamId, Kind.CHAT, request, auth.getName());
+    }
+
+    @GetMapping("/feed")
+    public List<SportsTeamContentService.Entry> feed(@PathVariable Long teamId, Authentication auth) {
+        return service.recent(teamId, Kind.FEED, auth.getName());
+    }
+
+    @PostMapping("/feed")
+    @ResponseStatus(HttpStatus.CREATED)
+    public SportsTeamContentService.Entry publish(@PathVariable Long teamId,
+            @RequestBody SportsTeamContentService.Submit request, Authentication auth) {
+        return service.post(teamId, Kind.FEED, request, auth.getName());
+    }
+}
