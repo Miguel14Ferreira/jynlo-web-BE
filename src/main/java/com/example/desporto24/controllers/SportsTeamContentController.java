@@ -21,6 +21,18 @@ public class SportsTeamContentController {
         return service.recent(teamId, Kind.CHAT, auth.getName());
     }
 
+    @GetMapping("/chat/search")
+    public List<SportsTeamContentService.Entry> searchChat(@PathVariable Long teamId,
+            @RequestParam("q") String term, Authentication auth) {
+        return service.search(teamId, Kind.CHAT, term, auth.getName());
+    }
+
+    @GetMapping("/feed/search")
+    public List<SportsTeamContentService.Entry> searchFeed(@PathVariable Long teamId,
+            @RequestParam("q") String term, Authentication auth) {
+        return service.search(teamId, Kind.FEED, term, auth.getName());
+    }
+
     @PostMapping("/chat")
     @ResponseStatus(HttpStatus.CREATED)
     public SportsTeamContentService.Entry send(@PathVariable Long teamId,
