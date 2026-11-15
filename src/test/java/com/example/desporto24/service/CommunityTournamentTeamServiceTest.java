@@ -42,6 +42,7 @@ class CommunityTournamentTeamServiceTest {
     @Mock private CommunityTournamentTeamPlayerRepository playerRepository;
     @Mock private CommunityTournamentTeamInviteRepository inviteRepository;
     @Mock private CommunityTournamentSuspensionService suspensionService;
+    @Mock private SportsTeamService globalTeams;
     @InjectMocks private CommunityTournamentTeamService service;
 
     private final Profile owner = profile(1L, "owner");
@@ -74,6 +75,56 @@ class CommunityTournamentTeamServiceTest {
     private CommunityTournamentTeam team(long id, String name) {
         return CommunityTournamentTeam.builder().id(id).tournament(teamTournament)
                 .name(name).normalizedName(name.toLowerCase()).createdAt(Instant.now()).build();
+    }
+
+    @Test
+    void onlyAcceptedCaptainCanPromoteTemporaryTeam() {
+        when(profileRepository.findUserByUsernameIgnoreCase("ana")).thenReturn(Optional.of(player));
+        when(memberRepository.existsByCommunityIdAndProfileId(7L, 2L)).thenReturn(true);
+        draft();
+        var selected = team(10L, "Azul");
+        when(teamRepository.findById(10L)).thenReturn(Optional.of(selected));
+        assertThrows(AccessDeniedException.class,
+                () -> service.promoteToPermanentTeam(7L, 19L, 10L, "ana"));
+        verifyNoInteractions(globalTeams);
+    }
+
+    @Test
+    void acceptedCaptainCanPromoteOnceWithoutChangingTournamentRoster() {
+        when(profileRepository.findUserByUsernameIgnoreCase("ana")).thenReturn(Optional.of(player));
+        when(memberRepository.existsByCommunityIdAndProfileId(7L, 2L)).thenReturn(true);
+        draft();
+        var selected = team(10L, "Azul");
+        selected.setAdminProfile(player);
+        when(teamRepository.findById(10L)).thenReturn(Optional.of(selected));
+        var permanent = com.example.desporto24.model.team.SportsTeam.builder()
+                .id(88L).owner(player).name("Azul").slug("azul-12345678").build();
+        var view = new SportsTeamService.TeamView(88L, "azul-12345678", "Azul",
+                null, null, null, 2L, false, false);
+        when(globalTeams.create(any(SportsTeamService.CreateTeam.class), eq("ana"))).thenReturn(view);
+        when(globalTeams.entity(88L)).thenReturn(permanent);
+        when(globalTeams.get(88L)).thenReturn(view);
+        when(teamRepository.saveAndFlush(selected)).thenReturn(selected);
+        assertEquals(88L, service.promoteToPermanentTeam(7L, 19L, 10L, "ana").id());
+        assertEquals(88L, selected.getGlobalTeam().getId());
+        assertEquals(88L, service.promoteToPermanentTeam(7L, 19L, 10L, "ana").id());
+        verify(globalTeams, times(1)).create(any(), eq("ana"));
+        verify(teamRepository, times(1)).saveAndFlush(selected);
+        verifyNoInteractions(playerRepository);
+    }
+
+    @Test
+    void permanenceStatusVisibleWithoutCreatingAnyTeam() {
+        when(profileRepository.findUserByUsernameIgnoreCase("ana")).thenReturn(Optional.of(player));
+        when(memberRepository.existsByCommunityIdAndProfileId(7L, 2L)).thenReturn(true);
+        when(tournamentRepository.findById(19L)).thenReturn(Optional.of(teamTournament));
+        var selected = team(10L, "Azul");
+        selected.setAdminProfile(player);
+        when(teamRepository.findById(10L)).thenReturn(Optional.of(selected));
+        var status = service.promotionStatus(7L, 19L, 10L, "ana");
+        assertTrue(status.canPromote());
+        assertNull(status.globalTeamId());
+        verifyNoInteractions(globalTeams);
     }
 
     @Test
