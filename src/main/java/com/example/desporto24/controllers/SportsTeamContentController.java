@@ -39,4 +39,32 @@ public class SportsTeamContentController {
             @RequestBody SportsTeamContentService.Submit request, Authentication auth) {
         return service.post(teamId, Kind.FEED, request, auth.getName());
     }
+
+    @PatchMapping("/chat/{contentId}")
+    public SportsTeamContentService.Entry editChat(@PathVariable Long teamId,
+            @PathVariable Long contentId, @RequestBody SportsTeamContentService.Submit request,
+            Authentication auth) {
+        return service.edit(teamId, Kind.CHAT, contentId, request, auth.getName());
+    }
+
+    @DeleteMapping("/chat/{contentId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteChat(@PathVariable Long teamId, @PathVariable Long contentId,
+                           Authentication auth) {
+        service.delete(teamId, Kind.CHAT, contentId, auth.getName());
+    }
+
+    @PatchMapping("/feed/{contentId}")
+    public SportsTeamContentService.Entry editFeed(@PathVariable Long teamId,
+            @PathVariable Long contentId, @RequestBody SportsTeamContentService.Submit request,
+            Authentication auth) {
+        return service.edit(teamId, Kind.FEED, contentId, request, auth.getName());
+    }
+
+    @DeleteMapping("/feed/{contentId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteFeed(@PathVariable Long teamId, @PathVariable Long contentId,
+                           Authentication auth) {
+        service.delete(teamId, Kind.FEED, contentId, auth.getName());
+    }
 }
