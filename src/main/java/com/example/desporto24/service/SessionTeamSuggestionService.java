@@ -16,6 +16,8 @@ import com.example.desporto24.repository.session.SessionGuestRequestRepository;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.SessionRepository;
 import com.example.desporto24.repository.community.CommunityRoundEntryRepository;
+import com.example.desporto24.repository.community.CommunitySeasonRepository;
+import com.example.desporto24.repository.community.CommunityStandingsArchiveRepository;
 import com.example.desporto24.repository.session.SessionParticipantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -41,6 +43,8 @@ public class SessionTeamSuggestionService {
     private final ProfileRepository profileRepository;
     private final SessionParticipantRepository participantRepository;
     private final CommunityRoundEntryRepository roundEntryRepository;
+    private final CommunitySeasonRepository seasonRepository;
+    private final CommunityStandingsArchiveRepository standingsArchiveRepository;
     private final CommunityExcelTeamBalancer excelBalancer;
     private final SessionGuestRequestRepository guestRequests;
     private final SessionGuestTeamBalancer guestBalancer;
@@ -118,7 +122,7 @@ public class SessionTeamSuggestionService {
 
     @Transactional(readOnly = true)
     public SessionTeamSuggestionResponse suggest(Long sessionId, String username, String source) {
-        if (!"FORM".equals(source) && !"EXCEL_POINTS".equals(source) && !"RANDOM".equals(source) && !"MANUAL".equals(source)) {
+        if (!"AUTO".equals(source) && !"FORM".equals(source) && !"EXCEL_POINTS".equals(source) && !"RANDOM".equals(source) && !"MANUAL".equals(source)) {
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.BAD_REQUEST, "Origem de classificação inválida");
         }
@@ -166,22 +170,44 @@ public class SessionTeamSuggestionService {
             return new SessionTeamSuggestionResponse(List.copyOf(shuffled.subList(0, midpoint)),
                     List.copyOf(shuffled.subList(midpoint, shuffled.size())), 0, 0, 0, shuffled.size());
         }
+        // Automatically use the selected community's active season, falling back to
+        // an existing imported ranking only when that season has no recorded results.
+        // Never mix historic rounds into the active season's player strength.
+        Long communityId = session.getCommunity().getId();
+        var activeSeason = seasonRepository.findByCommunityIdAndActiveTrueOrderByCreatedAtDesc(communityId)
+                .stream().filter(season -> season.getSport() == null
+                        || season.getSport().equalsIgnoreCase(session.getSport()))
+                .findFirst();
+        List<CommunityRoundEntry> seasonEntries = activeSeason
+                .map(season -> roundEntryRepository.findByRoundSeasonIdOrderByRoundPlayedAtAscRoundIdAscIdAsc(season.getId()))
+                .orElseGet(List::of);
+        String rankingSource = source;
+        if ("AUTO".equals(source)) {
+            if (!seasonEntries.isEmpty() && guests.isEmpty()) {
+                rankingSource = "FORM";
+            } else if (standingsArchiveRepository.findFirstByCommunityIdAndEntryTypeOrderByCreatedAtDescIdDesc(
+                    communityId, "INDIVIDUAL").isPresent()) {
+                rankingSource = "EXCEL_POINTS";
+            } else {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.CONFLICT,
+                        "A comunidade ainda não tem classificações disponíveis para equilibrar equipas");
+            }
+        }
         if (!guests.isEmpty()) {
-            if (!"EXCEL_POINTS".equals(source)) {
+            if (!"EXCEL_POINTS".equals(rankingSource)) {
                 throw new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.CONFLICT,
                         "Para convidados usa Fazer equipas com base na classificação Excel");
             }
             return guestBalancer.suggest(session,participants,guests);
         }
-        if ("EXCEL_POINTS".equals(source)) {
+        if ("EXCEL_POINTS".equals(rankingSource)) {
             return excelBalancer.suggest(session, participants);
         }
 
         Map<Long, PlayerStats> statsByProfile = new HashMap<>();
-        for (CommunityRoundEntry entry : roundEntryRepository
-                .findByRoundCommunityIdOrderByRoundPlayedAtAscRoundIdAscIdAsc(
-                        session.getCommunity().getId())) {
+        for (CommunityRoundEntry entry : seasonEntries) {
             Profile profile = entry.getProfile() != null
                     ? entry.getProfile()
                     : entry.getCommunityPlayer() == null ? null : entry.getCommunityPlayer().getProfile();
