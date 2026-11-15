@@ -98,10 +98,6 @@ public class CommunityTournamentTeamService {
         requireMember(communityId, actor);
         CommunityTournament tournament = lockedTeamTournament(communityId, tournamentId);
         CommunityTournamentTeam selected = team(tournamentId, teamId);
-        if (tournament.getStatus() == TournamentStatus.COMPLETED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "O torneio terminou; a equipa temporária ficou arquivada");
-        }
         if (selected.getAdminProfile() == null
                 || !Objects.equals(selected.getAdminProfile().getId(), actor.getId())) {
             throw new AccessDeniedException("Apenas o capitão confirmado pode tornar a equipa permanente");
@@ -110,6 +106,10 @@ public class CommunityTournamentTeamService {
             if (!Objects.equals(selected.getGlobalTeam().getOwner().getId(), actor.getId()))
                 throw new AccessDeniedException("Esta equipa permanente pertence a outro responsável");
             return globalTeams.get(selected.getGlobalTeam().getId());
+        }
+        if (tournament.getStatus() == TournamentStatus.COMPLETED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "O torneio terminou; a equipa temporária ficou arquivada");
         }
         SportsTeamService.TeamView permanent = globalTeams.create(
                 new SportsTeamService.CreateTeam(selected.getName(), tournament.getSport(), null,
