@@ -69,7 +69,7 @@ public class SportsTeamCommunityMembershipService {
         boolean isOwner=selected.getOwner().getId().equals(person.getId());
         return memberships.findByTeamIdOrderByIdDesc(teamId).stream()
             .filter(m->isOwner||m.getStatus()==SportsTeamCommunityMembership.Status.ACTIVE)
-            .filter(m->m.getCommunity().getVisibility()==CommunityVisibility.PUBLIC
+            .filter(m->isOwner || m.getCommunity().getVisibility()==CommunityVisibility.PUBLIC
                 ||communityMembers.existsByCommunityIdAndProfileId(m.getCommunity().getId(),person.getId()))
             .map(this::view).toList();
     }
