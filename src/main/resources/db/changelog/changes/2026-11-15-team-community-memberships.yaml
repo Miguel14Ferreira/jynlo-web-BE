@@ -1,0 +1,52 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-15-team-community-memberships
+      author: jynlo
+      changes:
+        - createTable:
+            schemaName: desporto24
+            tableName: sports_team_community_membership
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: team_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: community_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: requested_by_profile_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: status, type: varchar(24), constraints: {nullable: false}}
+              - column: {name: requested_at, type: timestamp with time zone, constraints: {nullable: false}}
+              - column: {name: decided_at, type: timestamp with time zone}
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_community_membership
+            baseColumnNames: team_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: sports_team
+            referencedColumnNames: id
+            constraintName: fk_team_community_membership_team
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_community_membership
+            baseColumnNames: community_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: community
+            referencedColumnNames: id
+            constraintName: fk_team_community_membership_community
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_community_membership
+            baseColumnNames: requested_by_profile_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_team_community_membership_requester
+        - addUniqueConstraint:
+            schemaName: desporto24
+            tableName: sports_team_community_membership
+            columnNames: team_id,community_id
+            constraintName: uk_team_community_membership
+        - createIndex:
+            schemaName: desporto24
+            tableName: sports_team_community_membership
+            indexName: idx_team_community_membership_community
+            columns:
+              - column: {name: community_id}
+              - column: {name: status}
