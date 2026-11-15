@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-15-sports-team-content-moderation
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: sports_team_content
+            columns:
+              - column: {name: reply_to_id, type: bigint}
+              - column: {name: edited_at, type: timestamp with time zone}
+              - column: {name: deleted_at, type: timestamp with time zone}
+        - createIndex:
+            schemaName: desporto24
+            tableName: sports_team_content
+            indexName: idx_sports_team_content_reply_to
+            columns:
+              - column: {name: reply_to_id}
