@@ -18,6 +18,13 @@ public class SportsTeamMembershipController {
 
     public record InvitePlayer(@NotNull Long profileId) {}
 
+    @GetMapping("/players/search")
+    @PreAuthorize("isAuthenticated()")
+    public List<SportsTeamMembershipService.PlayerCandidate> search(
+            @RequestParam(defaultValue = "") String q, Authentication auth) {
+        return service.searchPlayers(q, auth.getName());
+    }
+
     @GetMapping("/{teamId}/members")
     public List<SportsTeamMembershipService.RosterPlayer> roster(@PathVariable Long teamId) {
         return service.roster(teamId);
