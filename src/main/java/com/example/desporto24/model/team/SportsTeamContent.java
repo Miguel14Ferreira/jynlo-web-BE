@@ -27,4 +27,10 @@ public class SportsTeamContent {
     private String body;
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+    @Column(name = "reply_to_id")
+    private Long replyToId;
+    @Column(name = "edited_at")
+    private Instant editedAt;
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 }
