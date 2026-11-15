@@ -1,0 +1,32 @@
+name: Validate private team chat
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'src/main/java/com/example/desporto24/model/team/SportsTeamContent*'
+      - 'src/main/java/com/example/desporto24/service/SportsTeamContentService.java'
+      - 'src/main/java/com/example/desporto24/controllers/SportsTeamContentAttachmentController.java'
+      - 'src/main/java/com/example/desporto24/controllers/SportsTeamContentController.java'
+      - 'src/test/java/com/example/desporto24/service/SportsTeam*Test.java'
+      - 'src/main/resources/db/changelog/**'
+      - '.github/workflows/validate-team-private-chat.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  team-chat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Compile and test team content authorization and attachments
+        run: |
+          chmod +x ./mvnw
+          ./mvnw -B -q -Dtest=SportsTeamContentServiceTest,SportsTeamReactionServiceTest,SportsTeamAttachmentServiceTest test
