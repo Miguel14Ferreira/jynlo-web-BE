@@ -18,6 +18,11 @@ public class SportsTeamCommunityMembershipController {
     private final SportsTeamCommunityMembershipService service;
     public record TeamId(@NotNull Long teamId) {}
     public record CommunityId(@NotNull Long communityId) {}
+    @GetMapping("/discover")
+    public List<SportsTeamCommunityMembershipService.PublicCommunityView> discover(
+        @RequestParam(defaultValue = "") String q) {
+        return service.discoverCommunities(q);
+    }
     @GetMapping("/communities/{communityId}")
     public List<SportsTeamCommunityMembershipService.MembershipView> byCommunity(
         @PathVariable Long communityId,Authentication auth) {
