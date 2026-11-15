@@ -70,6 +70,22 @@ public class CommunityTournamentTeamService {
         return toResponse(team, tournament.getPlayersPerTeam(), List.of());
     }
 
+    public record TeamPromotionStatus(Long globalTeamId, boolean canPromote) {}
+
+    @Transactional(readOnly = true)
+    public TeamPromotionStatus promotionStatus(
+            Long communityId, Long tournamentId, Long teamId, String username) {
+        Profile actor = actor(username);
+        requireMember(communityId, actor);
+        CommunityTournament tournament = tournamentRepository.findById(tournamentId).orElseThrow(this::notFound);
+        verifyScopeAndType(communityId, tournament);
+        CommunityTournamentTeam selected = team(tournamentId, teamId);
+        Long globalId = selected.getGlobalTeam() == null ? null : selected.getGlobalTeam().getId();
+        boolean captain = selected.getAdminProfile() != null
+                && Objects.equals(selected.getAdminProfile().getId(), actor.getId());
+        return new TeamPromotionStatus(globalId, captain && globalId == null);
+    }
+
     /**
      * Optional promotion by the accepted team captain. The competition roster,
      * results and invitation history remain in the tournament; no player is
