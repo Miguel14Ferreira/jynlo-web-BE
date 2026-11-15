@@ -134,8 +134,9 @@ public class SessionTeamSuggestionService {
         if (session.getProfile() == null || !session.getProfile().getId().equals(actor.getId())) {
             throw new AccessDeniedException("Só o criador pode gerar equipas");
         }
-        if (session.getCommunity() == null) {
-            throw new IllegalStateException("A sessão tem de pertencer a uma comunidade");
+        if (session.getCommunity() == null
+                && !"RANDOM".equals(source) && !"MANUAL".equals(source)) {
+            throw new IllegalStateException("É necessária uma comunidade para equilibrar por classificação");
         }
 
         if (!TeamBalancingSportPolicy.isEligible(session, "RANDOM".equals(source) || "MANUAL".equals(source))) {
