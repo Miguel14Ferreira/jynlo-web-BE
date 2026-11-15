@@ -93,6 +93,12 @@ public class SportsTeamService {
         return clean;
     }
 
+    /** Internal reference for associating a permanent identity with a competition entry. */
+    @Transactional(readOnly = true)
+    public SportsTeam entity(Long id) {
+        return required(id);
+    }
+
     private SportsTeam required(Long id) {
         return teams.findById(id).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Equipa não encontrada"));
