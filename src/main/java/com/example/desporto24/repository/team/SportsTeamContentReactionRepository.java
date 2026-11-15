@@ -8,6 +8,6 @@ import java.util.Optional;
 
 public interface SportsTeamContentReactionRepository
         extends JpaRepository<SportsTeamContentReaction,Long> {
-    Optional<SportsTeamContentReaction> findByContentIdAndProfileId(Long contentId, Long profileId);
-    List<SportsTeamContentReaction> findByContentIdIn(Collection<Long> ids);
+    Optional<SportsTeamContentReaction> findByContent_IdAndProfile_Id(Long contentId, Long profileId);
+    List<SportsTeamContentReaction> findByContent_IdIn(Collection<Long> ids);
 }
