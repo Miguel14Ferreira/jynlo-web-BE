@@ -9,4 +9,15 @@ public interface CommunityTournamentTeamRepository extends JpaRepository<Communi
     boolean existsByTournamentIdAndGlobalTeamId(Long tournamentId, Long globalTeamId);
     boolean existsByTournamentIdAndNormalizedName(Long tournamentId, String normalizedName);
     long countByTournamentId(Long tournamentId);
+    /** Historical entries are retained even after a competition ends. */
+    @org.springframework.data.jpa.repository.Query("""
+        select entry from CommunityTournamentTeam entry
+          join fetch entry.tournament tournament
+          join fetch tournament.community
+        where entry.globalTeam.id = :teamId
+        order by entry.id desc
+        """)
+    List<CommunityTournamentTeam> historyForGlobalTeam(
+            @org.springframework.data.repository.query.Param("teamId") Long teamId);
+
 }
