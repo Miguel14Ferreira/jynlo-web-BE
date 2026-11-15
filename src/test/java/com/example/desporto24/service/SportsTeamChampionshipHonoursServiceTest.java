@@ -52,6 +52,24 @@ class SportsTeamChampionshipHonoursServiceTest {
     }
 
     @Test
+    void closedAggregateSeasonChampionGetsItsOwnTitleWithoutInventingOtherAwards() {
+        when(teams.existsById(44L)).thenReturn(true);
+        var championship = CommunityChampionship.builder().id(8L).name("Campeonato 2026")
+            .seasonLabel("2026/27").sport("Futebol")
+            .community(Community.builder().id(6L).name("Liga Lisboa").build())
+            .closedAt(Instant.now()).finalTrophiesJson("[]")
+            .championEntryType("TEAM").championParticipantId(15L)
+            .championDisplayName("Leões").build();
+        when(seasonTeams.closedPublicSeasonsForGlobalTeam(44L)).thenReturn(
+            List.of(CommunityChampionshipTeam.builder().id(15L).championship(championship).build()));
+        var honours = service.honours(44L);
+        assertEquals(1, honours.size());
+        assertEquals("CHAMPIONSHIP", honours.get(0).format());
+        assertNull(honours.get(0).ownedEventId());
+        assertEquals("Campeonato 2026", honours.get(0).competitionName());
+    }
+
+    @Test
     void emptySeasonSnapshotsNeverInventTrophies() {
         when(teams.existsById(44L)).thenReturn(true);
         var season = CommunityChampionship.builder().id(8L)
