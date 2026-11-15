@@ -43,6 +43,16 @@ public interface CommunityRepository extends JpaRepository<Community, Long> {
             """)
     Slice<CommunityDiscoveryResponse> discoverPublicPresentations(Pageable pageable);
 
+    @Query("""
+      SELECT c FROM Community c
+      WHERE c.visibility = com.example.desporto24.enumeration.CommunityVisibility.PUBLIC
+        AND LOWER(TRIM(c.name)) NOT LIKE 'jynlo qa%'
+        AND (:name = '' OR LOWER(c.name) LIKE CONCAT('%', LOWER(:name), '%'))
+      ORDER BY LOWER(c.name), c.id
+      """)
+    java.util.List<Community> discoverPublicForTeamRequests(
+        @Param("name") String name, Pageable pageable);
+
     // Load all sport tags for one result page in one query (no N+1, no pagination over joins).
     @Query("SELECT DISTINCT c FROM Community c LEFT JOIN FETCH c.sports WHERE c.id IN :ids")
     java.util.List<Community> findAllWithSportsByIdIn(@Param("ids") java.util.List<Long> ids);
