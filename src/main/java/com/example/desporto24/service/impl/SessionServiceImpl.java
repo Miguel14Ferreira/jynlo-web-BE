@@ -361,6 +361,7 @@ public class SessionServiceImpl implements SessionService {
         session.setGameDate(Date.from(gameDate));
         session.setCity(linkedVenue == null ? request.city() : linkedVenue.getCity());
         session.setAddress(linkedVenue == null ? request.address() : linkedVenue.getAddress());
+        session.setGoogleMapsUrl(com.example.desporto24.service.SessionGoogleMapsLink.normalize(request.googleMapsUrl()));
         String overview = request.description();
         if (overview != null && (overview.length() > 1000
                 || overview.codePoints().anyMatch(cp -> Character.isISOControl(cp)
