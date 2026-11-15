@@ -51,6 +51,18 @@ public class SportsTeamChampionshipHonoursService {
             } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
                 throw new IllegalStateException("Histórico oficial de troféus inválido", error);
             }
+            // The aggregate season title is separate from its individual League/Cup trophies.
+            if ("TEAM".equals(championship.getChampionEntryType())
+                    && Objects.equals(championship.getChampionParticipantId(), seasonTeam.getId())
+                    && championship.getChampionDisplayName() != null
+                    && !championship.getChampionDisplayName().isBlank()
+                    && recorded.add(championship.getId() + ":championship")) {
+                result.add(new Honour(championship.getId(), championship.getName(),
+                    championship.getSeasonLabel(), championship.getCommunity().getId(),
+                    championship.getCommunity().getName(), null, null,
+                    championship.getName(), "CHAMPIONSHIP",
+                    championship.getSport(), championship.getClosedAt()));
+            }
             if (snapshots == null) continue;
             for (var award : snapshots) {
                 if (award == null || !"TEAM".equals(award.entryType())
