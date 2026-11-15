@@ -49,9 +49,27 @@ public class ChatRealtimeGateway extends TextWebSocketHandler {
     // In-memory, socket-scoped abuse protection; never persisted.
     private final ConcurrentHashMap<String, Long> lastTypingAtBySocket = new ConcurrentHashMap<>();
 
+    // Chat frames carry only AUTH and short typing signals. Reject oversized
+    // frames before JSON parsing to cap per-connection memory/CPU exposure.
+    private static final int MAX_CLIENT_FRAME_CHARS = 8192;
+
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        JsonNode payload = objectMapper.readTree(message.getPayload());
+        if (message.getPayloadLength() > MAX_CLIENT_FRAME_CHARS) {
+            session.close(CloseStatus.TOO_BIG_TO_PROCESS);
+            return;
+        }
+        JsonNode payload;
+        try {
+            payload = objectMapper.readTree(message.getPayload());
+        } catch (com.fasterxml.jackson.core.JsonProcessingException malformed) {
+            session.close(CloseStatus.BAD_DATA);
+            return;
+        }
+        if (payload == null || !payload.isObject() || !payload.path("type").isTextual()) {
+            session.close(CloseStatus.BAD_DATA);
+            return;
+        }
         String type = payload.path("type").asText("");
 
         if (!"AUTH".equals(type)) {
