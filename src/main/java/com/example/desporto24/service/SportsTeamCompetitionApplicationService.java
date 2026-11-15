@@ -69,6 +69,27 @@ public class SportsTeamCompetitionApplicationService {
         return applications.findByCommunityIdAndCompetitionTypeAndCompetitionIdOrderByIdAsc(
             communityId,parsed,competitionId).stream().map(this::view).toList();
     }
+    @Transactional(readOnly = true)
+    public CompetitionView settings(Long communityId,String type,Long competitionId,String username) {
+        var actor=profiles.findUserByUsername(username)
+            .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
+        requireOrganizer(communityId,actor.getId());
+        var parsed=parseType(type);
+        if(parsed==SportsTeamCompetitionApplication.CompetitionType.TOURNAMENT) {
+            var t=tournaments.findById(competitionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+            if(!t.getCommunity().getId().equals(communityId))
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+            return new CompetitionView(t.getId(),communityId,t.getCommunity().getName(),
+                "TOURNAMENT",t.getName(),t.getSport(),t.isTeamApplicationsOpen());
+        }
+        var championship=championships.findByIdAndCommunityId(competitionId,communityId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return new CompetitionView(championship.getId(),communityId,
+            championship.getCommunity().getName(),"CHAMPIONSHIP",championship.getName(),
+            championship.getSport(),championship.isTeamApplicationsOpen());
+    }
+
     @Transactional
     public CompetitionView configure(Long communityId,String type,Long competitionId,boolean open,String username) {
         var actor=profiles.findUserByUsername(username)
