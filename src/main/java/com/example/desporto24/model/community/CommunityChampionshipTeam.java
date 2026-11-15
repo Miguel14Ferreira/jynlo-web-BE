@@ -37,6 +37,11 @@ public class CommunityChampionshipTeam {
     @JoinColumn(name = "pending_admin_profile_id")
     private com.example.desporto24.model.Profile pendingAdminProfile;
 
+    /** Optional link to a single Jynlo team identity; legacy competition teams stay unchanged. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "global_team_id")
+    private com.example.desporto24.model.team.SportsTeam globalTeam;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 }
