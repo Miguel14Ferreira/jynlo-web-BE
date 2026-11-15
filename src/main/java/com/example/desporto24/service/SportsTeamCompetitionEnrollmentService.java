@@ -43,6 +43,43 @@ public class SportsTeamCompetitionEnrollmentService {
                             String message) {}
     public record RosterCandidate(Long profileId,String username,boolean communityMember) {}
 
+    @Transactional(readOnly=true)
+    public EntryView existingEntry(Long communityId,String type,Long competitionId,
+                                   Long globalTeamId,String username) {
+        var actor=profiles.findUserByUsername(username)
+            .orElseThrow(()->new AccessDeniedException("Utilizador desconhecido"));
+        var role=communityMembers.findByCommunityIdAndProfileId(communityId,actor.getId())
+            .map(CommunityMember::getRole).orElse(null);
+        if(role!=CommunityRole.ADMIN&&role!=CommunityRole.OWNER)
+            throw new AccessDeniedException("Só o organizador pode consultar inscrições");
+        var team=teams.findById(globalTeamId)
+            .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Equipa inexistente"));
+        String kind=type==null?"":type.toUpperCase(Locale.ROOT);
+        int confirmed=1+globalMembers.findByTeamIdAndStatusOrderByIdAsc(globalTeamId,
+            SportsTeamMember.Status.ACTIVE).size();
+        if("TOURNAMENT".equals(kind)) {
+            var tournament=tournaments.findById(competitionId)
+                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Torneio inexistente"));
+            if(!communityId.equals(tournament.getCommunity().getId()))
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Torneio inexistente");
+            var entry=tournamentTeams.findByTournamentIdOrderByIdAsc(competitionId).stream()
+                .filter(t->t.getGlobalTeam()!=null&&globalTeamId.equals(t.getGlobalTeam().getId()))
+                .findFirst().orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Equipa ainda não inscrita"));
+            return new EntryView(entry.getId(),team.getId(),communityId,competitionId,kind,entry.getName(),
+                confirmed,"Equipa já inscrita. Os jogadores continuam a precisar de confirmar a participação.");
+        }
+        if("CHAMPIONSHIP".equals(kind)) {
+            championships.findByIdAndCommunityId(competitionId,communityId)
+                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Campeonato inexistente"));
+            var entry=championshipTeams.findByChampionshipIdOrderByNameAscIdAsc(competitionId).stream()
+                .filter(t->t.getGlobalTeam()!=null&&globalTeamId.equals(t.getGlobalTeam().getId()))
+                .findFirst().orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Equipa ainda não inscrita"));
+            return new EntryView(entry.getId(),team.getId(),communityId,competitionId,kind,entry.getName(),
+                confirmed,"Equipa já inscrita. Seleciona jogadores para convidar.");
+        }
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Tipo de competição inválido");
+    }
+
     @Transactional
     public EntryView finalizeEntry(Long communityId,String type,Long competitionId,
                                    Long globalTeamId,String username) {
