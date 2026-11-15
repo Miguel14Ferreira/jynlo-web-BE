@@ -166,4 +166,32 @@ class SportsTeamContentServiceTest {
         verify(entries,never()).findById(anyLong());
     }
 
+
+    @Test
+    void searchingRequiresMembershipAndNeverLeaksOtherTeamContent() {
+        when(members.findByTeamIdAndProfileId(42L,2L)).thenReturn(Optional.of(
+                SportsTeamMember.builder().team(team).profile(player)
+                        .status(SportsTeamMember.Status.INVITED).build()));
+        assertThrows(AccessDeniedException.class, () -> service.search(
+                42L, SportsTeamContent.Kind.CHAT, "password", "player"));
+        verify(entries, never()).searchVisible(anyLong(), any(), anyString(), any(Pageable.class));
+    }
+
+    @Test
+    void searchRejectsShortLongOrControlQueriesAndBoundsResults() {
+        for (String invalid : List.of("", "a", "a".repeat(81), "x\nsecret")) {
+            assertThrows(ResponseStatusException.class, () -> service.search(
+                    42L, SportsTeamContent.Kind.CHAT, invalid, "captain"));
+        }
+        var row = SportsTeamContent.builder().id(10L).team(team).author(owner)
+                .kind(SportsTeamContent.Kind.CHAT).body("Olá equipa").createdAt(Instant.now()).build();
+        when(entries.searchVisible(eq(42L), eq(SportsTeamContent.Kind.CHAT),
+                eq("equipa"), any(Pageable.class))).thenReturn(List.of(row));
+        var matches = service.search(42L, SportsTeamContent.Kind.CHAT, "  equipa  ", "captain");
+        assertEquals(1, matches.size());
+        assertEquals("Olá equipa", matches.get(0).body());
+        verify(entries).searchVisible(eq(42L), eq(SportsTeamContent.Kind.CHAT), eq("equipa"),
+                argThat(page -> page.getPageSize() == 100));
+    }
+
 }
