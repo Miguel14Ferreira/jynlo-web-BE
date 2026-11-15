@@ -158,6 +158,41 @@ class DirectChatAttachmentServiceTest {
     }
 
     @Test
+    void blockedContactCannotDownloadEvenWhenMessageIdIsKnown() {
+        Friend friendship = mock(Friend.class);
+        when(friendship.isChatBlocked()).thenReturn(true);
+        when(chats.getChatInfo("ana", "bea")).thenReturn(friendship);
+        assertThrows(AccessDeniedException.class,
+                () -> service.download("ana", "bea", 4L));
+        assertThrows(AccessDeniedException.class,
+                () -> service.downloadAt("ana", "bea", 4L, 1));
+        verifyNoInteractions(messages, files);
+    }
+
+    @Test
+    void invalidExtraMediaIdsAreRejectedWithoutDatabaseAccess() {
+        assertEquals(404, assertThrows(ResponseStatusException.class,
+                () -> service.downloadAt("ana", "bea", null, 1)).getStatusCode().value());
+        verifyNoInteractions(chats, messages, files);
+    }
+
+    @Test
+    void malformedExtraAttachmentCannotReadPrivateStorage() {
+        when(chats.getChatInfo("ana", "bea")).thenReturn(new Friend());
+        Chat message = new Chat();
+        message.setUsername1("ana");
+        message.setUsername2("bea");
+        message.setAttachmentKey("private-chat/11111111-1111-1111-1111-111111111111.pdf");
+        var extras = new java.util.ArrayList<com.example.desporto24.model.chat.PrivateChatAttachment>();
+        extras.add(null);
+        message.setExtraAttachments(extras);
+        when(messages.findById(5L)).thenReturn(Optional.of(message));
+        assertEquals(404, assertThrows(ResponseStatusException.class,
+                () -> service.downloadAt("ana", "bea", 5L, 1)).getStatusCode().value());
+        verify(files, never()).read(anyString());
+    }
+
+    @Test
     void authorizedFriendCanDownloadMessageFromExactConversation() {
         when(chats.getChatInfo("bea", "ana")).thenReturn(new Friend());
         Chat chat = new Chat();
