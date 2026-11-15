@@ -25,6 +25,11 @@ public class SportsTeamController {
         return service.get(id);
     }
 
+    @GetMapping("/{id}/history")
+    public List<SportsTeamService.TeamCompetitionHistory> history(@PathVariable Long id) {
+        return service.competitionHistory(id);
+    }
+
     @GetMapping("/mine")
     @PreAuthorize("isAuthenticated()")
     public List<SportsTeamService.TeamView> mine(Authentication auth) {
