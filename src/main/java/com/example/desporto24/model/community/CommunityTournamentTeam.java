@@ -47,6 +47,11 @@ public class CommunityTournamentTeam {
     @Column(name = "group_draw_order")
     private Integer groupDrawOrder;
 
+    /** Optional link to a single Jynlo team identity; legacy competition teams stay unchanged. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "global_team_id")
+    private com.example.desporto24.model.team.SportsTeam globalTeam;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 }
