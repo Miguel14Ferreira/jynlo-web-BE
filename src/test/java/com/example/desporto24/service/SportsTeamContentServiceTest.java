@@ -104,4 +104,66 @@ class SportsTeamContentServiceTest {
         verify(entries).findByTeamIdAndKindOrderByIdDesc(eq(42L),
                 eq(SportsTeamContent.Kind.CHAT),argThat(page->page.getPageSize()==100));
     }
+
+    @Test
+    void teamReplyCannotReferenceAnotherTeamsOrDeletedMessage() {
+        when(entries.findById(99L)).thenReturn(Optional.of(SportsTeamContent.builder()
+                .id(99L).team(SportsTeam.builder().id(100L).build())
+                .kind(SportsTeamContent.Kind.CHAT).build()));
+        assertThrows(ResponseStatusException.class, () -> service.post(42L,
+                SportsTeamContent.Kind.CHAT,
+                new SportsTeamContentService.Submit("reply",99L),"captain"));
+        verify(entries,never()).saveAndFlush(any());
+    }
+
+    @Test
+    void authorCanEditOwnMessageButCaptainCannotEditAnotherPlayersText() {
+        var message = SportsTeamContent.builder().id(15L).team(team).author(player)
+                .body("hello").kind(SportsTeamContent.Kind.CHAT).createdAt(Instant.now()).build();
+        when(entries.findById(15L)).thenReturn(Optional.of(message));
+        when(entries.saveAndFlush(any())).thenAnswer(i->i.getArgument(0));
+        assertThrows(AccessDeniedException.class, () -> service.edit(42L,
+                SportsTeamContent.Kind.CHAT, 15L,
+                new SportsTeamContentService.Submit("rewritten"),"captain"));
+        when(members.findByTeamIdAndProfileId(42L,2L)).thenReturn(Optional.of(
+                SportsTeamMember.builder().team(team).profile(player)
+                        .status(SportsTeamMember.Status.ACTIVE).build()));
+        var result=service.edit(42L,SportsTeamContent.Kind.CHAT,15L,
+                new SportsTeamContentService.Submit("edited"),"player");
+        assertEquals("edited",result.body());
+        assertNotNull(result.editedAt());
+        assertTrue(result.canEdit());
+    }
+
+    @Test
+    void captainCanSoftDeleteButNeverExposeDeletedText() {
+        var message=SportsTeamContent.builder().id(15L).team(team).author(player)
+                .body("sensitive text").kind(SportsTeamContent.Kind.CHAT).createdAt(Instant.now()).build();
+        when(entries.findById(15L)).thenReturn(Optional.of(message));
+        when(entries.saveAndFlush(any())).thenAnswer(i->i.getArgument(0));
+        service.delete(42L,SportsTeamContent.Kind.CHAT,15L,"captain");
+        assertNotNull(message.getDeletedAt());
+        assertEquals("",message.getBody());
+        assertThrows(ResponseStatusException.class, () -> service.delete(42L,
+                SportsTeamContent.Kind.CHAT,15L,"captain"));
+        when(entries.findByTeamIdAndKindOrderByIdDesc(eq(42L),
+                eq(SportsTeamContent.Kind.CHAT),any(Pageable.class))).thenReturn(List.of(message));
+        var result=service.recent(42L,SportsTeamContent.Kind.CHAT,"captain").get(0);
+        assertTrue(result.deleted());
+        assertEquals("",result.body());
+        assertTrue(result.canManage());
+        assertFalse(result.canEdit());
+    }
+
+    @Test
+    void outsiderCannotEditOrDeleteAnyMessage() {
+        var outsider=profile(3L,"outsider");
+        when(profiles.findUserByUsername("outsider")).thenReturn(Optional.of(outsider));
+        assertThrows(AccessDeniedException.class, () -> service.delete(42L,
+                SportsTeamContent.Kind.CHAT,15L,"outsider"));
+        assertThrows(AccessDeniedException.class, () -> service.edit(42L,
+                SportsTeamContent.Kind.CHAT,15L,new SportsTeamContentService.Submit("x"),"outsider"));
+        verify(entries,never()).findById(anyLong());
+    }
+
 }
