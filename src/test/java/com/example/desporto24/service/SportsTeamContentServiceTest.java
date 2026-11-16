@@ -196,6 +196,34 @@ class SportsTeamContentServiceTest {
 
 
     @Test
+    void disablingChatRejectsAllPrivateOperationsButDoesNotDisableFeed() {
+        when(members.findByTeamIdAndProfileId(42L, 2L)).thenReturn(Optional.of(
+                SportsTeamMember.builder().team(team).profile(player)
+                        .status(SportsTeamMember.Status.ACTIVE).build()));
+        team.setChatEnabled(false);
+        team.setFeedEnabled(true);
+
+        assertThrows(ResponseStatusException.class, () ->
+                service.recent(42L, SportsTeamContent.Kind.CHAT, "player"));
+        assertThrows(ResponseStatusException.class, () ->
+                service.search(42L, SportsTeamContent.Kind.CHAT, "message", "player"));
+        assertThrows(ResponseStatusException.class, () ->
+                service.post(42L, SportsTeamContent.Kind.CHAT,
+                        new SportsTeamContentService.Submit("blocked"), "player"));
+        assertThrows(ResponseStatusException.class, () ->
+                service.attachmentsAvailable(42L, SportsTeamContent.Kind.CHAT, "player"));
+        assertThrows(ResponseStatusException.class, () ->
+                service.download(42L, SportsTeamContent.Kind.CHAT, 4L, 0, "player"));
+        assertThrows(ResponseStatusException.class, () ->
+                service.upload(42L, SportsTeamContent.Kind.CHAT, List.of(), "", null, "player"));
+
+        verifyNoInteractions(entries);
+        when(entries.findByTeamIdAndKindOrderByIdDesc(eq(42L),
+                eq(SportsTeamContent.Kind.FEED), any(Pageable.class))).thenReturn(List.of());
+        assertTrue(service.recent(42L, SportsTeamContent.Kind.FEED, "player").isEmpty());
+    }
+
+    @Test
     void removedMemberCannotReadSearchPostOrProbePrivateAttachments() {
         // A deleted membership is indistinguishable from an outsider to the private API.
         when(members.findByTeamIdAndProfileId(42L, 2L)).thenReturn(Optional.empty());
@@ -210,6 +238,13 @@ class SportsTeamContentServiceTest {
             service.attachmentsAvailable(42L, SportsTeamContent.Kind.CHAT, "player"));
         assertThrows(AccessDeniedException.class, () ->
             service.download(42L, SportsTeamContent.Kind.CHAT, 4L, 0, "player"));
+        assertThrows(AccessDeniedException.class, () ->
+            service.upload(42L, SportsTeamContent.Kind.CHAT, List.of(), "", null, "player"));
+        assertThrows(AccessDeniedException.class, () ->
+            service.edit(42L, SportsTeamContent.Kind.CHAT, 4L,
+                new SportsTeamContentService.Submit("forbidden"), "player"));
+        assertThrows(AccessDeniedException.class, () ->
+            service.delete(42L, SportsTeamContent.Kind.CHAT, 4L, "player"));
         verifyNoInteractions(entries);
     }
 }
