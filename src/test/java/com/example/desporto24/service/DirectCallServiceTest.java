@@ -230,7 +230,7 @@ class DirectCallServiceTest {
                 eq("video"), eq("RINGING"), eq("ana"), any());
 
         var accepted = calls.accept(outgoing.callId(), "bea");
-        verify(inbox).requireConversationAccess("bea", "direct", "ana");
+        verify(inbox, times(2)).requireConversationAccess("bea", "direct", "ana");
         assertEquals(outgoing.callId(), accepted.callId());
         assertEquals("ana", accepted.peer());
         assertEquals("jynlo-user-13", JWT.decode(accepted.token()).getSubject());
@@ -255,7 +255,7 @@ class DirectCallServiceTest {
         assertEquals("bea", recovered.peer());
         assertEquals("video", recovered.media());
         assertEquals(outgoing.expiresAt(), recovered.expiresAt());
-        verify(inbox).requireConversationAccess("bea", "direct", "ana");
+        verify(inbox, times(2)).requireConversationAccess("bea", "direct", "ana");
 
         calls.accept(outgoing.callId(), "bea");
         assertNull(calls.pendingFor("bea"), "Accepted calls must not ring again");
