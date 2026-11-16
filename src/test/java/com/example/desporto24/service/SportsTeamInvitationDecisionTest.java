@@ -61,4 +61,42 @@ class SportsTeamInvitationDecisionTest {
                 () -> service.respond(7L, "player", true));
         verify(members, times(1)).saveAndFlush(invitation);
     }
+
+    @Test
+    void suspendedPlayerCannotAcceptButCanDeclineInvitation() {
+        var profile = new Profile();
+        profile.setId(42L);
+        profile.setUsername("player");
+        profile.setModerationSuspendedAt(java.time.Instant.now());
+        var invitation = SportsTeamMember.builder()
+                .status(SportsTeamMember.Status.INVITED).build();
+        when(profiles.findUserByUsername("player")).thenReturn(Optional.of(profile));
+        when(members.findInvitationForUpdate(7L, 42L)).thenReturn(Optional.of(invitation));
+
+        assertThrows(ResponseStatusException.class,
+                () -> service.respond(7L, "player", true));
+        assertEquals(SportsTeamMember.Status.INVITED, invitation.getStatus());
+        verify(members, never()).saveAndFlush(any());
+
+        service.respond(7L, "player", false);
+        assertEquals(SportsTeamMember.Status.DECLINED, invitation.getStatus());
+        verify(members).saveAndFlush(invitation);
+    }
+
+    @Test
+    void disabledPlayerCannotAcceptAnOldInvitation() {
+        var profile = new Profile();
+        profile.setId(42L);
+        profile.setUsername("player");
+        profile.setEnabled(false);
+        var invitation = SportsTeamMember.builder()
+                .status(SportsTeamMember.Status.INVITED).build();
+        when(profiles.findUserByUsername("player")).thenReturn(Optional.of(profile));
+        when(members.findInvitationForUpdate(7L, 42L)).thenReturn(Optional.of(invitation));
+
+        assertThrows(ResponseStatusException.class,
+                () -> service.respond(7L, "player", true));
+        assertEquals(SportsTeamMember.Status.INVITED, invitation.getStatus());
+        verify(members, never()).saveAndFlush(any());
+    }
 }
