@@ -23,4 +23,5 @@ public interface CommunityChampionshipTeamRepository extends JpaRepository<Commu
     List<CommunityChampionshipTeam> closedPublicSeasonsForGlobalTeam(
             @org.springframework.data.repository.query.Param("globalTeamId") Long globalTeamId);
 
+    boolean existsByGlobalTeamId(Long globalTeamId);
 }
