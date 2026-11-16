@@ -74,6 +74,24 @@ class SportsTeamCompetitionApplicationServiceTest {
     verifyNoInteractions(tournaments,applications);
   }
 
+  @Test void suspendedCaptainCannotApplyWithAnOldAuthenticatedSession() {
+    var owner=profile(1L,"captain");
+    owner.setModerationSuspendedAt(java.time.Instant.now());
+    when(profiles.findUserByUsername("captain")).thenReturn(Optional.of(owner));
+    assertThrows(AccessDeniedException.class,()->service.apply(7L,"TOURNAMENT",10L,4L,"captain"));
+    verifyNoInteractions(teams,applications,tournaments,championships);
+  }
+
+  @Test void disabledOrganizerCannotApproveOrChangeApplicationSettings() {
+    var organizer=profile(2L,"organizer");
+    organizer.setEnabled(false);
+    when(profiles.findUserByUsername("organizer")).thenReturn(Optional.of(organizer));
+    assertThrows(AccessDeniedException.class,()->service.decide(30L,true,"organizer"));
+    assertThrows(AccessDeniedException.class,()->service.configure(
+        7L,"TOURNAMENT",10L,true,"organizer"));
+    verifyNoInteractions(applications,members,tournaments,championships);
+  }
+
   @Test void privateCompetitionCannotReceiveApplicationEvenWhenFlagIsSet() {
     var owner=profile(1L,"captain");
     var community=Community.builder().id(7L).visibility(CommunityVisibility.PRIVATE).build();
