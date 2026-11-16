@@ -26,6 +26,20 @@ public class SportsTeamMembershipService {
 
     public record RosterPlayer(Long profileId, String username, String role) {}
     public record Invitation(Long teamId, String teamName, String status) {}
+    public record PendingInvitation(Long profileId, String username, String status) {}
+
+    @Transactional(readOnly = true)
+    public List<PendingInvitation> pendingInvitations(Long teamId, String username) {
+        SportsTeam team = team(teamId);
+        Profile caller = actor(username);
+        if (!team.getOwner().getId().equals(caller.getId()))
+            throw new AccessDeniedException("Apenas o responsável pode consultar os convites");
+        return members.findByTeamIdAndStatusOrderByIdAsc(teamId, SportsTeamMember.Status.INVITED)
+                .stream().map(m -> new PendingInvitation(
+                        m.getProfile().getId(), m.getProfile().getUsername(), "INVITED"))
+                .toList();
+    }
+
     public record PlayerCandidate(Long profileId, String username, String fullName) {}
     public record JoinedTeam(Long id, String slug, String name, String sport, String location,
                              String description, Long ownerProfileId, boolean feedEnabled,
