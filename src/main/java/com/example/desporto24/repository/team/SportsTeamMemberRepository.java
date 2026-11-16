@@ -19,4 +19,5 @@ public interface SportsTeamMemberRepository extends JpaRepository<SportsTeamMemb
                                                        @Param("profileId") Long profileId);
     List<SportsTeamMember> findByTeamIdAndStatusOrderByIdAsc(Long teamId, SportsTeamMember.Status status);
     List<SportsTeamMember> findByProfileIdAndStatusOrderByIdDesc(Long profileId, SportsTeamMember.Status status);
+    boolean existsByTeamId(Long teamId);
 }
