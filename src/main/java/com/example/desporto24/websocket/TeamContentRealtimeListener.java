@@ -35,6 +35,21 @@ public class TeamContentRealtimeListener {
         }
     }
 
+    /** No private message is sent. The removed player receives a revalidation hint only. */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onMembershipRevoked(TeamMembershipRevokedEvent event) {
+        if (event == null || event.teamId() == null || event.teamId() <= 0
+                || event.username() == null || event.username().isBlank()) return;
+        try {
+            // The former member is intentionally included: their next authenticated
+            // HTTP read returns 403 and clears any locally cached private messages.
+            gateway.publishTeamContentInvalidated(Set.of(event.username()), event.teamId(), "chat");
+            gateway.publishTeamContentInvalidated(Set.of(event.username()), event.teamId(), "feed");
+        } catch (RuntimeException ignored) {
+            // No private content is included; periodic client revalidation is fallback.
+        }
+    }
+
     public void notifyCurrentMembers(Long teamId, String kind) {
         var team = teams.findById(teamId).orElse(null);
         if (team == null || ("chat".equals(kind) ? !team.isChatEnabled() : !team.isFeedEnabled())) return;
