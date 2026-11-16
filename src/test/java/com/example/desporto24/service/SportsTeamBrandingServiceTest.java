@@ -50,12 +50,13 @@ class SportsTeamBrandingServiceTest {
         var team=owned();
         when(teams.findById(21L)).thenReturn(Optional.of(team));
         assertThrows(AccessDeniedException.class,
-                ()->service.kit(21L,new SportsTeamService.KitSettings("#00ccaa","#ffffff"),"outsider"));
+                ()->service.kit(21L,new SportsTeamService.KitSettings("#00ccaa","#ffffff","STRIPES"),"outsider"));
         verify(teams,never()).saveAndFlush(any());
         when(teams.saveAndFlush(team)).thenReturn(team);
         var saved=service.kit(21L,new SportsTeamService.KitSettings("#00ccaa","#ffffff"),"captain");
         assertEquals("#00CCAA",saved.kitPrimary());
         assertEquals("#FFFFFF",saved.kitSecondary());
+        assertEquals("STRIPES",saved.kitPattern());
     }
 
     @Test
@@ -63,8 +64,27 @@ class SportsTeamBrandingServiceTest {
         var team=owned();
         when(teams.findById(21L)).thenReturn(Optional.of(team));
         assertThrows(ResponseStatusException.class,
-                ()->service.kit(21L,new SportsTeamService.KitSettings("red","#ffffff"),"captain"));
+                ()->service.kit(21L,new SportsTeamService.KitSettings("red","#ffffff","PLAIN"),"captain"));
         verify(teams,never()).saveAndFlush(any());
+    }
+
+    @Test
+    void kitPatternsRejectUnknownValuesWithoutUpdatingExistingTeam() {
+        var team=owned();
+        when(teams.findById(21L)).thenReturn(Optional.of(team));
+        assertThrows(ResponseStatusException.class,
+                ()->service.kit(21L,new SportsTeamService.KitSettings("#112233","#ffffff","SCRIPT"),"captain"));
+        verify(teams,never()).saveAndFlush(any());
+    }
+
+    @Test
+    void legacyKitUpdateDoesNotResetAlreadySavedPattern() {
+        var team=owned();
+        team.setKitPattern("DIAGONAL");
+        when(teams.findById(21L)).thenReturn(Optional.of(team));
+        when(teams.saveAndFlush(team)).thenReturn(team);
+        var saved=service.kit(21L,new SportsTeamService.KitSettings("#112233","#ffffff",null),"captain");
+        assertEquals("DIAGONAL",saved.kitPattern());
     }
 
     @Test
