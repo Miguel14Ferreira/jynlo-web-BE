@@ -70,6 +70,8 @@ public class SportsTeamMembershipService {
         List<RosterPlayer> result = new ArrayList<>();
         result.add(new RosterPlayer(team.getOwner().getId(), team.getOwner().getUsername(), "OWNER"));
         members.findByTeamIdAndStatusOrderByIdAsc(id, SportsTeamMember.Status.ACTIVE)
+                .stream()
+                .filter(m -> !m.getProfile().getId().equals(team.getOwner().getId()))
                 .forEach(m -> result.add(new RosterPlayer(
                         m.getProfile().getId(), m.getProfile().getUsername(), "PLAYER")));
         return result;
@@ -116,6 +118,9 @@ public class SportsTeamMembershipService {
                         "Não existe convite para esta equipa"));
         if (member.getStatus() != SportsTeamMember.Status.INVITED)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Convite já respondido");
+        if (accept && (Boolean.FALSE.equals(profile.getEnabled())
+                || profile.getModerationSuspendedAt() != null))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Jogador indisponível");
         member.setStatus(accept ? SportsTeamMember.Status.ACTIVE : SportsTeamMember.Status.DECLINED);
         member.setRespondedAt(Instant.now());
         members.saveAndFlush(member);
