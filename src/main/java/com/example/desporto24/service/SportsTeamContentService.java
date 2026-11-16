@@ -57,6 +57,10 @@ public class SportsTeamContentService {
     }
 
     private void requireActiveMember(SportsTeam team, Profile actor) {
+        // Membership alone must not keep a disabled or suspended account
+        // inside private chat/feed sessions after moderation has taken effect.
+        if (Boolean.FALSE.equals(actor.getEnabled()) || actor.getModerationSuspendedAt() != null)
+            throw new AccessDeniedException("Conta indisponível para conteúdos privados");
         if (team.getOwner().getId().equals(actor.getId())) return;
         boolean active = members.findByTeamIdAndProfileId(team.getId(), actor.getId())
                 .filter(member -> member.getStatus() == SportsTeamMember.Status.ACTIVE)
