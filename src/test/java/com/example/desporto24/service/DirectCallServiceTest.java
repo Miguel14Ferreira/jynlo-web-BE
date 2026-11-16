@@ -290,6 +290,8 @@ class DirectCallServiceTest {
         var outgoing = calls.start("ana", "bea", "voice");
         calls.accept(outgoing.callId(), "bea");
         calls.invite(outgoing.callId(), "ana", "carlos");
+        // Ignore access checks performed while the invitation was still authorized.
+        clearInvocations(inbox);
         doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "Session contact expired"))
                 .when(inbox).requireConversationAccess("ana", "direct", "bea");
 
@@ -390,6 +392,8 @@ class DirectCallServiceTest {
         var outgoing = calls.start("ana", "bea", "voice");
         calls.accept(outgoing.callId(), "bea");
         calls.invite(outgoing.callId(), "ana", "carlos");
+        // Ignore access checks performed while the invitation was still authorized.
+        clearInvocations(inbox);
         doThrow(new org.springframework.security.access.AccessDeniedException("Session participation revoked"))
                 .when(inbox).requireConversationAccess("ana", "direct", "bea");
 
@@ -411,6 +415,8 @@ class DirectCallServiceTest {
         var group = calls.start("ana", "bea", "voice");
         calls.accept(group.callId(), "bea");
         calls.invite(group.callId(), "ana", "carlos");
+        // Ignore access checks performed while the invitation was still authorized.
+        clearInvocations(inbox);
         doThrow(new org.springframework.security.access.AccessDeniedException("Session permission revoked"))
                 .when(inbox).requireConversationAccess("ana", "direct", "bea");
 
@@ -427,6 +433,8 @@ class DirectCallServiceTest {
         var outgoing = calls.start("ana", "bea", "voice");
         calls.accept(outgoing.callId(), "bea");
         calls.invite(outgoing.callId(), "ana", "carlos");
+        // Ignore access checks performed while the invitation was still authorized.
+        clearInvocations(inbox);
         doThrow(new org.springframework.security.access.AccessDeniedException("Session participation revoked"))
                 .when(inbox).requireConversationAccess("ana", "direct", "bea");
 
@@ -978,15 +986,14 @@ class DirectCallServiceTest {
 
         lenient().doThrow(new org.springframework.security.access.AccessDeniedException("Revoked"))
                 .when(inbox).requireConversationAccess("ana", "direct", "bea");
-        calls.invite(call.callId(), "bea", "carlos");
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.invite(call.callId(), "bea", "carlos"));
 
         verify(gateway, never()).publishDirectCallEventTo(eq("ana"), anyString(), anyString(),
                 eq(call.callId().toString()), eq("voice"), eq("MEMBERS_CHANGED"), anyString(), any());
-        verify(gateway).publishDirectCallEventTo(eq("bea"), eq("ana"), eq("bea"),
-                eq(call.callId().toString()), eq("voice"), eq("MEMBERS_CHANGED"), eq("bea"), any());
         assertThrows(org.springframework.security.access.AccessDeniedException.class,
                 () -> calls.members(call.callId(), "ana"));
-        assertNotNull(calls.pendingFor("carlos"));
+        assertNull(calls.pendingFor("carlos"));
     }
 
     @Test
@@ -999,8 +1006,9 @@ class DirectCallServiceTest {
                 .when(inbox).requireConversationAccess("ana", "direct", "bea");
         assertThrows(org.springframework.security.access.AccessDeniedException.class,
                 () -> calls.members(call.callId(), "ana"));
-        // Revoking one participant must not prevent the other from inspecting their own call.
-        assertEquals(2, calls.members(call.callId(), "bea").participants().size());
+        // The original pair is no longer mutually authorized; neither peer may inspect the roster.
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.members(call.callId(), "bea"));
     }
     @Test
     void revokedSessionContactCannotInviteMorePeopleIntoAnActiveCall() {
@@ -1014,7 +1022,8 @@ class DirectCallServiceTest {
         verify(inbox, never()).requireConversationAccess("ana", "direct", "carlos");
         verify(gateway, never()).publishDirectCallEvent(eq("ana"), eq("carlos"),
                 anyString(), anyString(), anyString(), anyString(), any());
-        assertTrue(calls.members(call.callId(), "bea").pending().isEmpty());
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.members(call.callId(), "bea"));
     }
 
     @Test
