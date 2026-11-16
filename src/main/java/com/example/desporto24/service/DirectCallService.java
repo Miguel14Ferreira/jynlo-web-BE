@@ -65,9 +65,9 @@ public class DirectCallService {
     private final ProfileRepository profiles;
     private final ChatRealtimeGateway gateway;
 
-    // Optional field injection preserves the existing isolated service-test constructor.
-    // In the running Spring application this shared PostgreSQL limiter is mandatory.
-    @Autowired(required = false)
+    // Require the shared PostgreSQL limiter in Spring; isolated unit tests use the service directly.
+    // Never start the application without distributed call abuse protection.
+    @Autowired
     private DistributedAuthRateLimiter distributedCallLimits;
 
     @Value("${LIVEKIT_URL:}")
