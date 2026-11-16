@@ -32,6 +32,15 @@ public class SportsTeam {
     @Column(length = 500)
     private String description;
 
+    @Column(name = "logo_url", length = 1000)
+    private String logoUrl;
+
+    @Column(name = "kit_primary", length = 7)
+    private String kitPrimary;
+
+    @Column(name = "kit_secondary", length = 7)
+    private String kitSecondary;
+
     @Column(name = "feed_enabled", nullable = false)
     private boolean feedEnabled;
 
