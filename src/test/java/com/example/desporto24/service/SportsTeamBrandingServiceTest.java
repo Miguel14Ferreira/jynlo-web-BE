@@ -53,7 +53,7 @@ class SportsTeamBrandingServiceTest {
                 ()->service.kit(21L,new SportsTeamService.KitSettings("#00ccaa","#ffffff","STRIPES"),"outsider"));
         verify(teams,never()).saveAndFlush(any());
         when(teams.saveAndFlush(team)).thenReturn(team);
-        var saved=service.kit(21L,new SportsTeamService.KitSettings("#00ccaa","#ffffff"),"captain");
+        var saved=service.kit(21L,new SportsTeamService.KitSettings("#00ccaa","#ffffff","STRIPES"),"captain");
         assertEquals("#00CCAA",saved.kitPrimary());
         assertEquals("#FFFFFF",saved.kitSecondary());
         assertEquals("STRIPES",saved.kitPattern());
