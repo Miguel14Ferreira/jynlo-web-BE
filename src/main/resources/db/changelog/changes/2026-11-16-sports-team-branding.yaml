@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-16-sports-team-branding
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: sports_team
+            columns:
+              - column:
+                  name: logo_url
+                  type: varchar(1000)
+              - column:
+                  name: kit_primary
+                  type: varchar(7)
+              - column:
+                  name: kit_secondary
+                  type: varchar(7)
