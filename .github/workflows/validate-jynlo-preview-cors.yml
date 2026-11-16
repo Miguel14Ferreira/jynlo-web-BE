@@ -1,0 +1,29 @@
+name: Jynlo staging CORS allowlist safety
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'src/main/java/com/example/desporto24/configuration/SecurityConfiguration.java'
+      - 'src/test/java/com/example/desporto24/configuration/SecurityCorsAllowlistTest.java'
+      - '.github/workflows/validate-jynlo-preview-cors.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cors-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Verify credential-safe exact Jynlo CORS origins
+        run: |
+          chmod +x ./mvnw
+          ./mvnw -B -q -Dtest=SecurityCorsAllowlistTest test
