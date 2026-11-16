@@ -33,6 +33,9 @@ class DirectCallServiceTest {
         ReflectionTestUtils.setField(calls, "serverUrl", "wss://example.livekit.cloud");
         ReflectionTestUtils.setField(calls, "apiKey", "jynlo-api-key");
         ReflectionTestUtils.setField(calls, "apiSecret", "only-for-tests-long-enough-livekit-secret");
+        // Unrelated contact pairs remain permitted by default; individual tests revoke
+        // precisely one direction to exercise the bidirectional authorization checks.
+        lenient().doNothing().when(inbox).requireConversationAccess(anyString(), eq("direct"), anyString());
         Profile caller = mock(Profile.class);
         Profile recipient = mock(Profile.class);
         lenient().when(caller.getId()).thenReturn(12L);
