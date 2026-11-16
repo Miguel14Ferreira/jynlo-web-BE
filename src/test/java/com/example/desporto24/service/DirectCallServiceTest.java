@@ -3,6 +3,7 @@ package com.example.desporto24.service;
 import com.auth0.jwt.JWT;
 import com.example.desporto24.model.Profile;
 import com.example.desporto24.repository.ProfileRepository;
+import com.example.desporto24.security.DistributedAuthRateLimiter;
 import com.example.desporto24.websocket.ChatRealtimeGateway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,7 @@ class DirectCallServiceTest {
     @Mock InboxSummaryService inbox;
     @Mock ProfileRepository profiles;
     @Mock ChatRealtimeGateway gateway;
+    @Mock DistributedAuthRateLimiter distributedCallLimits;
     @InjectMocks DirectCallService calls;
 
     @BeforeEach
@@ -42,6 +44,28 @@ class DirectCallServiceTest {
         lenient().when(recipient.getId()).thenReturn(13L);
         lenient().when(profiles.findUserByUsernameIgnoreCase("ana")).thenReturn(Optional.of(caller));
         lenient().when(profiles.findUserByUsernameIgnoreCase("bea")).thenReturn(Optional.of(recipient));
+    }
+
+    @Test
+    void distributedLimiterFailurePreventsNewDirectRing() {
+        doThrow(new IllegalStateException("PostgreSQL unavailable"))
+                .when(distributedCallLimits).reserveAttempt(eq("direct-call-start"), anyString(),
+                        eq(6), any());
+        assertThrows(IllegalStateException.class, () -> calls.start("ana", "bea", "voice"));
+        assertNull(calls.pendingFor("bea"));
+        verifyNoInteractions(gateway);
+    }
+
+    @Test
+    void distributedLimiterFailurePreventsGroupInvitation() {
+        var call = calls.start("ana", "bea", "video");
+        calls.accept(call.callId(), "bea");
+        doThrow(new IllegalStateException("PostgreSQL unavailable"))
+                .when(distributedCallLimits).reserveAttempt(eq("direct-call-invite"), anyString(),
+                        anyInt(), any());
+        assertThrows(IllegalStateException.class,
+                () -> calls.invite(call.callId(), "ana", "carlos"));
+        assertNull(calls.pendingFor("carlos"));
     }
 
     @Test
