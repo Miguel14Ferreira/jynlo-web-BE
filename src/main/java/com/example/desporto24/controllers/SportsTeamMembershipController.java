@@ -42,6 +42,13 @@ public class SportsTeamMembershipController {
         return service.mine(auth.getName());
     }
 
+    @GetMapping("/{teamId}/invitations")
+    @PreAuthorize("isAuthenticated()")
+    public List<SportsTeamMembershipService.PendingInvitation> pendingInvitations(
+            @PathVariable Long teamId, Authentication auth) {
+        return service.pendingInvitations(teamId, auth.getName());
+    }
+
     @PostMapping("/{teamId}/invitations")
     @PreAuthorize("isAuthenticated()")
     @ResponseStatus(HttpStatus.ACCEPTED)
