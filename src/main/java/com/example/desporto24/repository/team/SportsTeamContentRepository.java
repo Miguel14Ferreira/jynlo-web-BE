@@ -21,4 +21,5 @@ public interface SportsTeamContentRepository extends JpaRepository<SportsTeamCon
             @org.springframework.data.repository.query.Param("kind") SportsTeamContent.Kind kind,
             @org.springframework.data.repository.query.Param("term") String term, Pageable pageable);
 
+    boolean existsByTeamId(Long teamId);
 }
