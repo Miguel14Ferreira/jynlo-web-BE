@@ -5,6 +5,9 @@ on:
     paths:
       - 'src/main/java/com/example/desporto24/model/team/SportsTeamContent*'
       - 'src/main/java/com/example/desporto24/service/SportsTeamContentService.java'
+      - 'src/main/java/com/example/desporto24/websocket/TeamContent*'
+      - 'src/main/java/com/example/desporto24/websocket/ChatRealtimeGateway.java'
+      - 'src/test/java/com/example/desporto24/websocket/TeamContentRealtimeListenerTest.java'
       - 'src/main/java/com/example/desporto24/controllers/SportsTeamContentAttachmentController.java'
       - 'src/main/java/com/example/desporto24/controllers/SportsTeamContentController.java'
       - 'src/test/java/com/example/desporto24/service/SportsTeam*Test.java'
@@ -29,4 +32,4 @@ jobs:
       - name: Compile and test team content authorization and attachments
         run: |
           chmod +x ./mvnw
-          ./mvnw -B -q -Dtest=SportsTeamContentServiceTest,SportsTeamReactionServiceTest,SportsTeamAttachmentServiceTest test
+          ./mvnw -B -q -Dtest=SportsTeamContentServiceTest,SportsTeamReactionServiceTest,SportsTeamAttachmentServiceTest,TeamContentRealtimeListenerTest test
