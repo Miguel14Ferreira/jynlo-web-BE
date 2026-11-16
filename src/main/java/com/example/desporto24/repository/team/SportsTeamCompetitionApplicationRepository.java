@@ -11,4 +11,5 @@ public interface SportsTeamCompetitionApplicationRepository extends JpaRepositor
     List<SportsTeamCompetitionApplication> findByTeamOwnerIdOrderByIdDesc(Long ownerId);
     List<SportsTeamCompetitionApplication> findByCommunityIdAndCompetitionTypeAndCompetitionIdOrderByIdAsc(
         Long communityId, SportsTeamCompetitionApplication.CompetitionType type, Long competitionId);
+    boolean existsByTeamId(Long teamId);
 }
