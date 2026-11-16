@@ -110,7 +110,8 @@ public class SportsTeamMembershipService {
     @Transactional
     public void respond(Long teamId, String username, boolean accept) {
         Profile profile = actor(username);
-        var member = members.findByTeamIdAndProfileId(teamId, profile.getId())
+        // Pessimistic row lock makes the second simultaneous response see the committed status.
+        var member = members.findInvitationForUpdate(teamId, profile.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Não existe convite para esta equipa"));
         if (member.getStatus() != SportsTeamMember.Status.INVITED)
