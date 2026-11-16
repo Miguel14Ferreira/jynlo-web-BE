@@ -9,4 +9,5 @@ public interface SportsTeamCommunityMembershipRepository extends JpaRepository<S
     Optional<SportsTeamCommunityMembership> findByTeamIdAndCommunityId(Long teamId,Long communityId);
     List<SportsTeamCommunityMembership> findByCommunityIdOrderByIdAsc(Long communityId);
     List<SportsTeamCommunityMembership> findByTeamIdOrderByIdDesc(Long teamId);
+    boolean existsByTeamId(Long teamId);
 }
