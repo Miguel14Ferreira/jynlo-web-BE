@@ -21,4 +21,5 @@ public interface CommunityTournamentTeamRepository extends JpaRepository<Communi
     List<CommunityTournamentTeam> historyForGlobalTeam(
             @org.springframework.data.repository.query.Param("teamId") Long teamId);
 
+    boolean existsByGlobalTeamId(Long globalTeamId);
 }
