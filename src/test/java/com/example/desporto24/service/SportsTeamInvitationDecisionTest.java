@@ -25,6 +25,80 @@ class SportsTeamInvitationDecisionTest {
     @InjectMocks SportsTeamMembershipService service;
 
     @Test
+    void completeInvitationLifecycleGrantsChatOnlyAfterAcceptanceAndRevokesItAfterRemoval() {
+        var captain=new Profile();
+        captain.setId(1L);
+        captain.setUsername("captain");
+        var player=new Profile();
+        player.setId(42L);
+        player.setUsername("player");
+        var team=com.example.desporto24.model.team.SportsTeam.builder()
+            .id(7L).owner(captain).name("Atlético")
+            .chatEnabled(true).feedEnabled(true).build();
+        var membership=new java.util.concurrent.atomic.AtomicReference<SportsTeamMember>();
+        when(teams.findById(7L)).thenReturn(Optional.of(team));
+        when(profiles.findUserByUsername("captain")).thenReturn(Optional.of(captain));
+        when(profiles.findUserByUsername("player")).thenReturn(Optional.of(player));
+        when(profiles.findById(42L)).thenReturn(Optional.of(player));
+        when(members.findByTeamIdAndProfileId(7L,42L))
+            .thenAnswer(call->Optional.ofNullable(membership.get()));
+        when(members.findInvitationForUpdate(7L,42L))
+            .thenAnswer(call->Optional.ofNullable(membership.get()));
+        when(members.saveAndFlush(any(SportsTeamMember.class))).thenAnswer(call->{
+            SportsTeamMember saved=call.getArgument(0);
+            membership.set(saved);
+            return saved;
+        });
+        doAnswer(call->{membership.set(null);return null;})
+            .when(members).delete(any(SportsTeamMember.class));
+
+        var contentRepo=mock(com.example.desporto24.repository.team.SportsTeamContentRepository.class);
+        var teamContent=new SportsTeamContentService(teams,members,contentRepo,profiles);
+        when(contentRepo.findByTeamIdAndKindOrderByIdDesc(eq(7L),
+            eq(com.example.desporto24.model.team.SportsTeamContent.Kind.CHAT),
+            any(org.springframework.data.domain.Pageable.class))).thenReturn(java.util.List.of());
+        when(contentRepo.saveAndFlush(any(com.example.desporto24.model.team.SportsTeamContent.class)))
+            .thenAnswer(call->{
+                var saved=(com.example.desporto24.model.team.SportsTeamContent)call.getArgument(0);
+                saved.setId(8L);
+                return saved;
+            });
+
+        service.invite(7L,42L,"captain");
+        assertEquals(SportsTeamMember.Status.INVITED,membership.get().getStatus());
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+            ()->teamContent.recent(7L,
+                com.example.desporto24.model.team.SportsTeamContent.Kind.CHAT,"player"));
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+            ()->teamContent.post(7L,
+                com.example.desporto24.model.team.SportsTeamContent.Kind.CHAT,
+                new SportsTeamContentService.Submit("antes do convite"),"player"));
+
+        service.respond(7L,"player",true);
+        assertEquals(SportsTeamMember.Status.ACTIVE,membership.get().getStatus());
+        assertTrue(teamContent.recent(7L,
+            com.example.desporto24.model.team.SportsTeamContent.Kind.CHAT,"player").isEmpty());
+        var sent=teamContent.post(7L,
+            com.example.desporto24.model.team.SportsTeamContent.Kind.CHAT,
+            new SportsTeamContentService.Submit("Olá equipa"),"player");
+        assertEquals("Olá equipa",sent.body());
+
+        service.remove(7L,42L,"captain");
+        assertNull(membership.get());
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+            ()->teamContent.recent(7L,
+                com.example.desporto24.model.team.SportsTeamContent.Kind.CHAT,"player"));
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+            ()->teamContent.post(7L,
+                com.example.desporto24.model.team.SportsTeamContent.Kind.CHAT,
+                new SportsTeamContentService.Submit("mensagem bloqueada"),"player"));
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+            ()->teamContent.download(7L,
+                com.example.desporto24.model.team.SportsTeamContent.Kind.CHAT,8L,0,"player"));
+        verify(contentRepo,times(1)).saveAndFlush(any());
+    }
+
+    @Test
     void acceptingInvitationUsesLockedMembershipAndRejectsDuplicateDecision() {
         var profile = new Profile();
         profile.setId(42L);
