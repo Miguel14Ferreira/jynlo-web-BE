@@ -21,6 +21,9 @@ public class SportsTeamMembershipService {
     private final SportsTeamMemberRepository members;
     private final ProfileRepository profiles;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher realtimeEvents;
+
     public record RosterPlayer(Long profileId, String username, String role) {}
     public record Invitation(Long teamId, String teamName, String status) {}
     public record PlayerCandidate(Long profileId, String username, String fullName) {}
@@ -137,7 +140,12 @@ public class SportsTeamMembershipService {
         var member = members.findByTeamIdAndProfileId(teamId, profileId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Jogador não pertence à equipa"));
+        boolean wasActive = member.getStatus() == SportsTeamMember.Status.ACTIVE;
+        String removedUsername = member.getProfile().getUsername();
         members.delete(member);
         members.flush();
+        if (wasActive && realtimeEvents != null)
+            realtimeEvents.publishEvent(new com.example.desporto24.websocket.TeamMembershipRevokedEvent(
+                    teamId, removedUsername));
     }
 }
