@@ -87,6 +87,26 @@ class SportsTeamBrandingServiceTest {
     }
 
     @Test
+    void suspendedOwnerCannotCreateTeamsOrManageBrandingAndFeatures() {
+        var owner=new Profile();
+        owner.setId(7L);
+        owner.setUsername("captain");
+        owner.setModerationSuspendedAt(java.time.Instant.now());
+        var team=SportsTeam.builder().id(21L).name("Atlético").owner(owner).build();
+        when(profiles.findUserByUsername("captain")).thenReturn(Optional.of(owner));
+        when(teams.findById(21L)).thenReturn(Optional.of(team));
+
+        assertThrows(AccessDeniedException.class, () -> service.create(
+            new SportsTeamService.CreateTeam("Novo clube","Futebol",null,null),"captain"));
+        assertThrows(AccessDeniedException.class, () -> service.features(
+            21L,new SportsTeamService.TeamFeatures(true,true),"captain"));
+        assertThrows(AccessDeniedException.class, () -> service.kit(
+            21L,new SportsTeamService.KitSettings("#112233","#ffffff","PLAIN"),"captain"));
+        verify(teams,never()).saveAndFlush(any());
+        verifyNoInteractions(mediaStorage);
+    }
+
+    @Test
     void onlyOwnerCanUpdateKitAndColorsAreNormalized() {
         var team=owned();
         when(teams.findById(21L)).thenReturn(Optional.of(team));
