@@ -12,4 +12,5 @@ public interface SportsTeamCompetitionInvitationRepository
     List<SportsTeamCompetitionInvitation> findByTeamOwnerIdOrderByIdDesc(Long ownerId);
     List<SportsTeamCompetitionInvitation> findByCommunityIdAndCompetitionTypeAndCompetitionIdOrderByIdAsc(
         Long communityId, SportsTeamCompetitionInvitation.CompetitionType type, Long competitionId);
+    boolean existsByTeamId(Long teamId);
 }
