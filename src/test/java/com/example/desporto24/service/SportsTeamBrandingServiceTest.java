@@ -7,6 +7,8 @@ import com.example.desporto24.repository.community.CommunityTournamentTeamReposi
 import com.example.desporto24.repository.team.SportsTeamRepository;
 import com.example.desporto24.storage.MediaStorage;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -29,6 +31,11 @@ class SportsTeamBrandingServiceTest {
     @Mock CommunityTournamentTeamRepository tournamentTeams;
     @Mock MediaStorage mediaStorage;
     @InjectMocks SportsTeamService service;
+
+    @BeforeEach
+    void provideMediaStorage() {
+        ReflectionTestUtils.setField(service,"mediaStorage",mediaStorage);
+    }
 
     private SportsTeam owned() {
         var owner=new Profile();
