@@ -45,6 +45,43 @@ class SportsTeamContentServiceTest {
     }
 
     @Test
+    void disabledOrSuspendedAccountsCannotUsePrivateChatEvenWithActiveMembership() {
+        when(members.findByTeamIdAndProfileId(42L,2L)).thenReturn(Optional.of(
+            SportsTeamMember.builder().team(team).profile(player)
+                .status(SportsTeamMember.Status.ACTIVE).build()));
+
+        player.setEnabled(false);
+        assertThrows(AccessDeniedException.class, () ->
+            service.recent(42L, SportsTeamContent.Kind.CHAT, "player"));
+        assertThrows(AccessDeniedException.class, () ->
+            service.post(42L, SportsTeamContent.Kind.CHAT,
+                new SportsTeamContentService.Submit("blocked"), "player"));
+        assertThrows(AccessDeniedException.class, () ->
+            service.attachmentsAvailable(42L, SportsTeamContent.Kind.CHAT, "player"));
+
+        player.setEnabled(true);
+        player.setModerationSuspendedAt(Instant.now());
+        assertThrows(AccessDeniedException.class, () ->
+            service.search(42L, SportsTeamContent.Kind.CHAT, "private", "player"));
+        assertThrows(AccessDeniedException.class, () ->
+            service.download(42L, SportsTeamContent.Kind.CHAT, 4L, 0, "player"));
+        assertThrows(AccessDeniedException.class, () ->
+            service.delete(42L, SportsTeamContent.Kind.CHAT, 4L, "player"));
+        verifyNoInteractions(entries);
+    }
+
+    @Test
+    void suspendedCaptainAlsoLosesPrivateChatAccess() {
+        owner.setModerationSuspendedAt(Instant.now());
+        assertThrows(AccessDeniedException.class, () ->
+            service.recent(42L, SportsTeamContent.Kind.CHAT, "captain"));
+        assertThrows(AccessDeniedException.class, () ->
+            service.post(42L, SportsTeamContent.Kind.CHAT,
+                new SportsTeamContentService.Submit("blocked"), "captain"));
+        verifyNoInteractions(entries);
+    }
+
+    @Test
     void invitedMembersCannotReadOrPostAnyPrivateTeamContent() {
         when(members.findByTeamIdAndProfileId(42L,2L)).thenReturn(Optional.of(
             SportsTeamMember.builder().team(team).profile(player)
