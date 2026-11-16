@@ -83,11 +83,17 @@ public class SecurityConfiguration {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        // The staging frontend is an explicitly trusted Jynlo-owned origin.
+        // Preserve production origins from configuration; never use wildcard
+        // origins with credentialed requests.
         configuration.setAllowedOrigins(
-                Arrays.stream(allowedOrigins.split(","))
-                        .map(String::trim)
-                        .filter(origin -> !origin.isBlank())
-                        .toList()
+                java.util.stream.Stream.concat(
+                        Arrays.stream(allowedOrigins.split(",")),
+                        java.util.stream.Stream.of("https://desporto24-full-preview.onrender.com")
+                ).map(String::trim)
+                 .filter(origin -> !origin.isBlank())
+                 .distinct()
+                 .toList()
         );
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
