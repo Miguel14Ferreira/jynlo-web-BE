@@ -46,6 +46,47 @@ class SportsTeamBrandingServiceTest {
     }
 
     @Test
+    void creatingPermanentTeamEnablesPrivateChatAndFeedWithoutAddingPlayers() {
+        var owner=new Profile();
+        owner.setId(7L);
+        owner.setUsername("captain");
+        when(profiles.findUserByUsername("captain")).thenReturn(Optional.of(owner));
+        when(teams.saveAndFlush(any(SportsTeam.class))).thenAnswer(call->{
+            SportsTeam entity=call.getArgument(0);
+            entity.setId(21L);
+            return entity;
+        });
+
+        var result=service.create(
+            new SportsTeamService.CreateTeam("Clube Atlântico", "Futebol", "Lisboa", null),
+            "captain");
+
+        assertTrue(result.chatEnabled());
+        assertTrue(result.feedEnabled());
+        assertEquals(7L,result.ownerProfileId());
+        assertEquals("Clube Atlântico",result.name());
+        assertTrue(result.slug().startsWith("clube-atlantico-"));
+        verify(teams).saveAndFlush(argThat(team->
+            team.isChatEnabled() && team.isFeedEnabled() &&
+            team.getOwner().getId().equals(7L)));
+    }
+
+    @Test
+    void teamOwnerCanDisablePrivateChatWithoutDisablingFeed() {
+        var team=owned();
+        team.setChatEnabled(true);
+        team.setFeedEnabled(true);
+        when(teams.findById(21L)).thenReturn(Optional.of(team));
+        when(teams.saveAndFlush(team)).thenReturn(team);
+
+        var result=service.features(21L,
+            new SportsTeamService.TeamFeatures(null, false),"captain");
+
+        assertFalse(result.chatEnabled());
+        assertTrue(result.feedEnabled());
+    }
+
+    @Test
     void onlyOwnerCanUpdateKitAndColorsAreNormalized() {
         var team=owned();
         when(teams.findById(21L)).thenReturn(Optional.of(team));
