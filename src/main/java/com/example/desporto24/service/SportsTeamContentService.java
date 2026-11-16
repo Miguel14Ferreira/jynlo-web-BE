@@ -30,6 +30,15 @@ public class SportsTeamContentService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.storage.PrivateChatFileStorage privateFiles;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher realtimeEvents;
+
+    private void invalidate(Long teamId, SportsTeamContent.Kind kind) {
+        if (realtimeEvents != null)
+            realtimeEvents.publishEvent(new com.example.desporto24.websocket.TeamContentChangedEvent(
+                    teamId, kind.name().toLowerCase(java.util.Locale.ROOT)));
+    }
+
     public record Entry(Long id, Long teamId, String username, String body, Instant createdAt,
                         Long replyToId, Instant editedAt, boolean deleted, boolean canManage, boolean canEdit,
                         List<PrivateChatAttachmentBatch.PublicMetadata> attachments) {}
@@ -122,9 +131,11 @@ public class SportsTeamContentService {
                     || original.getDeletedAt() != null)
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resposta inválida");
         }
-        return view(content.saveAndFlush(SportsTeamContent.builder()
+        var saved = content.saveAndFlush(SportsTeamContent.builder()
                 .team(team).author(sender).kind(kind).body(body).replyToId(replyToId)
-                .createdAt(Instant.now()).build()), sender, team);
+                .createdAt(Instant.now()).build());
+        invalidate(teamId, kind);
+        return view(saved, sender, team);
     }
     /** Probe is member-only, matching the other private chat surfaces. */
     @Transactional(readOnly = true)
@@ -166,6 +177,7 @@ public class SportsTeamContentService {
                     .attachmentKey(first.key()).attachmentName(first.name())
                     .attachmentMimeType(first.mime()).attachmentSize(first.size())
                     .extraAttachments(new java.util.ArrayList<>(batch.extras())).build());
+            invalidate(teamId, kind);
             return view(saved, sender, team);
         } catch (RuntimeException failure) {
             PrivateChatAttachmentBatch.cleanup(privateFiles, batch.files(), failure);
@@ -232,7 +244,9 @@ public class SportsTeamContentService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mensagem inválida");
         entry.setBody(body);
         entry.setEditedAt(Instant.now());
-        return view(content.saveAndFlush(entry), actor, team);
+        var saved = content.saveAndFlush(entry);
+        invalidate(teamId, kind);
+        return view(saved, actor, team);
     }
 
     @Transactional
@@ -246,6 +260,7 @@ public class SportsTeamContentService {
         entry.setBody("");
         entry.setDeletedAt(Instant.now());
         content.saveAndFlush(entry);
+        invalidate(teamId, kind);
     }
 
 }
