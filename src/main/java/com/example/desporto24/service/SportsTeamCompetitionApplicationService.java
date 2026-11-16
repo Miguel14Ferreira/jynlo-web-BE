@@ -94,6 +94,7 @@ public class SportsTeamCompetitionApplicationService {
     public CompetitionView configure(Long communityId,String type,Long competitionId,boolean open,String username) {
         var actor=profiles.findUserByUsername(username)
             .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
+        requireEligibleActor(actor);
         requireOrganizer(communityId,actor.getId());
         var parsed=parseType(type);
         if(parsed==SportsTeamCompetitionApplication.CompetitionType.TOURNAMENT) {
@@ -124,6 +125,7 @@ public class SportsTeamCompetitionApplicationService {
     public ApplicationView apply(Long communityId,String type,Long competitionId,Long teamId,String username) {
         var actor = profiles.findUserByUsername(username)
             .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
+        requireEligibleActor(actor);
         SportsTeam team=teams.findById(teamId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,"Equipa não encontrada"));
         if(!team.getOwner().getId().equals(actor.getId()))
@@ -142,6 +144,7 @@ public class SportsTeamCompetitionApplicationService {
     public ApplicationView decide(Long id,boolean approve,String username) {
         var actor=profiles.findUserByUsername(username)
             .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
+        requireEligibleActor(actor);
         var application=applications.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,"Candidatura não encontrada"));
         requireOrganizer(application.getCommunityId(),actor.getId());
@@ -160,6 +163,13 @@ public class SportsTeamCompetitionApplicationService {
         try{return SportsTeamCompetitionApplication.CompetitionType.valueOf(type.toUpperCase(Locale.ROOT));}
         catch(Exception ex){throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Tipo inválido");}
     }
+    private void requireEligibleActor(com.example.desporto24.model.Profile actor) {
+        // A valid but stale JWT must not authorize competition changes after
+        // the user's account has been disabled or moderation-suspended.
+        if (Boolean.FALSE.equals(actor.getEnabled()) || actor.getModerationSuspendedAt() != null)
+            throw new AccessDeniedException("Conta indisponível para gerir competições");
+    }
+
     private void requireOrganizer(Long cid,Long pid) {
         var membership=members.findByCommunityIdAndProfileId(cid,pid)
             .orElseThrow(()->new AccessDeniedException("Não pertences à comunidade"));
