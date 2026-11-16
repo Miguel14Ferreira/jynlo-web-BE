@@ -1,0 +1,33 @@
+name: Jynlo safe empty-team deletion CI
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'src/main/java/com/example/desporto24/service/SportsTeamDeletionService.java'
+      - 'src/main/java/com/example/desporto24/controllers/SportsTeamDeletionController.java'
+      - 'src/main/java/com/example/desporto24/repository/team/SportsTeam*Repository.java'
+      - 'src/main/java/com/example/desporto24/repository/community/CommunityTournamentTeamRepository.java'
+      - 'src/main/java/com/example/desporto24/repository/community/CommunityChampionshipTeamRepository.java'
+      - 'src/test/java/com/example/desporto24/service/SportsTeamDeletionServiceTest.java'
+      - '.github/workflows/validate-empty-team-deletion.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  safe-delete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Check empty-team deletion and existing team membership guards
+        run: |
+          chmod +x ./mvnw
+          ./mvnw -B -q -Dtest=SportsTeamDeletionServiceTest,SportsTeamInvitationDecisionTest test
