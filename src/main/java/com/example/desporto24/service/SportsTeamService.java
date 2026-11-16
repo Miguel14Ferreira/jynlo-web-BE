@@ -32,16 +32,17 @@ public class SportsTeamService {
     public record TeamView(Long id, String slug, String name, String sport, String location,
                            String description, Long ownerProfileId, boolean feedEnabled,
                            boolean chatEnabled, String logoUrl,
-                           String kitPrimary, String kitSecondary) {}
+                           String kitPrimary, String kitSecondary, String kitPattern) {}
     public record CreateTeam(String name, String sport, String location, String description) {}
     public record TeamFeatures(Boolean feedEnabled, Boolean chatEnabled) {}
-    public record KitSettings(String primary, String secondary) {}
+    public record KitSettings(String primary, String secondary, String pattern) {}
 
     private TeamView view(SportsTeam team) {
         return new TeamView(team.getId(), team.getSlug(), team.getName(), team.getSport(),
                 team.getLocation(), team.getDescription(), team.getOwner().getId(),
                 team.isFeedEnabled(), team.isChatEnabled(),team.getLogoUrl(),
-                team.getKitPrimary(),team.getKitSecondary());
+                team.getKitPrimary(),team.getKitSecondary(),
+                team.getKitPattern() == null ? "PLAIN" : team.getKitPattern());
     }
 
     @Transactional(readOnly = true)
@@ -125,6 +126,7 @@ public class SportsTeamService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Configuração obrigatória");
         team.setKitPrimary(color(request.primary()));
         team.setKitSecondary(color(request.secondary()));
+        if (request.pattern() != null) team.setKitPattern(pattern(request.pattern()));
         return view(teams.saveAndFlush(team));
     }
 
@@ -161,6 +163,15 @@ public class SportsTeamService {
         if (!team.getOwner().getUsername().equals(username))
             throw new AccessDeniedException("Apenas o responsável pode personalizar a equipa");
         return team;
+    }
+
+    private String pattern(String value) {
+        // Old clients omitted pattern. Preserve their current design; existing
+        // teams without a saved design display the plain shirt by default.
+        if (value == null) return null;
+        if ("PLAIN".equals(value) || "STRIPES".equals(value) || "DIAGONAL".equals(value))
+            return value;
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Modelo de equipamento inválido");
     }
 
     private String color(String input) {
