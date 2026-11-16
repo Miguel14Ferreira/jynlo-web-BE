@@ -30,6 +30,12 @@ public class SportsTeamMembershipController {
         return service.roster(teamId);
     }
 
+    @GetMapping("/joined")
+    @PreAuthorize("isAuthenticated()")
+    public List<SportsTeamMembershipService.JoinedTeam> joined(Authentication auth) {
+        return service.joined(auth.getName());
+    }
+
     @GetMapping("/invitations/mine")
     @PreAuthorize("isAuthenticated()")
     public List<SportsTeamMembershipService.Invitation> mine(Authentication auth) {
