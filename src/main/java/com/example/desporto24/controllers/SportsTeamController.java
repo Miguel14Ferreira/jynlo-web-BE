@@ -50,6 +50,28 @@ public class SportsTeamController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request, auth.getName()));
     }
 
+    @PutMapping("/{id}/kit")
+    @PreAuthorize("isAuthenticated()")
+    public SportsTeamService.TeamView kit(@PathVariable Long id,
+            @RequestBody SportsTeamService.KitSettings settings, Authentication auth) {
+        return service.kit(id, settings, auth.getName());
+    }
+
+    @PutMapping(value = "/{id}/logo",
+            consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    public SportsTeamService.TeamView uploadLogo(@PathVariable Long id,
+            @RequestPart("logo") org.springframework.web.multipart.MultipartFile file,
+            Authentication auth) {
+        return service.uploadLogo(id, file, auth.getName());
+    }
+
+    @DeleteMapping("/{id}/logo")
+    @PreAuthorize("isAuthenticated()")
+    public SportsTeamService.TeamView removeLogo(@PathVariable Long id, Authentication auth) {
+        return service.removeLogo(id, auth.getName());
+    }
+
     @PatchMapping("/{id}/features")
     @PreAuthorize("isAuthenticated()")
     public SportsTeamService.TeamView features(@PathVariable Long id,
