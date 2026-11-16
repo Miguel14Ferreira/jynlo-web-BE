@@ -88,6 +88,7 @@ public class SportsTeamService {
     public TeamView create(CreateTeam request, String username) {
         var owner = profiles.findUserByUsername(username)
                 .orElseThrow(() -> new AccessDeniedException("Utilizador desconhecido"));
+        requireEligibleOwner(owner);
         if (request == null || request.name() == null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome da equipa obrigatório");
         String name = request.name().trim().replaceAll("\\s+", " ");
@@ -109,9 +110,7 @@ public class SportsTeamService {
 
     @Transactional
     public TeamView features(Long id, TeamFeatures request, String username) {
-        SportsTeam team = required(id);
-        if (!team.getOwner().getUsername().equals(username))
-            throw new AccessDeniedException("Apenas o responsável pode configurar a equipa");
+        SportsTeam team = ownedTeam(id, username);
         if (request == null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Configuração obrigatória");
         if (request.feedEnabled() != null) team.setFeedEnabled(request.feedEnabled());
@@ -158,10 +157,16 @@ public class SportsTeamService {
         return result;
     }
 
+    private void requireEligibleOwner(com.example.desporto24.model.Profile owner) {
+        if (Boolean.FALSE.equals(owner.getEnabled()) || owner.getModerationSuspendedAt() != null)
+            throw new AccessDeniedException("Conta indisponível para gerir equipas");
+    }
+
     private SportsTeam ownedTeam(Long id, String username) {
         SportsTeam team = required(id);
         if (!team.getOwner().getUsername().equals(username))
             throw new AccessDeniedException("Apenas o responsável pode personalizar a equipa");
+        requireEligibleOwner(team.getOwner());
         return team;
     }
 
