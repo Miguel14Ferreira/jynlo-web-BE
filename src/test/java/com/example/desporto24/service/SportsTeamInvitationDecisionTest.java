@@ -209,4 +209,46 @@ class SportsTeamInvitationDecisionTest {
                 () -> service.remove(7L, 1L, "captain"));
         verify(members, never()).delete(any());
     }
+
+    @Test
+    void ownerCanListOnlyPendingInvitationsWithoutExposingOtherStates() {
+        var captain = new Profile();
+        captain.setId(1L);
+        captain.setUsername("captain");
+        var invited = new Profile();
+        invited.setId(42L);
+        invited.setUsername("invited");
+        var team = com.example.desporto24.model.team.SportsTeam.builder()
+                .id(7L).owner(captain).build();
+        var membership = SportsTeamMember.builder()
+                .team(team).profile(invited).status(SportsTeamMember.Status.INVITED).build();
+        when(teams.findById(7L)).thenReturn(Optional.of(team));
+        when(profiles.findUserByUsername("captain")).thenReturn(Optional.of(captain));
+        when(members.findByTeamIdAndStatusOrderByIdAsc(7L, SportsTeamMember.Status.INVITED))
+                .thenReturn(java.util.List.of(membership));
+
+        var pending = service.pendingInvitations(7L, "captain");
+        assertEquals(1, pending.size());
+        assertEquals(42L, pending.get(0).profileId());
+        assertEquals("invited", pending.get(0).username());
+        assertEquals("INVITED", pending.get(0).status());
+        verify(members, never()).findByTeamIdAndStatusOrderByIdAsc(7L, SportsTeamMember.Status.ACTIVE);
+    }
+
+    @Test
+    void nonOwnerCannotReadPendingInvitations() {
+        var captain = new Profile();
+        captain.setId(1L);
+        var stranger = new Profile();
+        stranger.setId(42L);
+        stranger.setUsername("stranger");
+        var team = com.example.desporto24.model.team.SportsTeam.builder()
+                .id(7L).owner(captain).build();
+        when(teams.findById(7L)).thenReturn(Optional.of(team));
+        when(profiles.findUserByUsername("stranger")).thenReturn(Optional.of(stranger));
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> service.pendingInvitations(7L, "stranger"));
+        verify(members, never()).findByTeamIdAndStatusOrderByIdAsc(anyLong(), any());
+    }
 }
