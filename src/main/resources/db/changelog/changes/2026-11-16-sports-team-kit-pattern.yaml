@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-16-sports-team-kit-pattern
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: sports_team
+            columns:
+              - column:
+                  name: kit_pattern
+                  type: varchar(16)
