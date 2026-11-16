@@ -99,4 +99,55 @@ class SportsTeamInvitationDecisionTest {
         assertEquals(SportsTeamMember.Status.INVITED, invitation.getStatus());
         verify(members, never()).saveAndFlush(any());
     }
+
+    @Test
+    void removingConfirmedPlayerPublishesRevocationOnlyAfterMembershipDeletion() {
+        var captain = new Profile();
+        captain.setId(1L);
+        captain.setUsername("captain");
+        var player = new Profile();
+        player.setId(42L);
+        player.setUsername("player");
+        var team = com.example.desporto24.model.team.SportsTeam.builder()
+                .id(7L).owner(captain).build();
+        var membership = SportsTeamMember.builder()
+                .team(team).profile(player).status(SportsTeamMember.Status.ACTIVE).build();
+        var publisher = mock(org.springframework.context.ApplicationEventPublisher.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "realtimeEvents", publisher);
+        when(teams.findById(7L)).thenReturn(Optional.of(team));
+        when(profiles.findUserByUsername("captain")).thenReturn(Optional.of(captain));
+        when(members.findByTeamIdAndProfileId(7L, 42L)).thenReturn(Optional.of(membership));
+
+        service.remove(7L, 42L, "captain");
+
+        var order = inOrder(members, publisher);
+        order.verify(members).delete(membership);
+        order.verify(members).flush();
+        order.verify(publisher).publishEvent(
+                new com.example.desporto24.websocket.TeamMembershipRevokedEvent(7L, "player"));
+    }
+
+    @Test
+    void removingPendingInviteDoesNotBroadcastPrivateChatRevocation() {
+        var captain = new Profile();
+        captain.setId(1L);
+        captain.setUsername("captain");
+        var player = new Profile();
+        player.setId(42L);
+        player.setUsername("player");
+        var team = com.example.desporto24.model.team.SportsTeam.builder()
+                .id(7L).owner(captain).build();
+        var membership = SportsTeamMember.builder()
+                .team(team).profile(player).status(SportsTeamMember.Status.INVITED).build();
+        var publisher = mock(org.springframework.context.ApplicationEventPublisher.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "realtimeEvents", publisher);
+        when(teams.findById(7L)).thenReturn(Optional.of(team));
+        when(profiles.findUserByUsername("captain")).thenReturn(Optional.of(captain));
+        when(members.findByTeamIdAndProfileId(7L, 42L)).thenReturn(Optional.of(membership));
+
+        service.remove(7L, 42L, "captain");
+
+        verify(members).delete(membership);
+        verifyNoInteractions(publisher);
+    }
 }
