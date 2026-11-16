@@ -264,6 +264,32 @@ public class ChatRealtimeGateway extends TextWebSocketHandler {
         }
     }
 
+    /**
+     * Team messages are never sent in WebSocket payloads: only current active
+     * members receive a conversation-scoped invalidation signal.
+     */
+    public void publishTeamContentInvalidated(Set<String> recipients, Long teamId, String kind) {
+        if (recipients == null || recipients.isEmpty() || teamId == null || teamId <= 0
+                || !("chat".equals(kind) || "feed".equals(kind))) return;
+        try {
+            String payload = objectMapper.createObjectNode()
+                    .put("type", "TEAM_CONTENT_INVALIDATED")
+                    .put("teamId", teamId)
+                    .put("kind", kind)
+                    .toString();
+            for (String username : recipients) {
+                Set<WebSocketSession> sockets = sessionsByUsername.get(username);
+                if (sockets == null) continue;
+                for (WebSocketSession socket : sockets) {
+                    if (!socket.isOpen()) continue;
+                    try { send(socket, payload); } catch (IOException ignored) { }
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // Authorization is still required for every history fetch.
+        }
+    }
+
     public void publishChatMessage(String username, Chat chat) {
         Set<WebSocketSession> sessions = sessionsByUsername.get(username);
         if (sessions == null || sessions.isEmpty()) {
