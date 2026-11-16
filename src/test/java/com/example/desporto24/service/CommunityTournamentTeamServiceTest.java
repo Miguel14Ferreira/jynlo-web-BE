@@ -100,7 +100,7 @@ class CommunityTournamentTeamServiceTest {
         var permanent = com.example.desporto24.model.team.SportsTeam.builder()
                 .id(88L).owner(player).name("Azul").slug("azul-12345678").build();
         var view = new SportsTeamService.TeamView(88L, "azul-12345678", "Azul",
-                null, null, null, 2L, false, false);
+                null, null, null, 2L, false, false, null, null, null);
         when(globalTeams.create(any(SportsTeamService.CreateTeam.class), eq("ana"))).thenReturn(view);
         when(globalTeams.entity(88L)).thenReturn(permanent);
         when(globalTeams.get(88L)).thenReturn(view);
