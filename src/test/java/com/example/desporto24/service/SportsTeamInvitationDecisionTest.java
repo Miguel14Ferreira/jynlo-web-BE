@@ -150,4 +150,63 @@ class SportsTeamInvitationDecisionTest {
         verify(members).delete(membership);
         verifyNoInteractions(publisher);
     }
+
+    @Test
+    void confirmedPlayerCanLeaveTheirOwnTeamAndRevokeChatAccess() {
+        var captain = new Profile();
+        captain.setId(1L);
+        captain.setUsername("captain");
+        var player = new Profile();
+        player.setId(42L);
+        player.setUsername("player");
+        var team = com.example.desporto24.model.team.SportsTeam.builder()
+                .id(7L).owner(captain).build();
+        var membership = SportsTeamMember.builder()
+                .team(team).profile(player).status(SportsTeamMember.Status.ACTIVE).build();
+        var publisher = mock(org.springframework.context.ApplicationEventPublisher.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "realtimeEvents", publisher);
+        when(teams.findById(7L)).thenReturn(Optional.of(team));
+        when(profiles.findUserByUsername("player")).thenReturn(Optional.of(player));
+        when(members.findByTeamIdAndProfileId(7L, 42L)).thenReturn(Optional.of(membership));
+
+        service.remove(7L, 42L, "player");
+
+        var order = inOrder(members, publisher);
+        order.verify(members).delete(membership);
+        order.verify(members).flush();
+        order.verify(publisher).publishEvent(
+                new com.example.desporto24.websocket.TeamMembershipRevokedEvent(7L, "player"));
+    }
+
+    @Test
+    void nonOwnerCannotRemoveAnotherPlayerFromTheTeam() {
+        var captain = new Profile();
+        captain.setId(1L);
+        var caller = new Profile();
+        caller.setId(42L);
+        caller.setUsername("caller");
+        var team = com.example.desporto24.model.team.SportsTeam.builder()
+                .id(7L).owner(captain).build();
+        when(teams.findById(7L)).thenReturn(Optional.of(team));
+        when(profiles.findUserByUsername("caller")).thenReturn(Optional.of(caller));
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> service.remove(7L, 99L, "caller"));
+        verify(members, never()).delete(any());
+    }
+
+    @Test
+    void captainCannotLeaveUsingMemberRemovalEndpoint() {
+        var captain = new Profile();
+        captain.setId(1L);
+        captain.setUsername("captain");
+        var team = com.example.desporto24.model.team.SportsTeam.builder()
+                .id(7L).owner(captain).build();
+        when(teams.findById(7L)).thenReturn(Optional.of(team));
+        when(profiles.findUserByUsername("captain")).thenReturn(Optional.of(captain));
+
+        assertThrows(ResponseStatusException.class,
+                () -> service.remove(7L, 1L, "captain"));
+        verify(members, never()).delete(any());
+    }
 }
