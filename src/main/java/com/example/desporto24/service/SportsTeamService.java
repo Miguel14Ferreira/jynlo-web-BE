@@ -4,6 +4,11 @@ import com.example.desporto24.model.team.SportsTeam;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.team.SportsTeamRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import com.example.desporto24.storage.MediaStorage;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.beans.factory.annotation.Autowired;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -15,22 +20,28 @@ import java.util.List;
 import java.util.Locale;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class SportsTeamService {
     private final SportsTeamRepository teams;
     private final com.example.desporto24.repository.community.CommunityTournamentTeamRepository tournamentTeams;
     private final ProfileRepository profiles;
+    @Autowired(required = false)
+    private MediaStorage mediaStorage;
 
     public record TeamView(Long id, String slug, String name, String sport, String location,
                            String description, Long ownerProfileId, boolean feedEnabled,
-                           boolean chatEnabled) {}
+                           boolean chatEnabled, String logoUrl,
+                           String kitPrimary, String kitSecondary) {}
     public record CreateTeam(String name, String sport, String location, String description) {}
     public record TeamFeatures(Boolean feedEnabled, Boolean chatEnabled) {}
+    public record KitSettings(String primary, String secondary) {}
 
     private TeamView view(SportsTeam team) {
         return new TeamView(team.getId(), team.getSlug(), team.getName(), team.getSport(),
                 team.getLocation(), team.getDescription(), team.getOwner().getId(),
-                team.isFeedEnabled(), team.isChatEnabled());
+                team.isFeedEnabled(), team.isChatEnabled(),team.getLogoUrl(),
+                team.getKitPrimary(),team.getKitSecondary());
     }
 
     @Transactional(readOnly = true)
@@ -105,6 +116,70 @@ public class SportsTeamService {
         if (request.feedEnabled() != null) team.setFeedEnabled(request.feedEnabled());
         if (request.chatEnabled() != null) team.setChatEnabled(request.chatEnabled());
         return view(teams.saveAndFlush(team));
+    }
+
+    @Transactional
+    public TeamView kit(Long id, KitSettings request, String username) {
+        SportsTeam team = ownedTeam(id, username);
+        if (request == null)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Configuração obrigatória");
+        team.setKitPrimary(color(request.primary()));
+        team.setKitSecondary(color(request.secondary()));
+        return view(teams.saveAndFlush(team));
+    }
+
+    @Transactional
+    public TeamView uploadLogo(Long id, MultipartFile file, String username) {
+        SportsTeam team = ownedTeam(id, username);
+        if (mediaStorage == null)
+            throw new IllegalStateException("Media storage is not configured");
+        if (file == null || file.isEmpty())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Seleciona um logótipo");
+        // The shared community-photo storage validates real image bytes and size,
+        // not just the client-provided filename or Content-Type.
+        var uri = mediaStorage.storeCommunityPhoto(
+                "teams/" + id + "/" + UUID.randomUUID(), file);
+        String old = team.getLogoUrl();
+        team.setLogoUrl(uri.toString());
+        TeamView result = view(teams.saveAndFlush(team));
+        deleteLogo(old, id);
+        return result;
+    }
+
+    @Transactional
+    public TeamView removeLogo(Long id, String username) {
+        SportsTeam team = ownedTeam(id, username);
+        String old = team.getLogoUrl();
+        team.setLogoUrl(null);
+        TeamView result = view(teams.saveAndFlush(team));
+        deleteLogo(old, id);
+        return result;
+    }
+
+    private SportsTeam ownedTeam(Long id, String username) {
+        SportsTeam team = required(id);
+        if (!team.getOwner().getUsername().equals(username))
+            throw new AccessDeniedException("Apenas o responsável pode personalizar a equipa");
+        return team;
+    }
+
+    private String color(String input) {
+        if (input == null || input.isBlank()) return null;
+        if (!input.matches("#[0-9a-fA-F]{6}"))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cor do equipamento inválida");
+        return input.toUpperCase(Locale.ROOT);
+    }
+
+    private void deleteLogo(String url, Long id) {
+        if (mediaStorage == null || url == null) return;
+        String prefix = "teams/" + id + "/";
+        int start = url.indexOf(prefix);
+        if (start < 0) return;
+        try {
+            mediaStorage.delete(url.substring(start));
+        } catch (RuntimeException ex) {
+            log.warn("Team {} previous logo cleanup failed", id, ex);
+        }
     }
 
     private String clean(String value, int max) {
