@@ -68,4 +68,28 @@ class TeamContentRealtimeListenerTest {
         assertNotNull(annotation);
         assertEquals(TransactionPhase.AFTER_COMMIT, annotation.phase());
     }
+
+    @Test
+    void removedPlayerReceivesContentFreeRevalidationForChatAndFeed() throws Exception {
+        var annotation = TeamContentRealtimeListener.class
+                .getMethod("onMembershipRevoked", TeamMembershipRevokedEvent.class)
+                .getAnnotation(TransactionalEventListener.class);
+        assertNotNull(annotation);
+        assertEquals(TransactionPhase.AFTER_COMMIT, annotation.phase());
+
+        listener.onMembershipRevoked(new TeamMembershipRevokedEvent(42L, "former-player"));
+
+        verify(gateway).publishTeamContentInvalidated(
+                Set.of("former-player"), 42L, "chat");
+        verify(gateway).publishTeamContentInvalidated(
+                Set.of("former-player"), 42L, "feed");
+        verifyNoInteractions(teams, members);
+    }
+
+    @Test
+    void invalidMembershipRevocationNeverBroadcasts() {
+        listener.onMembershipRevoked(new TeamMembershipRevokedEvent(42L, ""));
+        listener.onMembershipRevoked(new TeamMembershipRevokedEvent(-1L, "player"));
+        verifyNoInteractions(gateway);
+    }
 }
