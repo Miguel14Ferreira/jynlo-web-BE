@@ -1,0 +1,64 @@
+package com.example.desporto24.service;
+
+import com.example.desporto24.model.Profile;
+import com.example.desporto24.model.team.SportsTeamMember;
+import com.example.desporto24.repository.ProfileRepository;
+import com.example.desporto24.repository.team.SportsTeamMemberRepository;
+import com.example.desporto24.repository.team.SportsTeamRepository;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class SportsTeamInvitationDecisionTest {
+    @Mock SportsTeamRepository teams;
+    @Mock SportsTeamMemberRepository members;
+    @Mock ProfileRepository profiles;
+    @InjectMocks SportsTeamMembershipService service;
+
+    @Test
+    void acceptingInvitationUsesLockedMembershipAndRejectsDuplicateDecision() {
+        var profile = new Profile();
+        profile.setId(42L);
+        profile.setUsername("player");
+        var invitation = SportsTeamMember.builder()
+                .status(SportsTeamMember.Status.INVITED).build();
+        when(profiles.findUserByUsername("player")).thenReturn(Optional.of(profile));
+        when(members.findInvitationForUpdate(7L, 42L)).thenReturn(Optional.of(invitation));
+
+        service.respond(7L, "player", true);
+        assertEquals(SportsTeamMember.Status.ACTIVE, invitation.getStatus());
+        assertNotNull(invitation.getRespondedAt());
+        assertThrows(ResponseStatusException.class,
+                () -> service.respond(7L, "player", false));
+
+        verify(members, times(2)).findInvitationForUpdate(7L, 42L);
+        verify(members, times(1)).saveAndFlush(invitation);
+        verify(members, never()).findByTeamIdAndProfileId(7L, 42L);
+    }
+
+    @Test
+    void decliningInvitationAlsoPreventsLaterAcceptance() {
+        var profile = new Profile();
+        profile.setId(42L);
+        profile.setUsername("player");
+        var invitation = SportsTeamMember.builder()
+                .status(SportsTeamMember.Status.INVITED).build();
+        when(profiles.findUserByUsername("player")).thenReturn(Optional.of(profile));
+        when(members.findInvitationForUpdate(7L, 42L)).thenReturn(Optional.of(invitation));
+
+        service.respond(7L, "player", false);
+        assertEquals(SportsTeamMember.Status.DECLINED, invitation.getStatus());
+        assertThrows(ResponseStatusException.class,
+                () -> service.respond(7L, "player", true));
+        verify(members, times(1)).saveAndFlush(invitation);
+    }
+}
