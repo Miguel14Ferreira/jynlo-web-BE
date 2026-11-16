@@ -11,6 +11,8 @@ on:
       - 'src/main/java/com/example/desporto24/controllers/SportsTeamContentAttachmentController.java'
       - 'src/main/java/com/example/desporto24/controllers/SportsTeamContentController.java'
       - 'src/test/java/com/example/desporto24/service/SportsTeam*Test.java'
+      - 'src/main/java/com/example/desporto24/service/SportsTeamMembershipService.java'
+      - 'src/main/java/com/example/desporto24/repository/team/SportsTeamMemberRepository.java'
       - 'src/main/resources/db/changelog/**'
       - '.github/workflows/validate-team-private-chat.yml'
   workflow_dispatch:
@@ -32,4 +34,4 @@ jobs:
       - name: Compile and test team content authorization and attachments
         run: |
           chmod +x ./mvnw
-          ./mvnw -B -q -Dtest=SportsTeamContentServiceTest,SportsTeamReactionServiceTest,SportsTeamAttachmentServiceTest,TeamContentRealtimeListenerTest test
+          ./mvnw -B -q -Dtest=SportsTeamContentServiceTest,SportsTeamReactionServiceTest,SportsTeamAttachmentServiceTest,SportsTeamInvitationDecisionTest,TeamContentRealtimeListenerTest test
