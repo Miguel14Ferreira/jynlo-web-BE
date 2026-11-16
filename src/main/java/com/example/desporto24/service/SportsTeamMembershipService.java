@@ -24,6 +24,24 @@ public class SportsTeamMembershipService {
     public record RosterPlayer(Long profileId, String username, String role) {}
     public record Invitation(Long teamId, String teamName, String status) {}
     public record PlayerCandidate(Long profileId, String username, String fullName) {}
+    public record JoinedTeam(Long id, String slug, String name, String sport, String location,
+                             String description, Long ownerProfileId, boolean feedEnabled,
+                             boolean chatEnabled) {}
+
+    /** Only ACTIVE memberships are exposed. Pending and declined invitations stay private. */
+    @Transactional(readOnly = true)
+    public List<JoinedTeam> joined(String username) {
+        Profile profile = actor(username);
+        return members.findByProfileIdAndStatusOrderByIdDesc(
+                profile.getId(), SportsTeamMember.Status.ACTIVE).stream()
+                .map(m -> m.getTeam())
+                .filter(t -> !t.getOwner().getId().equals(profile.getId()))
+                .map(t -> new JoinedTeam(t.getId(), t.getSlug(), t.getName(), t.getSport(),
+                        t.getLocation(), t.getDescription(), t.getOwner().getId(),
+                        t.isFeedEnabled(), t.isChatEnabled()))
+                .toList();
+    }
+
 
     @Transactional(readOnly = true)
     public List<PlayerCandidate> searchPlayers(String query, String username) {
