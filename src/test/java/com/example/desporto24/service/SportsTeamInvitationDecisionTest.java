@@ -99,6 +99,28 @@ class SportsTeamInvitationDecisionTest {
     }
 
     @Test
+    void suspendedCaptainCannotInviteRemoveOtherPlayersOrInspectPendingInvitations() {
+        var captain=new Profile();
+        captain.setId(1L);
+        captain.setUsername("captain");
+        captain.setModerationSuspendedAt(java.time.Instant.now());
+        var team=com.example.desporto24.model.team.SportsTeam.builder()
+            .id(7L).owner(captain).build();
+        when(teams.findById(7L)).thenReturn(Optional.of(team));
+        when(profiles.findUserByUsername("captain")).thenReturn(Optional.of(captain));
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+            ()->service.invite(7L,42L,"captain"));
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+            ()->service.pendingInvitations(7L,"captain"));
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+            ()->service.remove(7L,42L,"captain"));
+        verify(members,never()).saveAndFlush(any());
+        verify(members,never()).delete(any());
+        verify(members,never()).findByTeamIdAndStatusOrderByIdAsc(anyLong(),any());
+    }
+
+    @Test
     void acceptingInvitationUsesLockedMembershipAndRejectsDuplicateDecision() {
         var profile = new Profile();
         profile.setId(42L);
