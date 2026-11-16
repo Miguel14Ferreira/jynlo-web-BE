@@ -470,3 +470,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-15-team-chat-reactions.yaml
   - include:
       file: db/changelog/changes/2026-11-15-team-private-attachments.yaml
+  - include:
+      file: db/changelog/changes/2026-11-16-sports-team-branding.yaml
