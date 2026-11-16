@@ -34,6 +34,7 @@ public class SportsTeamMembershipService {
         Profile caller = actor(username);
         if (!team.getOwner().getId().equals(caller.getId()))
             throw new AccessDeniedException("Apenas o responsável pode consultar os convites");
+        requireEligible(caller);
         return members.findByTeamIdAndStatusOrderByIdAsc(teamId, SportsTeamMember.Status.INVITED)
                 .stream().map(m -> new PendingInvitation(
                         m.getProfile().getId(), m.getProfile().getUsername(), "INVITED"))
@@ -103,12 +104,18 @@ public class SportsTeamMembershipService {
                         m.getStatus().name())).toList();
     }
 
+    private void requireEligible(Profile actor) {
+        if (Boolean.FALSE.equals(actor.getEnabled()) || actor.getModerationSuspendedAt() != null)
+            throw new AccessDeniedException("Conta indisponível para gerir convites");
+    }
+
     @Transactional
     public void invite(Long teamId, Long targetProfileId, String username) {
         SportsTeam team = team(teamId);
         Profile inviter = actor(username);
         if (!team.getOwner().getId().equals(inviter.getId()))
             throw new AccessDeniedException("Apenas o responsável pode convidar jogadores");
+        requireEligible(inviter);
         Profile target = profiles.findById(targetProfileId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogador não encontrado"));
         if (Boolean.FALSE.equals(target.getEnabled()) || target.getModerationSuspendedAt() != null)
@@ -149,6 +156,9 @@ public class SportsTeamMembershipService {
         Profile actor = actor(username);
         if (!team.getOwner().getId().equals(actor.getId()) && !profileId.equals(actor.getId()))
             throw new AccessDeniedException("Não podes remover outro jogador");
+        // Even a suspended player may leave voluntarily; only roster management
+        // of other players requires an eligible account.
+        if (!profileId.equals(actor.getId())) requireEligible(actor);
         if (team.getOwner().getId().equals(profileId))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O responsável não pode sair sem transferir a equipa");
         var member = members.findByTeamIdAndProfileId(teamId, profileId)
