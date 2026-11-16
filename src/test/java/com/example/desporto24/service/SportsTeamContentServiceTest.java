@@ -194,4 +194,22 @@ class SportsTeamContentServiceTest {
                 argThat(page -> page.getPageSize() == 100));
     }
 
+
+    @Test
+    void removedMemberCannotReadSearchPostOrProbePrivateAttachments() {
+        // A deleted membership is indistinguishable from an outsider to the private API.
+        when(members.findByTeamIdAndProfileId(42L, 2L)).thenReturn(Optional.empty());
+        assertThrows(AccessDeniedException.class, () ->
+            service.recent(42L, SportsTeamContent.Kind.CHAT, "player"));
+        assertThrows(AccessDeniedException.class, () ->
+            service.search(42L, SportsTeamContent.Kind.CHAT, "private", "player"));
+        assertThrows(AccessDeniedException.class, () ->
+            service.post(42L, SportsTeamContent.Kind.CHAT,
+                new SportsTeamContentService.Submit("retry"), "player"));
+        assertThrows(AccessDeniedException.class, () ->
+            service.attachmentsAvailable(42L, SportsTeamContent.Kind.CHAT, "player"));
+        assertThrows(AccessDeniedException.class, () ->
+            service.download(42L, SportsTeamContent.Kind.CHAT, 4L, 0, "player"));
+        verifyNoInteractions(entries);
+    }
 }
