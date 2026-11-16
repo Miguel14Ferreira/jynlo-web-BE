@@ -321,12 +321,11 @@ public class DirectCallService {
         CallSession session = access(call, caller);
         // Reserve only after both ACL checks and successful provider token creation.
         // Atomic PostgreSQL buckets prevent switching replicas to bypass ring limits.
-        if (distributedCallLimits != null) {
             distributedCallLimits.reserveAttempt("direct-call-start", normalized,
                     6, Duration.ofMinutes(1));
             distributedCallLimits.reserveAttempt("direct-call-peer", peerBudgetKey,
                     MAX_DIRECT_RINGS_PER_PEER_PER_MINUTE, INVITE_WINDOW);
-        }
+
         calls.put(id, call);
         // Bound cooldown bookkeeping: usernames must not accumulate indefinitely
         // across months of calls on a long-lived backend instance.
@@ -510,10 +509,9 @@ public class DirectCallService {
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(RING_SECONDS);
         enforceInviteRateLimit(actor, recipient, now);
-        if (distributedCallLimits != null) {
             distributedCallLimits.reserveAttempt("direct-call-invite", key(actor) + ":" + key(recipient),
                     MAX_INVITES_PER_PEER_PER_MINUTE, INVITE_WINDOW);
-        }
+
         list.put(key(recipient), new Guest(recipient, actor, expiry, false));
         gateway.publishDirectCallEvent(actor, recipient, id.toString(), call.media(),
                 "RINGING", actor, expiry);
