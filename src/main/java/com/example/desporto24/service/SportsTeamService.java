@@ -103,7 +103,7 @@ public class SportsTeamService {
         SportsTeam team = SportsTeam.builder().owner(owner).name(name).slug(slug)
                 .sport(clean(request.sport(), 100)).location(clean(request.location(), 100))
                 .description(clean(request.description(), 500)).createdAt(Instant.now())
-                .feedEnabled(false).chatEnabled(false).build();
+                .feedEnabled(true).chatEnabled(true).build();
         return view(teams.saveAndFlush(team));
     }
 
