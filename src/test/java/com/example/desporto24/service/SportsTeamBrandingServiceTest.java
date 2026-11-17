@@ -30,6 +30,7 @@ class SportsTeamBrandingServiceTest {
     @Mock ProfileRepository profiles;
     @Mock CommunityTournamentTeamRepository tournamentTeams;
     @Mock MediaStorage mediaStorage;
+    @Mock org.springframework.context.ApplicationEventPublisher realtimeEvents;
     @InjectMocks SportsTeamService service;
 
     @BeforeEach
@@ -84,6 +85,26 @@ class SportsTeamBrandingServiceTest {
 
         assertFalse(result.chatEnabled());
         assertTrue(result.feedEnabled());
+        verify(realtimeEvents).publishEvent(
+            new com.example.desporto24.websocket.TeamContentChangedEvent(21L,"chat"));
+        verify(realtimeEvents,never()).publishEvent(
+            new com.example.desporto24.websocket.TeamContentChangedEvent(21L,"feed"));
+
+        // Re-submitting identical settings must not broadcast duplicate refreshes.
+        service.features(21L,new SportsTeamService.TeamFeatures(null,false),"captain");
+        verifyNoMoreInteractions(realtimeEvents);
+    }
+
+    @Test
+    void changingBothTeamFeaturesInvalidatesBothRealtimeSurfaces() {
+        var team=owned();
+        when(teams.findById(21L)).thenReturn(Optional.of(team));
+        when(teams.saveAndFlush(team)).thenReturn(team);
+        service.features(21L,new SportsTeamService.TeamFeatures(true,true),"captain");
+        verify(realtimeEvents).publishEvent(
+            new com.example.desporto24.websocket.TeamContentChangedEvent(21L,"chat"));
+        verify(realtimeEvents).publishEvent(
+            new com.example.desporto24.websocket.TeamContentChangedEvent(21L,"feed"));
     }
 
     @Test
