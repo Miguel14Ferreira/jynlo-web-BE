@@ -63,7 +63,9 @@ public class SportsTeamMembershipService {
 
     @Transactional(readOnly = true)
     public List<PlayerCandidate> searchPlayers(String query, String username) {
-        actor(username);
+        // Candidate discovery enumerates public profiles; stale sessions for
+        // moderated accounts must not retain player-search access.
+        requireEligible(actor(username));
         String q = query == null ? "" : query.trim().toLowerCase(java.util.Locale.ROOT);
         if (q.length() < 2 || q.length() > 80) return List.of();
         return profiles.searchPublicCandidates(username, q, "", "", "",
