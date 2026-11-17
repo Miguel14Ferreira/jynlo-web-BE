@@ -631,9 +631,6 @@ public class SocialFeedService {
         if (!isPubliclyShareableSession(session)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Memórias indisponíveis");
         }
-        List<SocialPost> candidates = postRepository.findSessionMemories(
-                sessionId, PageRequest.of(0, 30));
-        if (candidates.isEmpty()) return List.of();
         // A session ID alone is not proof of attendance. Only the organiser
         // and confirmed members may contribute to the game album.
         Set<Long> eligibleAuthors = participantRepository
@@ -641,6 +638,12 @@ public class SocialFeedService {
                         com.example.desporto24.enumeration.ParticipantState.ACTIVE)
                 .stream().map(p -> p.getProfile().getId()).collect(Collectors.toSet());
         if (session.getProfile() != null) eligibleAuthors.add(session.getProfile().getId());
+        if (eligibleAuthors.isEmpty()) return List.of();
+        // SQL filters outsider posts *before* applying the 30-item page cap;
+        // otherwise strangers could crowd legitimate memories out of an album.
+        List<SocialPost> candidates = postRepository.findSessionMemories(
+                sessionId, eligibleAuthors, PageRequest.of(0, 30));
+        if (candidates.isEmpty()) return List.of();
         Set<Long> hiddenIds = Set.of();
         if (hiddenFeedPosts != null) {
             Set<Long> ids = candidates.stream().map(SocialPost::getId).collect(Collectors.toSet());
