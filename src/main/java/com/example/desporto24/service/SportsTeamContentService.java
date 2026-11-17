@@ -41,7 +41,8 @@ public class SportsTeamContentService {
 
     public record Entry(Long id, Long teamId, String username, String body, Instant createdAt,
                         Long replyToId, Instant editedAt, boolean deleted, boolean canManage, boolean canEdit,
-                        List<PrivateChatAttachmentBatch.PublicMetadata> attachments) {}
+                        List<PrivateChatAttachmentBatch.PublicMetadata> attachments,
+                        String profilePicUrl) {}
     public record Submit(String body, Long replyToId) {
         public Submit(String body) { this(body, null); }
     }
@@ -86,7 +87,8 @@ public class SportsTeamContentService {
                 viewer.getId().equals(entry.getAuthor().getId()),
                 entry.getDeletedAt() == null ? PrivateChatAttachmentBatch.metadata(
                         entry.getAttachmentName(), entry.getAttachmentMimeType(),
-                        entry.getAttachmentSize(), entry.getExtraAttachments()) : List.of());
+                        entry.getAttachmentSize(), entry.getExtraAttachments()) : List.of(),
+                entry.getAuthor().getProfilePicUrl());
     }
 
     @Transactional(readOnly = true)
