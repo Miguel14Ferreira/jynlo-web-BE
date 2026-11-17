@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/social-mobile-post-contract-ci.yml'
       - 'src/main/java/com/example/desporto24/service/SocialFeedService.java'
+      - 'src/main/java/com/example/desporto24/repository/social/SocialPostRepository.java'
+      - 'src/test/java/com/example/desporto24/service/SocialFeedSessionMemoriesTest.java'
       - 'src/main/java/com/example/desporto24/service/SocialStoryService.java'
       - 'src/main/java/com/example/desporto24/service/SocialStoryNotificationDispatcher.java'
       - 'src/main/java/com/example/desporto24/service/UserBlockService.java'
@@ -40,4 +42,4 @@ jobs:
           AES_ENCRYPTION_KEY: ciKey1
         run: |
           chmod +x mvnw
-          ./mvnw -B -ntp -Dtest=SocialFeedPostDeepLinkTest,SocialPostNotificationLinkTest,NotificationGifSerializationTest,SocialFeedAttendanceVisibilityTest,SocialStoryServiceTest test
+          ./mvnw -B -ntp -Dtest=SocialFeedPostDeepLinkTest,SocialPostNotificationLinkTest,NotificationGifSerializationTest,SocialFeedAttendanceVisibilityTest,SocialFeedSessionMemoriesTest,SocialStoryServiceTest test
