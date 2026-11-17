@@ -56,16 +56,31 @@ public class SportsTeamChallengeService {
     public List<ChallengeView> forTeam(Long teamId,String username) {
         // Team challenge cards are public, but user authentication is required
         // so the same response can support owner-only actions in the UI.
-        actor(username);
-        required(teamId);
+        Profile viewer=actor(username);
+        SportsTeam team=required(teamId);
+        // The captain's inbox and optional message are not public team data.
+        if(!team.getOwner().getId().equals(viewer.getId()))
+            throw new AccessDeniedException("Só o responsável pode consultar os desafios da equipa");
         return challenges.forTeam(teamId,PageRequest.of(0,30)).stream().map(this::view).toList();
     }
 
     @Transactional
     public ChallengeView create(Long challengerId,Long challengedId,String message,String username) {
         Profile requester=actor(username);
-        SportsTeam challenger=required(challengerId);
-        SportsTeam challenged=required(challengedId);
+        if(challengerId==null||challengedId==null)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Equipa inválida");
+        if(challengerId.equals(challengedId))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Não podes desafiar a tua própria equipa");
+        // Lock in stable ID order: reversed simultaneous invitations cannot
+        // both pass the duplicate check and create competing pending requests.
+        var firstId=Math.min(challengerId,challengedId);
+        var secondId=Math.max(challengerId,challengedId);
+        SportsTeam first=teams.findForDeletion(firstId)
+                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Equipa não encontrada"));
+        SportsTeam second=teams.findForDeletion(secondId)
+                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Equipa não encontrada"));
+        SportsTeam challenger=challengerId.equals(firstId)?first:second;
+        SportsTeam challenged=challengedId.equals(firstId)?first:second;
         if(!challenger.getOwner().getId().equals(requester.getId()))
             throw new AccessDeniedException("Só o responsável pode desafiar em nome da equipa");
         if(challenger.getId().equals(challenged.getId()))
