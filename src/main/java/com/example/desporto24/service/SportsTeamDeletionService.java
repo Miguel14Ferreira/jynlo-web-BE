@@ -25,6 +25,7 @@ public class SportsTeamDeletionService {
     private final SportsTeamCommunityMembershipRepository communities;
     private final SportsTeamCompetitionApplicationRepository applications;
     private final SportsTeamCompetitionInvitationRepository invitations;
+    private final SportsTeamChallengeRepository challenges;
     private final CommunityTournamentTeamRepository tournamentTeams;
     private final CommunityChampionshipTeamRepository championshipTeams;
 
@@ -47,6 +48,7 @@ public class SportsTeamDeletionService {
                 || communities.existsByTeamId(teamId)
                 || applications.existsByTeamId(teamId)
                 || invitations.existsByTeamId(teamId)
+                || challenges.existsByChallengerIdOrChallengedId(teamId,teamId)
                 || tournamentTeams.existsByGlobalTeamId(teamId)
                 || championshipTeams.existsByGlobalTeamId(teamId))
             throw new ResponseStatusException(HttpStatus.CONFLICT,
