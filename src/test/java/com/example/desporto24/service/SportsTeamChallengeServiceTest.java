@@ -38,6 +38,8 @@ class SportsTeamChallengeServiceTest {
         when(profiles.findUserByUsername("outsider")).thenReturn(Optional.of(outsider));
         when(teams.findById(11L)).thenReturn(Optional.of(first));
         when(teams.findById(12L)).thenReturn(Optional.of(second));
+        lenient().when(teams.findForDeletion(11L)).thenReturn(Optional.of(first));
+        lenient().when(teams.findForDeletion(12L)).thenReturn(Optional.of(second));
         when(challenges.findWithTeams(90L)).thenReturn(Optional.of(invite));
         when(challenges.saveAndFlush(any())).thenAnswer(x->x.getArgument(0));
     }
@@ -97,6 +99,14 @@ class SportsTeamChallengeServiceTest {
         assertEquals(409,assertThrows(ResponseStatusException.class,
                 ()->service.linkSession(90L,76L,"alice")).getStatusCode().value());
         verify(sessions,times(1)).getById(75L,"alice");
+    }
+    @Test void challengeInboxOnlyVisibleToTheTeamCaptain(){
+        assertThrows(AccessDeniedException.class,()->service.forTeam(11L,"outsider"));
+        when(challenges.forTeam(eq(11L),any())).thenReturn(List.of(invite));
+        var mine=service.forTeam(11L,"alice");
+        assertEquals(1,mine.size());
+        assertEquals(90L,mine.get(0).id());
+        verify(challenges,times(1)).forTeam(eq(11L),any());
     }
     @Test void suspendedOwnerCannotIssueOrAcceptChallenges(){
         a.setModerationSuspendedAt(java.time.Instant.now());
