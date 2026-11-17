@@ -131,6 +131,8 @@ public class SportsTeamChallengeService {
         // A public session with an authorised captain as its creator is required.
         // Never store a private session link in a public team-challenge record.
         if(!session.canSharePublicly() || session.privateGame()
+                || session.status()==com.example.desporto24.enumeration.SessionStatus.CANCELLED
+                || session.problemType()==com.example.desporto24.enumeration.SessionProblemType.NOT_OCCURRED
                 || session.creatorUsername()==null
                 || !session.creatorUsername().equalsIgnoreCase(username))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
