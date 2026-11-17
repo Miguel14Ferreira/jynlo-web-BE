@@ -36,6 +36,7 @@ class SportsTeamBrandingServiceTest {
     @BeforeEach
     void provideMediaStorage() {
         ReflectionTestUtils.setField(service,"mediaStorage",mediaStorage);
+        ReflectionTestUtils.setField(service,"realtimeEvents",realtimeEvents);
     }
 
     private SportsTeam owned() {
