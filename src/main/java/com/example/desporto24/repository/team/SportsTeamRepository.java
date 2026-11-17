@@ -11,6 +11,10 @@ public interface SportsTeamRepository extends JpaRepository<SportsTeam, Long> {
     java.util.Optional<SportsTeam> findForDeletion(
             @org.springframework.data.repository.query.Param("id") Long id);
     boolean existsBySlug(String slug);
+    // Team cards always render ownerProfileId. Fetch the lightweight owner in
+    // the same query rather than lazily issuing one SELECT per returned team.
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "owner")
     List<SportsTeam> findByOwnerIdOrderByIdDesc(Long ownerId);
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "owner")
     List<SportsTeam> findByNameContainingIgnoreCaseOrderByIdDesc(String name, Pageable pageable);
 }
