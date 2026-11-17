@@ -17,6 +17,9 @@ public interface SportsTeamMemberRepository extends JpaRepository<SportsTeamMemb
     @Query("select m from SportsTeamMember m where m.team.id = :teamId and m.profile.id = :profileId")
     Optional<SportsTeamMember> findInvitationForUpdate(@Param("teamId") Long teamId,
                                                        @Param("profileId") Long profileId);
+    // The roster and notifications render each member's username. Fetch
+    // profiles in one bounded query instead of lazily loading each player.
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "profile")
     List<SportsTeamMember> findByTeamIdAndStatusOrderByIdAsc(Long teamId, SportsTeamMember.Status status);
     List<SportsTeamMember> findByProfileIdAndStatusOrderByIdDesc(Long profileId, SportsTeamMember.Status status);
     boolean existsByTeamId(Long teamId);
