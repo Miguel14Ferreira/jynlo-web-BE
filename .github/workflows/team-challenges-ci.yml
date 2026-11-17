@@ -1,0 +1,35 @@
+name: Jynlo direct team challenges CI
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/team-challenges-ci.yml'
+      - 'src/main/java/com/example/desporto24/model/team/SportsTeamChallenge.java'
+      - 'src/main/java/com/example/desporto24/repository/team/SportsTeamChallengeRepository.java'
+      - 'src/main/java/com/example/desporto24/service/SportsTeamChallengeService.java'
+      - 'src/main/java/com/example/desporto24/controllers/SportsTeamChallengeController.java'
+      - 'src/main/java/com/example/desporto24/service/SportsTeamDeletionService.java'
+      - 'src/test/java/com/example/desporto24/service/SportsTeamChallengeServiceTest.java'
+      - 'src/test/java/com/example/desporto24/service/SportsTeamDeletionServiceTest.java'
+      - 'src/main/resources/db/changelog/changes/2026-11-17-team-challenges.yaml'
+      - 'src/main/resources/db/changelog/db.changelog-master.yaml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  challenges:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      AES_ENCRYPTION_KEY: ciKey1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Validate invitation decisions and protected team deletion
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp -Dtest=SportsTeamChallengeServiceTest,SportsTeamDeletionServiceTest test
