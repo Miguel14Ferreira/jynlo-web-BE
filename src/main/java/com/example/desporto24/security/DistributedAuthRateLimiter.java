@@ -82,6 +82,18 @@ public class DistributedAuthRateLimiter {
         return count;
     }
 
+    /**
+     * Reserve both direct-call budgets in one PostgreSQL transaction.
+     * If either reservation is denied or the database fails, neither bucket
+     * is consumed. Internal calls share this method's transaction.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void reserveDirectCall(String caller, String peerBudgetKey,
+                                  int globalMaximum, int peerMaximum, Duration window) {
+        reserveAttempt("direct-call-start", caller, globalMaximum, window);
+        reserveAttempt("direct-call-peer", peerBudgetKey, peerMaximum, window);
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void clearAfterSuccess(String action, String subject) {
         jdbc.update("delete from auth_rate_limit_bucket where bucket_key = ?",
