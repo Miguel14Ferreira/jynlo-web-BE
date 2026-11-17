@@ -634,6 +634,13 @@ public class SocialFeedService {
         List<SocialPost> candidates = postRepository.findSessionMemories(
                 sessionId, PageRequest.of(0, 30));
         if (candidates.isEmpty()) return List.of();
+        // A session ID alone is not proof of attendance. Only the organiser
+        // and confirmed members may contribute to the game album.
+        Set<Long> eligibleAuthors = participantRepository
+                .findBySessionIdAndStateOrderByJoinedAtAsc(sessionId,
+                        com.example.desporto24.enumeration.ParticipantState.ACTIVE)
+                .stream().map(p -> p.getProfile().getId()).collect(Collectors.toSet());
+        if (session.getProfile() != null) eligibleAuthors.add(session.getProfile().getId());
         Set<Long> hiddenIds = Set.of();
         if (hiddenFeedPosts != null) {
             Set<Long> ids = candidates.stream().map(SocialPost::getId).collect(Collectors.toSet());
@@ -643,7 +650,8 @@ public class SocialFeedService {
         }
         Set<Long> personallyHidden = hiddenIds;
         List<SocialPost> visible = candidates.stream()
-                .filter(post -> !personallyHidden.contains(post.getId())
+                .filter(post -> eligibleAuthors.contains(post.getAuthor().getId())
+                        && !personallyHidden.contains(post.getId())
                         && !userBlockService.isBlockedBetween(viewer, post.getAuthor())
                         && canViewPrivatePosts(viewer, post.getAuthor()))
                 .toList();
