@@ -121,6 +121,49 @@ class SportsTeamInvitationDecisionTest {
     }
 
     @Test
+    void disabledAndSuspendedAccountsCannotSearchForPlayers() {
+        var user = new Profile();
+        user.setId(42L);
+        user.setUsername("player");
+        when(profiles.findUserByUsername("player")).thenReturn(Optional.of(user));
+
+        user.setEnabled(false);
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+            () -> service.searchPlayers("jo", "player"));
+
+        user.setEnabled(true);
+        user.setModerationSuspendedAt(java.time.Instant.now());
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+            () -> service.searchPlayers("jo", "player"));
+
+        verify(profiles, never()).searchPublicCandidates(
+            anyString(), anyString(), anyString(), anyString(), anyString(), any());
+    }
+
+    @Test
+    void suspendedPlayerCanLeaveAnExistingTeamWithoutManagingOtherMembers() {
+        var captain = new Profile();
+        captain.setId(1L);
+        captain.setUsername("captain");
+        var player = new Profile();
+        player.setId(42L);
+        player.setUsername("player");
+        player.setModerationSuspendedAt(java.time.Instant.now());
+        var team = com.example.desporto24.model.team.SportsTeam.builder()
+            .id(7L).owner(captain).build();
+        var membership = SportsTeamMember.builder()
+            .team(team).profile(player).status(SportsTeamMember.Status.ACTIVE).build();
+        when(teams.findById(7L)).thenReturn(Optional.of(team));
+        when(profiles.findUserByUsername("player")).thenReturn(Optional.of(player));
+        when(members.findByTeamIdAndProfileId(7L,42L)).thenReturn(Optional.of(membership));
+
+        service.remove(7L, 42L, "player");
+
+        verify(members).delete(membership);
+        verify(members).flush();
+    }
+
+    @Test
     void acceptingInvitationUsesLockedMembershipAndRejectsDuplicateDecision() {
         var profile = new Profile();
         profile.setId(42L);
