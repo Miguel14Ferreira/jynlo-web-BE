@@ -103,6 +103,21 @@ public class SportsTeamContentService {
                 .sorted(Comparator.comparing(Entry::id)).toList();
     }
 
+    /** Older private feed items; authorization is rechecked for every page. */
+    @Transactional(readOnly = true)
+    public List<Entry> olderFeed(Long teamId, Long beforeId, int limit, String username) {
+        var team = team(teamId);
+        var viewer = actor(username);
+        requireActiveMember(team, viewer);
+        requireFeature(team, SportsTeamContent.Kind.FEED);
+        if (beforeId == null || beforeId <= 0 || limit < 1 || limit > 50)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Página inválida");
+        return content.findByTeamIdAndKindAndIdLessThanOrderByIdDesc(
+                teamId, SportsTeamContent.Kind.FEED, beforeId, PageRequest.of(0, limit))
+                .stream().map(item -> view(item, viewer, team))
+                .sorted(Comparator.comparing(Entry::id)).toList();
+    }
+
     /** Search uses a literal bounded query and never returns deleted content. */
     @Transactional(readOnly = true)
     public List<Entry> search(Long teamId, SportsTeamContent.Kind kind, String term, String username) {
