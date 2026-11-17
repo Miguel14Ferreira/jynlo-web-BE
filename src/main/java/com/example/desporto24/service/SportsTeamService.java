@@ -28,6 +28,8 @@ public class SportsTeamService {
     private final ProfileRepository profiles;
     @Autowired(required = false)
     private MediaStorage mediaStorage;
+    @Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher realtimeEvents;
 
     public record TeamView(Long id, String slug, String name, String sport, String location,
                            String description, Long ownerProfileId, boolean feedEnabled,
@@ -113,9 +115,22 @@ public class SportsTeamService {
         SportsTeam team = ownedTeam(id, username);
         if (request == null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Configuração obrigatória");
+        boolean feedChanged = request.feedEnabled() != null
+                && team.isFeedEnabled() != request.feedEnabled();
+        boolean chatChanged = request.chatEnabled() != null
+                && team.isChatEnabled() != request.chatEnabled();
         if (request.feedEnabled() != null) team.setFeedEnabled(request.feedEnabled());
         if (request.chatEnabled() != null) team.setChatEnabled(request.chatEnabled());
-        return view(teams.saveAndFlush(team));
+        TeamView saved = view(teams.saveAndFlush(team));
+        // Content-free invalidations are delivered after commit. In particular,
+        // disabling a feature must invalidate already-open private conversations.
+        if (realtimeEvents != null) {
+            if (feedChanged) realtimeEvents.publishEvent(
+                    new com.example.desporto24.websocket.TeamContentChangedEvent(id, "feed"));
+            if (chatChanged) realtimeEvents.publishEvent(
+                    new com.example.desporto24.websocket.TeamContentChangedEvent(id, "chat"));
+        }
+        return saved;
     }
 
     @Transactional
