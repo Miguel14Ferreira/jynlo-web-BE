@@ -176,6 +176,63 @@ class DistributedAuthRateLimiterPostgresTest {
     }
 
     @Test
+    void concurrentDirectCallsAcrossSpringProxiesRespectSharedGlobalBudget() throws Exception {
+        DriverManagerDataSource source = new DriverManagerDataSource();
+        source.setDriverClassName("org.postgresql.Driver");
+        source.setUrl(System.getenv("JYNLO_TEST_PG_JDBC_URL"));
+        source.setUsername(System.getenv("JYNLO_TEST_PG_USERNAME"));
+        source.setPassword(System.getenv("JYNLO_TEST_PG_PASSWORD"));
+
+        try (var contextA = new AnnotationConfigApplicationContext();
+             var contextB = new AnnotationConfigApplicationContext()) {
+            for (var context : List.of(contextA, contextB)) {
+                context.register(TransactionalLimiterConfig.class);
+                context.registerBean(DataSourceTransactionManager.class,
+                        () -> new DataSourceTransactionManager(source));
+                context.registerBean(DistributedAuthRateLimiter.class,
+                        () -> new DistributedAuthRateLimiter(new JdbcTemplate(source),
+                                "CI-only-signing-key"));
+                context.refresh();
+            }
+            var limiterA = contextA.getBean(DistributedAuthRateLimiter.class);
+            var limiterB = contextB.getBean(DistributedAuthRateLimiter.class);
+            int concurrency = 12;
+            CountDownLatch start = new CountDownLatch(1);
+            try (var pool = Executors.newFixedThreadPool(concurrency)) {
+                List<java.util.concurrent.Future<Boolean>> results = new ArrayList<>();
+                for (int i = 0; i < concurrency; i++) {
+                    final int index = i;
+                    final var limiter = i % 2 == 0 ? limiterA : limiterB;
+                    results.add(pool.submit(() -> {
+                        if (!start.await(10, TimeUnit.SECONDS)) {
+                            throw new AssertionError("start timeout");
+                        }
+                        try {
+                            limiter.reserveDirectCall("caller", "caller:peer-" + index,
+                                    6, 3, Duration.ofMinutes(1));
+                            return true;
+                        } catch (ResponseStatusException rejected) {
+                            assertEquals(HttpStatus.TOO_MANY_REQUESTS, rejected.getStatusCode());
+                            return false;
+                        }
+                    }));
+                }
+                start.countDown();
+                int allowed = 0;
+                for (var result : results) {
+                    allowed += result.get(20, TimeUnit.SECONDS) ? 1 : 0;
+                }
+                assertEquals(6, allowed);
+                assertEquals(12, jdbc.queryForObject(
+                        "select coalesce(sum(attempt_count), 0) from auth_rate_limit_bucket",
+                        Integer.class));
+                assertEquals(7, jdbc.queryForObject(
+                        "select count(*) from auth_rate_limit_bucket", Integer.class));
+            }
+        }
+    }
+
+    @Test
     void fixedWindowExpiresAndCooldownsAreIndependentByAction() throws Exception {
         serverA.reserveAttempt("cooldown:reset", "account", 1, Duration.ofSeconds(1));
         assertThrows(ResponseStatusException.class,
