@@ -615,6 +615,46 @@ public class SocialFeedService {
     }
 
     /** Permanent authored publications, independent from expiring Stories and automatic activities. */
+    /**
+     * A game album is a filtered view of existing authored posts, never an
+     * automatic feed publication. Only publicly shareable games are exposed.
+     * Authors' profile privacy, mutual blocks and personal hides still apply.
+     */
+    @Transactional(readOnly = true)
+    public List<FeedItemResponse> sessionMemories(Long sessionId, String viewerUsername) {
+        Profile viewer = profile(viewerUsername);
+        if (sessionId == null || sessionId <= 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sessão indisponível");
+        }
+        Session session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sessão indisponível"));
+        if (!isPubliclyShareableSession(session)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Memórias indisponíveis");
+        }
+        List<SocialPost> candidates = postRepository.findSessionMemories(
+                sessionId, PageRequest.of(0, 30));
+        if (candidates.isEmpty()) return List.of();
+        Set<Long> hiddenIds = Set.of();
+        if (hiddenFeedPosts != null) {
+            Set<Long> ids = candidates.stream().map(SocialPost::getId).collect(Collectors.toSet());
+            hiddenIds = hiddenFeedPosts.findByViewerIdAndPostIdIn(viewer.getId(), ids)
+                    .stream().map(com.example.desporto24.model.social.HiddenFeedPost::getPostId)
+                    .collect(Collectors.toSet());
+        }
+        Set<Long> personallyHidden = hiddenIds;
+        List<SocialPost> visible = candidates.stream()
+                .filter(post -> !personallyHidden.contains(post.getId())
+                        && !userBlockService.isBlockedBetween(viewer, post.getAuthor())
+                        && canViewPrivatePosts(viewer, post.getAuthor()))
+                .toList();
+        if (visible.isEmpty()) return List.of();
+        Set<Long> ids = visible.stream().map(SocialPost::getId).collect(Collectors.toSet());
+        Map<Long, Long> likes = countsByPostId(likeRepository.countByPostIds(ids));
+        Map<Long, Long> comments = countsByPostId(commentRepository.countByPostIds(ids));
+        Set<Long> liked = likeRepository.findLikedPostIds(ids, viewer.getId());
+        return visible.stream().map(post -> postItem(post, likes, comments, liked)).toList();
+    }
+
     @Transactional(readOnly = true)
     public List<FeedItemResponse> profilePosts(String authorUsername, String viewerUsername, int page) {
         if (page < 0 || page > 1000) throw new IllegalArgumentException("Página inválida");
