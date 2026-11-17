@@ -38,6 +38,8 @@ public class SportsTeamDeletionService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Equipa não encontrada"));
         if (!team.getOwner().getId().equals(actor.getId()))
             throw new AccessDeniedException("Só o responsável pode eliminar a equipa");
+        if (Boolean.FALSE.equals(actor.getEnabled()) || actor.getModerationSuspendedAt() != null)
+            throw new AccessDeniedException("Conta indisponível para gerir equipas");
         // Refuse deletion if anything might be retained or referenced by another module.
         // All invitation statuses (including declined) are checked, not only ACTIVE.
         if (members.existsByTeamId(teamId)
