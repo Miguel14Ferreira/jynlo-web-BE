@@ -5,6 +5,7 @@ on:
     paths:
       - 'src/main/java/com/example/desporto24/model/team/SportsTeamContent*'
       - 'src/main/java/com/example/desporto24/service/SportsTeamContentService.java'
+      - 'src/main/java/com/example/desporto24/repository/team/SportsTeamRepository.java'
       - 'src/main/java/com/example/desporto24/websocket/TeamContent*'
       - 'src/main/java/com/example/desporto24/websocket/ChatRealtimeGateway.java'
       - 'src/test/java/com/example/desporto24/websocket/TeamContentRealtimeListenerTest.java'
@@ -35,4 +36,4 @@ jobs:
         run: |
           # The hosted runner already includes Maven; avoid downloading the wrapper
           # distribution from Maven Central (intermittent HTTP 429 rate limits).
-          mvn -B -q -Dtest=SportsTeamContentServiceTest,SportsTeamReactionServiceTest,SportsTeamAttachmentServiceTest,SportsTeamInvitationDecisionTest,TeamContentRealtimeListenerTest test
+          mvn -B -q -Dtest=SportsTeamContentServiceTest,SportsTeamReactionServiceTest,SportsTeamAttachmentServiceTest,SportsTeamInvitationDecisionTest,TeamContentRealtimeListenerTest,SportsTeamDirectoryQueryTest test
