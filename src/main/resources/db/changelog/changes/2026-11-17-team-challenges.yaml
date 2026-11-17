@@ -1,0 +1,57 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-17-team-challenges
+      author: jynlo
+      changes:
+        - createTable:
+            schemaName: desporto24
+            tableName: sports_team_challenge
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: challenger_team_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: challenged_team_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: created_by_profile_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: status, type: varchar(16), constraints: {nullable: false}}
+              - column: {name: message, type: varchar(280)}
+              - column: {name: session_id, type: bigint}
+              - column: {name: created_at, type: timestamp with time zone, constraints: {nullable: false}}
+              - column: {name: responded_at, type: timestamp with time zone}
+              - column: {name: linked_at, type: timestamp with time zone}
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_challenge
+            baseColumnNames: challenger_team_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: sports_team
+            referencedColumnNames: id
+            constraintName: fk_challenge_challenger
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_challenge
+            baseColumnNames: challenged_team_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: sports_team
+            referencedColumnNames: id
+            constraintName: fk_challenge_challenged
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_challenge
+            baseColumnNames: created_by_profile_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_challenge_actor
+        - createIndex:
+            schemaName: desporto24
+            tableName: sports_team_challenge
+            indexName: idx_team_challenge_challenger
+            columns:
+              - column: {name: challenger_team_id}
+              - column: {name: status}
+        - createIndex:
+            schemaName: desporto24
+            tableName: sports_team_challenge
+            indexName: idx_team_challenge_challenged
+            columns:
+              - column: {name: challenged_team_id}
+              - column: {name: status}
