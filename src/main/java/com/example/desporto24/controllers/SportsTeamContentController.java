@@ -45,6 +45,13 @@ public class SportsTeamContentController {
         return service.recent(teamId, Kind.FEED, auth.getName());
     }
 
+    @GetMapping("/feed/older")
+    public List<SportsTeamContentService.Entry> olderFeed(@PathVariable Long teamId,
+            @RequestParam("before") Long before, @RequestParam(value="limit",defaultValue="30") int limit,
+            Authentication auth) {
+        return service.olderFeed(teamId, before, limit, auth.getName());
+    }
+
     @PostMapping("/feed")
     @ResponseStatus(HttpStatus.CREATED)
     public SportsTeamContentService.Entry publish(@PathVariable Long teamId,
