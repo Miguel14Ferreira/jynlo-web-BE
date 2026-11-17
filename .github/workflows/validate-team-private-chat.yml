@@ -36,4 +36,4 @@ jobs:
         run: |
           # The hosted runner already includes Maven; avoid downloading the wrapper
           # distribution from Maven Central (intermittent HTTP 429 rate limits).
-          mvn -B -q -Dtest=SportsTeamContentServiceTest,SportsTeamReactionServiceTest,SportsTeamAttachmentServiceTest,SportsTeamInvitationDecisionTest,TeamContentRealtimeListenerTest,SportsTeamDirectoryQueryTest test
+          mvn -B -q -Dtest=SportsTeamContentServiceTest,SportsTeamReactionServiceTest,SportsTeamAttachmentServiceTest,SportsTeamInvitationDecisionTest,TeamContentRealtimeListenerTest,SportsTeamDirectoryQueryTest,SportsTeamRosterAvatarTest test
