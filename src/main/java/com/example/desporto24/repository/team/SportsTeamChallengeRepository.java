@@ -13,10 +13,11 @@ public interface SportsTeamChallengeRepository extends JpaRepository<SportsTeamC
     List<SportsTeamChallenge> forTeam(@Param("teamId") Long teamId, Pageable page);
 
     @EntityGraph(attributePaths={"challenger","challenged"})
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from SportsTeamChallenge c where c.id = :id")
     Optional<SportsTeamChallenge> findWithTeams(@Param("id") Long id);
 
-    @Query("select count(c)>0 from SportsTeamChallenge c where c.status in :statuses and ((c.challenger.id = :first and c.challenged.id = :second) or (c.challenger.id = :second and c.challenged.id = :first))")
+    @Query("select count(c)>0 from SportsTeamChallenge c where c.status in :statuses and c.sessionId is null and ((c.challenger.id = :first and c.challenged.id = :second) or (c.challenger.id = :second and c.challenged.id = :first))")
     boolean hasActivePair(@Param("first") Long first, @Param("second") Long second,
                           @Param("statuses") List<SportsTeamChallenge.Status> statuses);
 
