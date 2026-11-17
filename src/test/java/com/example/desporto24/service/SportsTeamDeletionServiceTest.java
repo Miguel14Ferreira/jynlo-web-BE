@@ -120,6 +120,19 @@ class SportsTeamDeletionServiceTest {
     }
 
     @Test
+    void deniesSuspendedOrDisabledOwnersBeforeCheckingDeletionDependencies() {
+        ownerCanAccessTeam();
+        owner.setModerationSuspendedAt(java.time.Instant.now());
+        assertThrows(AccessDeniedException.class, () -> service.deleteEmpty(id,"owner"));
+        owner.setModerationSuspendedAt(null);
+        owner.setEnabled(false);
+        assertThrows(AccessDeniedException.class, () -> service.deleteEmpty(id,"owner"));
+        verifyNoInteractions(members,content,communities,applications,invitations,
+                tournamentTeams,championshipTeams);
+        verify(teams, never()).delete(any());
+    }
+
+    @Test
     void rejectsInvalidIdentifiersWithoutTouchingRepositories() {
         assertEquals(400,assertThrows(ResponseStatusException.class,
                 () -> service.deleteEmpty(0L,"owner")).getStatusCode().value());
