@@ -52,12 +52,19 @@ class TeamContentRealtimeListenerTest {
     }
 
     @Test
-    void disabledTeamChatsNeverDeliverSocketHints() {
+    void disabledTeamChatsStillTriggerSafeClientRevalidation() {
         var team = mock(SportsTeam.class);
+        var owner = mock(Profile.class);
         when(teams.findById(42L)).thenReturn(Optional.of(team));
-        when(team.isChatEnabled()).thenReturn(false);
+        when(team.getOwner()).thenReturn(owner);
+        when(owner.getUsername()).thenReturn("owner");
+        when(members.findByTeamIdAndStatusOrderByIdAsc(
+                42L, SportsTeamMember.Status.ACTIVE)).thenReturn(List.of());
+        // The hint contains no private content, only team ID and kind.
         listener.notifyCurrentMembers(42L, "chat");
-        verifyNoInteractions(members, gateway);
+        listener.notifyCurrentMembers(42L, "feed");
+        verify(gateway).publishTeamContentInvalidated(Set.of("owner"),42L,"chat");
+        verify(gateway).publishTeamContentInvalidated(Set.of("owner"),42L,"feed");
     }
 
     @Test
