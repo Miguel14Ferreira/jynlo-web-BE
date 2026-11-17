@@ -15,6 +15,7 @@ import java.util.List;
 public class SportsTeamController {
     private final SportsTeamService service;
     private final com.example.desporto24.service.SportsTeamChampionshipHonoursService championshipHonours;
+    private final com.example.desporto24.service.SportsTeamDeletionService deletion;
 
     @GetMapping
     public List<SportsTeamService.TeamView> discover(@RequestParam(defaultValue = "") String q) {
@@ -48,6 +49,13 @@ public class SportsTeamController {
     public ResponseEntity<SportsTeamService.TeamView> create(
             @RequestBody SportsTeamService.CreateTeam request, Authentication auth) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request, auth.getName()));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> deleteEmpty(@PathVariable Long id, Authentication auth) {
+        deletion.deleteEmpty(id, auth.getName());
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}/kit")
