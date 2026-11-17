@@ -27,6 +27,7 @@ class SportsTeamDeletionServiceTest {
     @Mock SportsTeamCommunityMembershipRepository communities;
     @Mock SportsTeamCompetitionApplicationRepository applications;
     @Mock SportsTeamCompetitionInvitationRepository invitations;
+    @Mock SportsTeamChallengeRepository challenges;
     @Mock CommunityTournamentTeamRepository tournamentTeams;
     @Mock CommunityChampionshipTeamRepository championshipTeams;
     @InjectMocks SportsTeamDeletionService service;
@@ -57,6 +58,7 @@ class SportsTeamDeletionServiceTest {
         verify(communities).existsByTeamId(id);
         verify(applications).existsByTeamId(id);
         verify(invitations).existsByTeamId(id);
+        verify(challenges).existsByChallengerIdOrChallengedId(id,id);
         verify(tournamentTeams).existsByGlobalTeamId(id);
         verify(championshipTeams).existsByGlobalTeamId(id);
         var order = inOrder(teams);
@@ -128,7 +130,7 @@ class SportsTeamDeletionServiceTest {
         owner.setEnabled(false);
         assertThrows(AccessDeniedException.class, () -> service.deleteEmpty(id,"owner"));
         verifyNoInteractions(members,content,communities,applications,invitations,
-                tournamentTeams,championshipTeams);
+                challenges,tournamentTeams,championshipTeams);
         verify(teams, never()).delete(any());
     }
 
@@ -137,5 +139,14 @@ class SportsTeamDeletionServiceTest {
         assertEquals(400,assertThrows(ResponseStatusException.class,
                 () -> service.deleteEmpty(0L,"owner")).getStatusCode().value());
         verifyNoInteractions(teams, profiles);
+    }
+
+    @Test
+    void refusesToDeleteTeamsWithPendingOrHistoricalChallenges() {
+        ownerCanAccessTeam();
+        when(challenges.existsByChallengerIdOrChallengedId(id,id)).thenReturn(true);
+        assertEquals(409,assertThrows(ResponseStatusException.class,
+                () -> service.deleteEmpty(id,"owner")).getStatusCode().value());
+        verify(teams,never()).delete(any());
     }
 }
