@@ -35,10 +35,13 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, Long> {
     @Query("""
             select p from SocialPost p
             join fetch p.author
-            where p.session.id = :sessionId and p.activityType is null
+            where p.session.id = :sessionId
+              and p.activityType is null
+              and p.author.id in :eligibleAuthorIds
             order by p.createdAt desc, p.id desc
             """)
-    List<SocialPost> findSessionMemories(@Param("sessionId") Long sessionId, Pageable pageable);
+    List<SocialPost> findSessionMemories(@Param("sessionId") Long sessionId,
+            @Param("eligibleAuthorIds") Collection<Long> eligibleAuthorIds, Pageable pageable);
 
     List<SocialPost> findByAuthorId(Long authorId);
 
