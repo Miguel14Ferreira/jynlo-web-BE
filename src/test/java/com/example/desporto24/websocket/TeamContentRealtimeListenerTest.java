@@ -35,7 +35,6 @@ class TeamContentRealtimeListenerTest {
         var member = mock(SportsTeamMember.class);
         var profile = mock(Profile.class);
         when(teams.findById(42L)).thenReturn(Optional.of(team));
-        when(team.isChatEnabled()).thenReturn(true);
         when(team.getOwner()).thenReturn(owner);
         when(owner.getUsername()).thenReturn("owner");
         when(member.getProfile()).thenReturn(profile);
