@@ -52,7 +52,9 @@ public class TeamContentRealtimeListener {
 
     public void notifyCurrentMembers(Long teamId, String kind) {
         var team = teams.findById(teamId).orElse(null);
-        if (team == null || ("chat".equals(kind) ? !team.isChatEnabled() : !team.isFeedEnabled())) return;
+        // This contains no message content. Send the hint even when disabled:
+        // clients must revalidate over HTTP and clear stale private history (409).
+        if (team == null || !("chat".equals(kind) || "feed".equals(kind))) return;
         Set<String> recipients = new HashSet<>();
         recipients.add(team.getOwner().getUsername());
         members.findByTeamIdAndStatusOrderByIdAsc(teamId, SportsTeamMember.Status.ACTIVE)
