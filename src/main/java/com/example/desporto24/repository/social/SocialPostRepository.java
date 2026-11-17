@@ -31,6 +31,15 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, Long> {
             """)
     List<SocialPost> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
+    /** Authored memories for one public game, bounded and newest first. */
+    @Query("""
+            select p from SocialPost p
+            join fetch p.author
+            where p.session.id = :sessionId and p.activityType is null
+            order by p.createdAt desc, p.id desc
+            """)
+    List<SocialPost> findSessionMemories(@Param("sessionId") Long sessionId, Pageable pageable);
+
     List<SocialPost> findByAuthorId(Long authorId);
 
     List<SocialPost> findByAuthorIdAndActivityTypeIsNullOrderByCreatedAtDesc(Long authorId, Pageable pageable);
