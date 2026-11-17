@@ -32,6 +32,9 @@ class DirectCallServiceTest {
 
     @BeforeEach
     void configure() {
+        // Mockito constructor injection does not populate the remaining field-injected limiter.
+        // Keep the production dependency mandatory and explicitly supply its mock in isolated tests.
+        ReflectionTestUtils.setField(calls, "distributedCallLimits", distributedCallLimits);
         ReflectionTestUtils.setField(calls, "serverUrl", "wss://example.livekit.cloud");
         ReflectionTestUtils.setField(calls, "apiKey", "jynlo-api-key");
         ReflectionTestUtils.setField(calls, "apiSecret", "only-for-tests-long-enough-livekit-secret");
