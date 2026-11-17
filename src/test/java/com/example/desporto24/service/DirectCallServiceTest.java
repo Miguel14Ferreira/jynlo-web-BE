@@ -60,6 +60,18 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void startingDirectCallReservesBothBudgetsThroughOneOperation() {
+        var call = calls.start("ana", "bea", "voice");
+        assertNotNull(call);
+        verify(distributedCallLimits, times(1)).reserveDirectCall(
+                eq("ana"), anyString(), eq(6), anyInt(), eq(java.time.Duration.ofMinutes(1)));
+        verify(distributedCallLimits, never()).reserveAttempt(
+                eq("direct-call-start"), anyString(), anyInt(), any());
+        verify(distributedCallLimits, never()).reserveAttempt(
+                eq("direct-call-peer"), anyString(), anyInt(), any());
+    }
+
+    @Test
     void distributedLimiterFailurePreventsGroupInvitation() {
         var call = calls.start("ana", "bea", "video");
         calls.accept(call.callId(), "bea");
