@@ -143,6 +143,25 @@ class SportsTeamContentServiceTest {
     }
 
     @Test
+    void authorizedTeamFeedIncludesAvatarForAuthorButNotPrivateContentForOutsiders() {
+        owner.setProfilePicUrl("https://cdn.example.org/team-captain.png");
+        var post=SportsTeamContent.builder().id(52L).team(team).author(owner)
+                .kind(SportsTeamContent.Kind.FEED).body("Partilha do jogo")
+                .createdAt(Instant.now()).build();
+        when(entries.findByTeamIdAndKindOrderByIdDesc(eq(42L),
+                eq(SportsTeamContent.Kind.FEED),any(Pageable.class)))
+                .thenReturn(List.of(post));
+        var shown=service.recent(42L,SportsTeamContent.Kind.FEED,"captain");
+        assertEquals(1,shown.size());
+        assertEquals("https://cdn.example.org/team-captain.png",shown.get(0).profilePicUrl());
+        assertEquals("Partilha do jogo",shown.get(0).body());
+        assertThrows(AccessDeniedException.class,()->service.recent(
+                42L,SportsTeamContent.Kind.FEED,"player"));
+        verify(entries,times(1)).findByTeamIdAndKindOrderByIdDesc(
+                eq(42L),eq(SportsTeamContent.Kind.FEED),any(Pageable.class));
+    }
+
+    @Test
     void teamReplyCannotReferenceAnotherTeamsOrDeletedMessage() {
         when(entries.findById(99L)).thenReturn(Optional.of(SportsTeamContent.builder()
                 .id(99L).team(SportsTeam.builder().id(100L).build())
