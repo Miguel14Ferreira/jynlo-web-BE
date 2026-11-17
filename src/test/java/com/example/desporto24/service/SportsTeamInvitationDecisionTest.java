@@ -164,6 +164,46 @@ class SportsTeamInvitationDecisionTest {
     }
 
     @Test
+    void acceptingInvitationTriggersImmediatePostCommitChatAndFeedRevalidation() {
+        var player=new Profile();
+        player.setId(42L);
+        player.setUsername("player");
+        var invitation=SportsTeamMember.builder()
+            .status(SportsTeamMember.Status.INVITED).build();
+        var publisher=mock(org.springframework.context.ApplicationEventPublisher.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"realtimeEvents",publisher);
+        when(profiles.findUserByUsername("player")).thenReturn(Optional.of(player));
+        when(members.findInvitationForUpdate(7L,42L)).thenReturn(Optional.of(invitation));
+
+        service.respond(7L,"player",true);
+
+        assertEquals(SportsTeamMember.Status.ACTIVE,invitation.getStatus());
+        verify(members).saveAndFlush(invitation);
+        verify(publisher).publishEvent(
+            new com.example.desporto24.websocket.TeamContentChangedEvent(7L,"chat"));
+        verify(publisher).publishEvent(
+            new com.example.desporto24.websocket.TeamContentChangedEvent(7L,"feed"));
+    }
+
+    @Test
+    void decliningInvitationDoesNotBroadcastPrivateContentRefresh() {
+        var player=new Profile();
+        player.setId(42L);
+        player.setUsername("player");
+        var invitation=SportsTeamMember.builder()
+            .status(SportsTeamMember.Status.INVITED).build();
+        var publisher=mock(org.springframework.context.ApplicationEventPublisher.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"realtimeEvents",publisher);
+        when(profiles.findUserByUsername("player")).thenReturn(Optional.of(player));
+        when(members.findInvitationForUpdate(7L,42L)).thenReturn(Optional.of(invitation));
+
+        service.respond(7L,"player",false);
+
+        assertEquals(SportsTeamMember.Status.DECLINED,invitation.getStatus());
+        verifyNoInteractions(publisher);
+    }
+
+    @Test
     void acceptingInvitationUsesLockedMembershipAndRejectsDuplicateDecision() {
         var profile = new Profile();
         profile.setId(42L);
