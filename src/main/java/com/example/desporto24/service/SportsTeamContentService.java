@@ -118,6 +118,23 @@ public class SportsTeamContentService {
                 .sorted(Comparator.comparing(Entry::id)).toList();
     }
 
+    /** Reconcile already-loaded older posts, including tombstones for deleted ones. */
+    @Transactional(readOnly = true)
+    public List<Entry> feedEntries(Long teamId, List<Long> ids, String username) {
+        var team = team(teamId);
+        var viewer = actor(username);
+        requireActiveMember(team, viewer);
+        requireFeature(team, SportsTeamContent.Kind.FEED);
+        if (ids == null || ids.isEmpty() || ids.size() > 100
+                || ids.stream().anyMatch(id -> id == null || id <= 0))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Identificadores inválidos");
+        return content.findAllById(new java.util.HashSet<>(ids)).stream()
+                .filter(item -> item.getTeam().getId().equals(teamId)
+                        && item.getKind() == SportsTeamContent.Kind.FEED)
+                .map(item -> view(item, viewer, team))
+                .sorted(Comparator.comparing(Entry::id)).toList();
+    }
+
     /** Search uses a literal bounded query and never returns deleted content. */
     @Transactional(readOnly = true)
     public List<Entry> search(Long teamId, SportsTeamContent.Kind kind, String term, String username) {
