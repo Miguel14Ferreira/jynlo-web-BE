@@ -68,9 +68,9 @@ class SocialFeedSessionMemoriesTest {
         when(posts.findSessionMemories(eq(7L),any(Pageable.class))).thenReturn(List.of(
                 post(11,publicAuthor,game),post(12,privateAuthor,game),post(13,blockedAuthor,game)));
         when(blocks.isBlockedBetween(viewer,blockedAuthor)).thenReturn(true);
-        when(likes.countByPostIds(anyCollection())).thenReturn(List.of());
-        when(comments.countByPostIds(anyCollection())).thenReturn(List.of());
-        when(likes.findLikedPostIds(anyCollection(),eq(1L))).thenReturn(java.util.Set.of());
+        when(likes.countByPostIds(anySet())).thenReturn(List.of());
+        when(comments.countByPostIds(anySet())).thenReturn(List.of());
+        when(likes.findLikedPostIds(anySet(),eq(1L))).thenReturn(java.util.Set.of());
         var result=service.sessionMemories(7L,"viewer");
         assertEquals(1,result.size());
         assertEquals(11L,result.get(0).postId());
@@ -86,9 +86,9 @@ class SocialFeedSessionMemoriesTest {
         when(posts.findSessionMemories(eq(7L),any(Pageable.class)))
                 .thenReturn(List.of(post(12,author,game)));
         when(follows.existsByFollowerIdAndFollowingId(1L,3L)).thenReturn(true);
-        when(likes.countByPostIds(anyCollection())).thenReturn(List.of());
-        when(comments.countByPostIds(anyCollection())).thenReturn(List.of());
-        when(likes.findLikedPostIds(anyCollection(),eq(1L))).thenReturn(java.util.Set.of());
+        when(likes.countByPostIds(anySet())).thenReturn(List.of());
+        when(comments.countByPostIds(anySet())).thenReturn(List.of());
+        when(likes.findLikedPostIds(anySet(),eq(1L))).thenReturn(java.util.Set.of());
         assertEquals(1,service.sessionMemories(7L,"viewer").size());
     }
 }
