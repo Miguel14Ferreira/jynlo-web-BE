@@ -24,4 +24,13 @@ class SportsTeamDirectoryQueryTest {
         assertNotNull(graph, "Owned team cards must not create one SQL lookup per owner");
         assertArrayEquals(new String[]{"owner"}, graph.attributePaths());
     }
+    @Test
+    void teamRosterFetchesConfirmedPlayerProfilesWithoutPerPlayerLazyQueries() throws Exception {
+        Method lookup = com.example.desporto24.repository.team.SportsTeamMemberRepository.class.getMethod(
+                "findByTeamIdAndStatusOrderByIdAsc", Long.class,
+                com.example.desporto24.model.team.SportsTeamMember.Status.class);
+        var graph = lookup.getAnnotation(EntityGraph.class);
+        assertNotNull(graph, "The roster displays usernames for every confirmed player");
+        assertArrayEquals(new String[]{"profile"}, graph.attributePaths());
+    }
 }
