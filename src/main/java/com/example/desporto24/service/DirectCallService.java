@@ -321,10 +321,8 @@ public class DirectCallService {
         CallSession session = access(call, caller);
         // Reserve only after both ACL checks and successful provider token creation.
         // Atomic PostgreSQL buckets prevent switching replicas to bypass ring limits.
-            distributedCallLimits.reserveAttempt("direct-call-start", normalized,
-                    6, Duration.ofMinutes(1));
-            distributedCallLimits.reserveAttempt("direct-call-peer", peerBudgetKey,
-                    MAX_DIRECT_RINGS_PER_PEER_PER_MINUTE, INVITE_WINDOW);
+        distributedCallLimits.reserveDirectCall(normalized, peerBudgetKey,
+                6, MAX_DIRECT_RINGS_PER_PEER_PER_MINUTE, INVITE_WINDOW);
 
         calls.put(id, call);
         // Bound cooldown bookkeeping: usernames must not accumulate indefinitely
