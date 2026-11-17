@@ -150,6 +150,14 @@ public class SportsTeamMembershipService {
         member.setStatus(accept ? SportsTeamMember.Status.ACTIVE : SportsTeamMember.Status.DECLINED);
         member.setRespondedAt(Instant.now());
         members.saveAndFlush(member);
+        if (accept && realtimeEvents != null) {
+            // A newly accepted player can immediately revalidate the team
+            // conversation after commit, rather than waiting for periodic polling.
+            realtimeEvents.publishEvent(new com.example.desporto24.websocket.TeamContentChangedEvent(
+                    teamId, "chat"));
+            realtimeEvents.publishEvent(new com.example.desporto24.websocket.TeamContentChangedEvent(
+                    teamId, "feed"));
+        }
     }
 
     @Transactional
