@@ -52,8 +52,8 @@ class DirectCallServiceTest {
     @Test
     void distributedLimiterFailurePreventsNewDirectRing() {
         doThrow(new IllegalStateException("PostgreSQL unavailable"))
-                .when(distributedCallLimits).reserveAttempt(eq("direct-call-start"), anyString(),
-                        eq(6), any());
+                .when(distributedCallLimits).reserveDirectCall(anyString(), anyString(),
+                        eq(6), anyInt(), any());
         assertThrows(IllegalStateException.class, () -> calls.start("ana", "bea", "voice"));
         assertNull(calls.pendingFor("bea"));
         verifyNoInteractions(gateway);
