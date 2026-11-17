@@ -1,6 +1,8 @@
 package com.example.desporto24.service;
 
 import com.example.desporto24.enumeration.SessionAudience;
+import com.example.desporto24.enumeration.ParticipantState;
+import com.example.desporto24.model.session.SessionParticipant;
 import com.example.desporto24.model.Profile;
 import com.example.desporto24.model.Session;
 import com.example.desporto24.model.social.SocialPost;
@@ -29,9 +31,10 @@ class SocialFeedSessionMemoriesTest {
     private final SocialPostLikeRepository likes=mock(SocialPostLikeRepository.class);
     private final SocialPostCommentRepository comments=mock(SocialPostCommentRepository.class);
     private final UserBlockService blocks=mock(UserBlockService.class);
+    private final SessionParticipantRepository participants=mock(SessionParticipantRepository.class);
     private final SocialFeedService service=new SocialFeedService(posts,follows,likes,comments,
             mock(SocialPostCommentLikeRepository.class),profiles,sessions,
-            mock(SessionParticipantRepository.class),blocks);
+            participants,blocks);
 
     private Profile player(long id,String username,boolean privateProfile) {
         var p=new Profile();p.setId(id);p.setUsername(username);
@@ -44,6 +47,15 @@ class SocialFeedSessionMemoriesTest {
     private SocialPost post(long id,Profile author,Session session) {
         return SocialPost.builder().id(id).author(author).session(session)
                 .content("Fotografias do jogo").createdAt(Instant.now()).build();
+    }
+    private void confirmed(long sessionId,Profile... authors) {
+        List<SessionParticipant> roster=java.util.Arrays.stream(authors).map(author->{
+            var entry=mock(SessionParticipant.class);
+            when(entry.getProfile()).thenReturn(author);
+            return entry;
+        }).toList();
+        when(participants.findBySessionIdAndStateOrderByJoinedAtAsc(
+                sessionId,ParticipantState.ACTIVE)).thenReturn(roster);
     }
     private void viewer(Profile profile) {
         when(profiles.findUserByUsernameIgnoreCase(profile.getUsername())).thenReturn(Optional.of(profile));
@@ -65,6 +77,7 @@ class SocialFeedSessionMemoriesTest {
         var blockedAuthor=player(4,"blocked",false);
         viewer(viewer);
         var game=session(7,SessionAudience.PUBLIC);
+        confirmed(7,publicAuthor,privateAuthor,blockedAuthor);
         when(posts.findSessionMemories(eq(7L),any(Pageable.class))).thenReturn(List.of(
                 post(11,publicAuthor,game),post(12,privateAuthor,game),post(13,blockedAuthor,game)));
         when(blocks.isBlockedBetween(viewer,blockedAuthor)).thenReturn(true);
@@ -83,9 +96,43 @@ class SocialFeedSessionMemoriesTest {
         var author=player(3,"private",true);
         viewer(viewer);
         var game=session(7,SessionAudience.PUBLIC);
+        confirmed(7,author);
         when(posts.findSessionMemories(eq(7L),any(Pageable.class)))
                 .thenReturn(List.of(post(12,author,game)));
         when(follows.existsByFollowerIdAndFollowingId(1L,3L)).thenReturn(true);
+        when(likes.countByPostIds(anySet())).thenReturn(List.of());
+        when(comments.countByPostIds(anySet())).thenReturn(List.of());
+        when(likes.findLikedPostIds(anySet(),eq(1L))).thenReturn(java.util.Set.of());
+        assertEquals(1,service.sessionMemories(7L,"viewer").size());
+    }
+
+    @Test
+    void strangerCannotAddMomentsToAnotherTeamsGameAlbumByGuessingSessionId() {
+        var viewer=player(1,"viewer",false);
+        var genuine=player(2,"attendee",false);
+        var stranger=player(8,"outsider",false);
+        viewer(viewer);
+        var game=session(7,SessionAudience.PUBLIC);
+        confirmed(7,genuine);
+        when(posts.findSessionMemories(eq(7L),any(Pageable.class))).thenReturn(List.of(
+                post(21,stranger,game),post(22,genuine,game)));
+        when(likes.countByPostIds(anySet())).thenReturn(List.of());
+        when(comments.countByPostIds(anySet())).thenReturn(List.of());
+        when(likes.findLikedPostIds(anySet(),eq(1L))).thenReturn(java.util.Set.of());
+        var album=service.sessionMemories(7L,"viewer");
+        assertEquals(1,album.size());
+        assertEquals(22L,album.get(0).postId());
+    }
+
+    @Test
+    void organiserCanContributeWithoutBeingASeparateRosterMember() {
+        var viewer=player(1,"viewer",false);
+        var organiser=player(2,"organiser",false);
+        viewer(viewer);
+        var game=session(7,SessionAudience.PUBLIC);
+        game.setProfile(organiser);
+        when(posts.findSessionMemories(eq(7L),any(Pageable.class)))
+                .thenReturn(List.of(post(23,organiser,game)));
         when(likes.countByPostIds(anySet())).thenReturn(List.of());
         when(comments.countByPostIds(anySet())).thenReturn(List.of());
         when(likes.findLikedPostIds(anySet(),eq(1L))).thenReturn(java.util.Set.of());
