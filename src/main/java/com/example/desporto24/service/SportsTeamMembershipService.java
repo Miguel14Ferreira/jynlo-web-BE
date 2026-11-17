@@ -24,7 +24,12 @@ public class SportsTeamMembershipService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private org.springframework.context.ApplicationEventPublisher realtimeEvents;
 
-    public record RosterPlayer(Long profileId, String username, String role) {}
+    public record RosterPlayer(Long profileId, String username, String role, String profilePicUrl) {}
+    private String publicRosterPhoto(Profile profile) {
+        // Team rosters are publicly accessible. Do not expose a private
+        // profile's avatar through a team membership endpoint.
+        return profile.isPrivateProfile() ? null : profile.getProfilePicUrl();
+    }
     public record Invitation(Long teamId, String teamName, String status) {}
     public record PendingInvitation(Long profileId, String username, String status) {}
 
@@ -88,12 +93,14 @@ public class SportsTeamMembershipService {
     public List<RosterPlayer> roster(Long id) {
         SportsTeam team = team(id);
         List<RosterPlayer> result = new ArrayList<>();
-        result.add(new RosterPlayer(team.getOwner().getId(), team.getOwner().getUsername(), "OWNER"));
+        result.add(new RosterPlayer(team.getOwner().getId(), team.getOwner().getUsername(),
+                "OWNER", publicRosterPhoto(team.getOwner())));
         members.findByTeamIdAndStatusOrderByIdAsc(id, SportsTeamMember.Status.ACTIVE)
                 .stream()
                 .filter(m -> !m.getProfile().getId().equals(team.getOwner().getId()))
                 .forEach(m -> result.add(new RosterPlayer(
-                        m.getProfile().getId(), m.getProfile().getUsername(), "PLAYER")));
+                        m.getProfile().getId(), m.getProfile().getUsername(),
+                        "PLAYER", publicRosterPhoto(m.getProfile()))));
         return result;
     }
 
