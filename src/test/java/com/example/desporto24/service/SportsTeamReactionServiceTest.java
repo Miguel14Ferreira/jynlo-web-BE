@@ -6,6 +6,9 @@ import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.team.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
+import com.example.desporto24.websocket.TeamContentChangedEvent;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
@@ -22,6 +25,7 @@ class SportsTeamReactionServiceTest {
     private final SportsTeamContentReactionRepository reactions =
             mock(SportsTeamContentReactionRepository.class);
     private final ProfileRepository profiles = mock(ProfileRepository.class);
+    private final ApplicationEventPublisher realtime = mock(ApplicationEventPublisher.class);
     private final SportsTeamReactionService service =
             new SportsTeamReactionService(teams, members, messages, reactions, profiles);
     private Profile captain;
@@ -38,6 +42,7 @@ class SportsTeamReactionServiceTest {
 
     @BeforeEach
     void setup() {
+        ReflectionTestUtils.setField(service, "realtimeEvents", realtime);
         captain = profile(1L, "captain");
         player = profile(2L, "player");
         team = SportsTeam.builder().id(42L).owner(captain)
@@ -86,6 +91,7 @@ class SportsTeamReactionServiceTest {
         service.set(42L, SportsTeamContent.Kind.CHAT, 99L, "🔥", "captain");
         assertEquals("🔥", previous.getEmoji());
         verify(reactions).saveAndFlush(previous);
+        verify(realtime, times(1)).publishEvent(new TeamContentChangedEvent(42L, "chat"));
     }
 
     @Test
@@ -110,5 +116,46 @@ class SportsTeamReactionServiceTest {
         team.setChatEnabled(false);
         assertThrows(ResponseStatusException.class, () ->
                 service.set(42L, SportsTeamContent.Kind.CHAT, 99L, "👍", "captain"));
+    }
+
+    @Test
+    void newAndRemovedReactionsImmediatelyInvalidateTheCorrectTeamFeed() {
+        message.setKind(SportsTeamContent.Kind.FEED);
+        service.set(42L, SportsTeamContent.Kind.FEED, 99L, "❤️", "captain");
+        verify(reactions).saveAndFlush(any(SportsTeamContentReaction.class));
+        verify(realtime).publishEvent(new TeamContentChangedEvent(42L, "feed"));
+
+        var existing = SportsTeamContentReaction.builder().id(8L).content(message)
+                .profile(captain).emoji("❤️").createdAt(Instant.now()).build();
+        when(reactions.findByContent_IdAndProfile_Id(99L, 1L))
+                .thenReturn(Optional.of(existing));
+        service.remove(42L, SportsTeamContent.Kind.FEED, 99L, "captain");
+        verify(reactions).delete(existing);
+        verify(realtime, times(2)).publishEvent(new TeamContentChangedEvent(42L, "feed"));
+    }
+
+    @Test
+    void repeatedOrMissingReactionsDoNotBroadcastDuplicateInvalidations() {
+        var existing = SportsTeamContentReaction.builder().id(7L).content(message)
+                .profile(captain).emoji("👍").createdAt(Instant.now()).build();
+        when(reactions.findByContent_IdAndProfile_Id(99L, 1L))
+                .thenReturn(Optional.of(existing), Optional.empty());
+        service.set(42L, SportsTeamContent.Kind.CHAT, 99L, "👍", "captain");
+        service.remove(42L, SportsTeamContent.Kind.CHAT, 99L, "captain");
+        verifyNoInteractions(realtime);
+    }
+
+    @Test
+    void suspendedAndDisabledAccountsCannotReadOrChangePrivateReactions() {
+        captain.setModerationSuspendedAt(Instant.now());
+        assertThrows(AccessDeniedException.class, () ->
+                service.summaries(42L, SportsTeamContent.Kind.CHAT, List.of(99L), "captain"));
+        assertThrows(AccessDeniedException.class, () ->
+                service.set(42L, SportsTeamContent.Kind.CHAT, 99L, "👍", "captain"));
+        captain.setModerationSuspendedAt(null);
+        captain.setEnabled(false);
+        assertThrows(AccessDeniedException.class, () ->
+                service.remove(42L, SportsTeamContent.Kind.CHAT, 99L, "captain"));
+        verifyNoInteractions(reactions, realtime);
     }
 }
