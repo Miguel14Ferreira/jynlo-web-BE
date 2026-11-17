@@ -143,6 +143,35 @@ class SportsTeamContentServiceTest {
     }
 
     @Test
+    void olderTeamFeedUsesCursorAndNeverLeaksOtherTeamsOrDisabledFeeds() {
+        var before=SportsTeamContent.builder().id(12L).team(team).author(owner)
+                .kind(SportsTeamContent.Kind.FEED).body("Antigo")
+                .createdAt(Instant.now()).build();
+        var newer=SportsTeamContent.builder().id(19L).team(team).author(owner)
+                .kind(SportsTeamContent.Kind.FEED).body("Menos antigo")
+                .createdAt(Instant.now()).build();
+        when(entries.findByTeamIdAndKindAndIdLessThanOrderByIdDesc(
+                eq(42L),eq(SportsTeamContent.Kind.FEED),eq(30L),any(Pageable.class)))
+                .thenReturn(List.of(newer,before));
+        var page=service.olderFeed(42L,30L,30,"captain");
+        assertEquals(List.of(12L,19L),page.stream().map(
+                SportsTeamContentService.Entry::id).toList());
+        verify(entries).findByTeamIdAndKindAndIdLessThanOrderByIdDesc(
+                eq(42L),eq(SportsTeamContent.Kind.FEED),eq(30L),
+                argThat(p->p.getPageSize()==30));
+        for(int limit:new int[]{0,51})
+            assertThrows(ResponseStatusException.class,()->
+                    service.olderFeed(42L,30L,limit,"captain"));
+        assertThrows(ResponseStatusException.class,()->
+                service.olderFeed(42L,0L,30,"captain"));
+        assertThrows(AccessDeniedException.class,()->
+                service.olderFeed(42L,30L,30,"player"));
+        team.setFeedEnabled(false);
+        assertThrows(ResponseStatusException.class,()->
+                service.olderFeed(42L,30L,30,"captain"));
+    }
+
+    @Test
     void authorizedTeamFeedIncludesAvatarForAuthorButNotPrivateContentForOutsiders() {
         owner.setProfilePicUrl("https://cdn.example.org/team-captain.png");
         var post=SportsTeamContent.builder().id(52L).team(team).author(owner)
