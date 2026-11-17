@@ -143,6 +143,36 @@ class SportsTeamContentServiceTest {
     }
 
     @Test
+    void reconcilesDeletedHistoricalFeedWithoutLeakingCrossTeamIds() {
+        var deleted=SportsTeamContent.builder().id(12L).team(team).author(owner)
+                .kind(SportsTeamContent.Kind.FEED).body("Private removed")
+                .createdAt(Instant.now()).deletedAt(Instant.now()).build();
+        var foreign=SportsTeamContent.builder().id(13L)
+                .team(SportsTeam.builder().id(55L).build()).author(owner)
+                .kind(SportsTeamContent.Kind.FEED).body("Foreign private")
+                .createdAt(Instant.now()).build();
+        var chat=SportsTeamContent.builder().id(14L).team(team).author(owner)
+                .kind(SportsTeamContent.Kind.CHAT).body("Private chat")
+                .createdAt(Instant.now()).build();
+        when(entries.findAllById(any())).thenReturn(List.of(deleted,foreign,chat));
+        var visible=service.feedEntries(42L,List.of(12L,13L,14L),"captain");
+        assertEquals(1,visible.size());
+        assertEquals(12L,visible.get(0).id());
+        assertTrue(visible.get(0).deleted());
+        assertEquals("",visible.get(0).body());
+        assertTrue(visible.get(0).attachments().isEmpty());
+        assertThrows(AccessDeniedException.class,()->
+                service.feedEntries(42L,List.of(12L),"player"));
+        for(List<Long> requested : List.<List<Long>>of(
+                List.of(),List.of(-1L),java.util.Collections.nCopies(101,1L)))
+            assertThrows(ResponseStatusException.class,()->
+                    service.feedEntries(42L,requested,"captain"));
+        team.setFeedEnabled(false);
+        assertThrows(ResponseStatusException.class,()->
+                service.feedEntries(42L,List.of(12L),"captain"));
+    }
+
+    @Test
     void olderTeamFeedUsesCursorAndNeverLeaksOtherTeamsOrDisabledFeeds() {
         var before=SportsTeamContent.builder().id(12L).team(team).author(owner)
                 .kind(SportsTeamContent.Kind.FEED).body("Antigo")
