@@ -7,6 +7,10 @@ import liquibase.database.DatabaseFactory;
 import liquibase.database.jvm.JdbcConnection;
 import liquibase.resource.ClassLoaderResourceAccessor;
 import org.junit.jupiter.api.BeforeAll;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -115,6 +119,59 @@ class DistributedAuthRateLimiterPostgresTest {
             assertEquals(5, allowed);
             assertThrows(ResponseStatusException.class,
                     () -> serverA.requireAllowed("login", "same-account", 5));
+        }
+    }
+
+    @Configuration
+    @EnableTransactionManagement
+    static class TransactionalLimiterConfig {}
+
+    @Test
+    void rejectedPeerCallRollsBackBothBucketsInRealPostgres() {
+        DriverManagerDataSource source = new DriverManagerDataSource();
+        source.setDriverClassName("org.postgresql.Driver");
+        source.setUrl(System.getenv("JYNLO_TEST_PG_JDBC_URL"));
+        source.setUsername(System.getenv("JYNLO_TEST_PG_USERNAME"));
+        source.setPassword(System.getenv("JYNLO_TEST_PG_PASSWORD"));
+
+        try (var context = new AnnotationConfigApplicationContext()) {
+            context.register(TransactionalLimiterConfig.class);
+            context.registerBean(DataSourceTransactionManager.class,
+                    () -> new DataSourceTransactionManager(source));
+            context.registerBean(DistributedAuthRateLimiter.class,
+                    () -> new DistributedAuthRateLimiter(new JdbcTemplate(source),
+                            "CI-only-signing-key"));
+            context.refresh();
+
+            var proxied = context.getBean(DistributedAuthRateLimiter.class);
+            Duration window = Duration.ofMinutes(1);
+            // Fill only the per-peer budget. The caller's global budget is untouched.
+            serverA.reserveAttempt("direct-call-peer", "caller:peer", 1, window);
+            Integer before = jdbc.queryForObject(
+                    "select coalesce(sum(attempt_count), 0) from auth_rate_limit_bucket",
+                    Integer.class);
+            assertEquals(1, before);
+
+            ResponseStatusException denied = assertThrows(ResponseStatusException.class,
+                    () -> proxied.reserveDirectCall("caller", "caller:peer", 6, 1, window));
+            assertEquals(HttpStatus.TOO_MANY_REQUESTS, denied.getStatusCode());
+
+            // A real PostgreSQL rollback must undo both the new caller bucket
+            // and the attempted increment of the exhausted peer bucket.
+            Integer after = jdbc.queryForObject(
+                    "select coalesce(sum(attempt_count), 0) from auth_rate_limit_bucket",
+                    Integer.class);
+            assertEquals(before, after);
+            Integer buckets = jdbc.queryForObject(
+                    "select count(*) from auth_rate_limit_bucket", Integer.class);
+            assertEquals(1, buckets);
+
+            // The rejected call must not consume global quota.
+            assertDoesNotThrow(() -> proxied.reserveDirectCall(
+                    "caller", "caller:other-peer", 6, 1, window));
+            assertEquals(3, jdbc.queryForObject(
+                    "select coalesce(sum(attempt_count), 0) from auth_rate_limit_bucket",
+                    Integer.class));
         }
     }
 
