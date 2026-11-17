@@ -23,6 +23,15 @@ public class SportsTeamReactionService {
     private final SportsTeamContentReactionRepository reactions;
     private final ProfileRepository profiles;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher realtimeEvents;
+
+    private void invalidate(Long teamId, SportsTeamContent.Kind kind) {
+        if (realtimeEvents != null)
+            realtimeEvents.publishEvent(new com.example.desporto24.websocket.TeamContentChangedEvent(
+                    teamId, kind.name().toLowerCase(java.util.Locale.ROOT)));
+    }
+
     public record ReactionState(Map<String, Long> counts, String mine) {}
     public record ReactionRequest(String emoji) {}
 
@@ -32,6 +41,8 @@ public class SportsTeamReactionService {
     }
 
     private SportsTeam requireTeam(Long teamId, SportsTeamContent.Kind kind, Profile actor) {
+        if (Boolean.FALSE.equals(actor.getEnabled()) || actor.getModerationSuspendedAt() != null)
+            throw new AccessDeniedException("Conta indisponível para conteúdos privados");
         var team = teams.findById(teamId).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Equipa não encontrada"));
         boolean active = team.getOwner().getId().equals(actor.getId())
@@ -96,11 +107,13 @@ public class SportsTeamReactionService {
             if (!emoji.equals(reaction.getEmoji())) {
                 reaction.setEmoji(emoji);
                 reactions.saveAndFlush(reaction);
+                invalidate(teamId, kind);
             }
         } else {
             reactions.saveAndFlush(SportsTeamContentReaction.builder()
                     .content(item).profile(viewer).emoji(emoji)
                     .createdAt(Instant.now()).build());
+            invalidate(teamId, kind);
         }
     }
 
@@ -110,6 +123,9 @@ public class SportsTeamReactionService {
         requireTeam(teamId, kind, viewer);
         requireContent(teamId, kind, contentId);
         reactions.findByContent_IdAndProfile_Id(contentId, viewer.getId())
-                .ifPresent(reactions::delete);
+                .ifPresent(reaction -> {
+                    reactions.delete(reaction);
+                    invalidate(teamId, kind);
+                });
     }
 }
