@@ -31,6 +31,12 @@ public class SocialFeedController {
         return feedService.feed(authentication.getName());
     }
 
+    @GetMapping("/sessions/{sessionId}/memories")
+    public List<FeedItemResponse> sessionMemories(@PathVariable Long sessionId,
+                                                    Authentication authentication) {
+        return feedService.sessionMemories(sessionId, authentication.getName());
+    }
+
     @GetMapping("/users/{username}/posts")
     public List<FeedItemResponse> profilePosts(@PathVariable String username,
                                                @RequestParam(defaultValue = "0") int page,
