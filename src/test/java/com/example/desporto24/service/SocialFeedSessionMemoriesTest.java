@@ -78,7 +78,7 @@ class SocialFeedSessionMemoriesTest {
         viewer(viewer);
         var game=session(7,SessionAudience.PUBLIC);
         confirmed(7,publicAuthor,privateAuthor,blockedAuthor);
-        when(posts.findSessionMemories(eq(7L),any(Pageable.class))).thenReturn(List.of(
+        when(posts.findSessionMemories(eq(7L),anySet(),any(Pageable.class))).thenReturn(List.of(
                 post(11,publicAuthor,game),post(12,privateAuthor,game),post(13,blockedAuthor,game)));
         when(blocks.isBlockedBetween(viewer,blockedAuthor)).thenReturn(true);
         when(likes.countByPostIds(anySet())).thenReturn(List.of());
@@ -87,7 +87,7 @@ class SocialFeedSessionMemoriesTest {
         var result=service.sessionMemories(7L,"viewer");
         assertEquals(1,result.size());
         assertEquals(11L,result.get(0).postId());
-        verify(posts).findSessionMemories(eq(7L),argThat(page->page.getPageSize()==30));
+        verify(posts).findSessionMemories(eq(7L),argThat(ids->ids.contains(2L)&&ids.contains(3L)&&ids.contains(4L)),argThat(page->page.getPageSize()==30));
     }
 
     @Test
@@ -97,7 +97,7 @@ class SocialFeedSessionMemoriesTest {
         viewer(viewer);
         var game=session(7,SessionAudience.PUBLIC);
         confirmed(7,author);
-        when(posts.findSessionMemories(eq(7L),any(Pageable.class)))
+        when(posts.findSessionMemories(eq(7L),anySet(),any(Pageable.class)))
                 .thenReturn(List.of(post(12,author,game)));
         when(follows.existsByFollowerIdAndFollowingId(1L,3L)).thenReturn(true);
         when(likes.countByPostIds(anySet())).thenReturn(List.of());
@@ -114,7 +114,7 @@ class SocialFeedSessionMemoriesTest {
         viewer(viewer);
         var game=session(7,SessionAudience.PUBLIC);
         confirmed(7,genuine);
-        when(posts.findSessionMemories(eq(7L),any(Pageable.class))).thenReturn(List.of(
+        when(posts.findSessionMemories(eq(7L),anySet(),any(Pageable.class))).thenReturn(List.of(
                 post(21,stranger,game),post(22,genuine,game)));
         when(likes.countByPostIds(anySet())).thenReturn(List.of());
         when(comments.countByPostIds(anySet())).thenReturn(List.of());
@@ -131,7 +131,7 @@ class SocialFeedSessionMemoriesTest {
         viewer(viewer);
         var game=session(7,SessionAudience.PUBLIC);
         game.setProfile(organiser);
-        when(posts.findSessionMemories(eq(7L),any(Pageable.class)))
+        when(posts.findSessionMemories(eq(7L),anySet(),any(Pageable.class)))
                 .thenReturn(List.of(post(23,organiser,game)));
         when(likes.countByPostIds(anySet())).thenReturn(List.of());
         when(comments.countByPostIds(anySet())).thenReturn(List.of());
