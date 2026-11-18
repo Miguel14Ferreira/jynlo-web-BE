@@ -563,6 +563,58 @@ class SocialStoryServiceTest {
         return community;
     }
     @Test
+    void expiredStoryCannotBeCountedOrHaveItsAudienceRead() {
+        SocialStory story=SocialStory.builder().id(441L).author(actor)
+                .expiresAt(Instant.now().minusSeconds(60)).build();
+        when(stories.findById(441L)).thenReturn(Optional.of(story));
+        assertEquals(HttpStatus.NOT_FOUND,
+                assertThrows(ResponseStatusException.class,
+                    ()->service.recordView(441L,"joao")).getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND,
+                assertThrows(ResponseStatusException.class,
+                    ()->service.audience(441L,"joao")).getStatusCode());
+        verifyNoInteractions(views);
+    }
+
+    @Test
+    void blockedProfileCannotRecordAnAuthenticatedStoryView() {
+        Profile outsider=new Profile();
+        outsider.setId(502L);outsider.setUsername("blocked");
+        when(profiles.findUserByUsernameIgnoreCase("blocked")).thenReturn(Optional.of(outsider));
+        SocialStory story=SocialStory.builder().id(442L).author(actor)
+                .expiresAt(Instant.now().plusSeconds(3600)).build();
+        when(stories.findById(442L)).thenReturn(Optional.of(story));
+        when(userBlockService.isBlockedBetween(outsider,actor)).thenReturn(true);
+        assertEquals(HttpStatus.NOT_FOUND,
+                assertThrows(ResponseStatusException.class,
+                    ()->service.recordView(442L,"blocked")).getStatusCode());
+        verifyNoInteractions(views);
+    }
+
+    @Test
+    void authorAudienceExcludesBlockedProfilesFromNamesEvenWhenTotalHasOlderViews() {
+        Profile blocked=new Profile();
+        blocked.setId(503L);blocked.setUsername("hidden");
+        Profile regular=new Profile();
+        regular.setId(504L);regular.setUsername("friend");
+        SocialStory story=SocialStory.builder().id(443L).author(actor)
+                .expiresAt(Instant.now().plusSeconds(3600)).build();
+        when(stories.findById(443L)).thenReturn(Optional.of(story));
+        when(userBlockService.blockedProfileIds(actor)).thenReturn(java.util.Set.of(503L));
+        when(views.recentViewers(eq(443L),any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(java.util.List.of(
+                    com.example.desporto24.model.social.SocialStoryView.builder()
+                       .id(1L).story(story).profile(blocked).viewedAt(Instant.now()).build(),
+                    com.example.desporto24.model.social.SocialStoryView.builder()
+                       .id(2L).story(story).profile(regular).viewedAt(Instant.now()).build()));
+        when(views.countByStoryId(443L)).thenReturn(2L);
+        var audience=service.audience(443L,"joao");
+        assertEquals(2,audience.viewCount());
+        assertEquals(1,audience.viewers().size());
+        assertEquals("friend",audience.viewers().get(0).username());
+    }
+
+    @Test
     void viewsAreUniqueAndNeverCountTheAuthorsOwnPreview() {
         Profile visitor = new Profile();
         visitor.setId(52L);visitor.setUsername("visitor");
