@@ -248,6 +248,28 @@ class InboxSummaryServiceTest {
     }
 
     @Test
+    void revokedDirectPermissionBetweenPreviewAndCursorWriteCannotMarkRead() {
+        actor();
+        when(profiles.findUserByUsernameIgnoreCase("bea"))
+                .thenReturn(Optional.of(profile(2L, "bea")));
+        Chat latest = new Chat("bea", "ana", "Olá", "",
+                Date.from(Instant.parse("2026-10-23T08:00:00Z")));
+        latest.setId(45L);
+        when(chats.findConversationPage(eq("ana"), eq("bea"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(latest)));
+        when(chatService.getChatInfo("ana", "bea"))
+                .thenReturn(null)
+                .thenThrow(new AccessDeniedException("Session contact permission expired"));
+
+        assertThrows(AccessDeniedException.class,
+                () -> service.markRead("ana", new InboxReadRequest("direct", "bea", 45L)));
+
+        verify(chatService, times(2)).getChatInfo("ana", "bea");
+        verify(cursors, never()).advance(anyLong(), anyString(), anyString(), anyLong());
+        verifyNoInteractions(events);
+    }
+
+    @Test
     void advancingDirectReadCursorNotifiesOnlyAfterPersistingTheClampedWatermark() {
         actor();
         when(profiles.findUserByUsernameIgnoreCase("bea"))
