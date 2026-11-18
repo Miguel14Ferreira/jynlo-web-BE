@@ -586,6 +586,7 @@ class SocialStoryServiceTest {
         when(stories.findById(332L)).thenReturn(Optional.of(story));
         assertThrows(AccessDeniedException.class,()->service.audience(332L,"visitor"));
         verify(views,never()).recentViewers(anyLong(),any());
+        when(userBlockService.blockedProfileIds(actor)).thenReturn(java.util.Set.of());
         when(views.countByStoryId(332L)).thenReturn(1L);
         SocialStoryService.StoryAudience info=service.audience(332L,"joao");
         assertEquals(1L,info.viewCount());
