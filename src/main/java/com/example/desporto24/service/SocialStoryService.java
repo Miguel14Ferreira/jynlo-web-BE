@@ -19,6 +19,7 @@ import com.example.desporto24.repository.community.CommunityMemberRepository;
 import com.example.desporto24.repository.community.CommunityRepository;
 import com.example.desporto24.repository.social.ProfileFollowRepository;
 import com.example.desporto24.repository.social.SocialStoryRepository;
+import com.example.desporto24.repository.social.SocialStoryViewRepository;
 import com.example.desporto24.storage.MediaStorage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -48,6 +49,7 @@ public class SocialStoryService {
     private final SocialStoryRepository stories;
     private final SocialStoryLikeRepository likes;
     private final SocialStoryReplyRepository replies;
+    private final SocialStoryViewRepository views;
     private final ApplicationEventPublisher events;
     private final UserBlockService userBlockService;
     private final ProfileRepository profiles;
@@ -120,6 +122,39 @@ public class SocialStoryService {
         Profile actor = actor(username);
         SocialStory story = visibleStory(id, actor);
         return response(story, actor);
+    }
+
+    /** Record a unique, authenticated view after the client actually renders media.
+     * The endpoint does not return private audience details.
+     */
+    @Transactional
+    public void recordView(Long storyId,String username) {
+        Profile viewer = actor(username);
+        SocialStory story = visibleStory(storyId,viewer);
+        if (!story.getAuthor().getId().equals(viewer.getId()))
+            views.recordUniqueView(story.getId(),viewer.getId());
+    }
+
+    public record StoryViewerInfo(String username,String displayName,String avatarUrl,Instant viewedAt) {}
+    public record StoryAudience(long viewCount,List<StoryViewerInfo> viewers) {}
+
+    /** Community moderators may delete Stories but cannot inspect a creator's audience. */
+    @Transactional(readOnly = true)
+    public StoryAudience audience(Long storyId,String username) {
+        Profile viewer = actor(username);
+        SocialStory story = activeStory(storyId);
+        if (!story.getAuthor().getId().equals(viewer.getId()))
+            throw new AccessDeniedException("Só o autor pode consultar as visualizações da Story");
+        Set<Long> blockedIds = new LinkedHashSet<>(userBlockService.blockedProfileIds(viewer));
+        List<StoryViewerInfo> audience = views.recentViewers(storyId,PageRequest.of(0,100))
+          .stream().filter(item -> !blockedIds.contains(item.getProfile().getId()))
+          .map(item -> {
+              Profile person=item.getProfile();
+              String name=person.getNickname()!=null&&!person.getNickname().isBlank()
+                  ?person.getNickname():person.getUsername();
+              return new StoryViewerInfo(person.getUsername(),name,person.getProfilePicUrl(),item.getViewedAt());
+          }).toList();
+        return new StoryAudience(views.countByStoryId(storyId),audience);
     }
 
     @Transactional
