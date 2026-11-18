@@ -165,7 +165,7 @@ class InboxSummaryServiceTest {
         DirectReadReceiptResponse receipt = service.peerDirectReadReceipt("ana", "BEA");
         assertEquals("bea", receipt.peerUsername());
         assertEquals(55L, receipt.lastReadMessageId());
-        verify(chatService).getChatInfo("ana", "Bea");
+        verify(chatService, times(2)).getChatInfo("ana", "Bea");
         verify(cursors).findByProfileIdAndConversationKindAndConversationKey(2L, "direct", "ana");
         verifyNoInteractions(chats);
     }
@@ -222,16 +222,36 @@ class InboxSummaryServiceTest {
         when(cursors.findByProfileIdAndConversationKindAndConversationKey(2L, "direct", "ana"))
                 .thenReturn(Optional.of(peerCursor));
         when(chatService.getChatInfo("ana", "bea"))
-                .thenReturn(null)
+                .thenReturn(null, null)
                 .thenThrow(new AccessDeniedException("Session contact permission expired"));
 
         assertEquals(31L, service.peerDirectReadReceipt("ana", "bea").lastReadMessageId());
         assertThrows(AccessDeniedException.class,
                 () -> service.peerDirectReadReceipt("ana", "bea"));
 
-        verify(chatService, times(2)).getChatInfo("ana", "bea");
+        verify(chatService, times(3)).getChatInfo("ana", "bea");
         verify(cursors, times(1))
                 .findByProfileIdAndConversationKindAndConversationKey(2L, "direct", "ana");
+        verifyNoInteractions(chats, events);
+    }
+
+    @Test
+    void revokedPermissionDuringPeerCursorLookupDoesNotDiscloseReceipt() {
+        actor();
+        when(profiles.findUserByUsernameIgnoreCase("bea"))
+                .thenReturn(Optional.of(profile(2L, "bea")));
+        ChatReadCursor peerCursor = new ChatReadCursor();
+        peerCursor.setLastReadMessageId(99L);
+        when(cursors.findByProfileIdAndConversationKindAndConversationKey(2L, "direct", "ana"))
+                .thenReturn(Optional.of(peerCursor));
+        when(chatService.getChatInfo("ana", "bea"))
+                .thenReturn(null)
+                .thenThrow(new AccessDeniedException("Session contact permission expired"));
+
+        assertThrows(AccessDeniedException.class,
+                () -> service.peerDirectReadReceipt("ana", "bea"));
+        verify(chatService, times(2)).getChatInfo("ana", "bea");
+        verify(cursors).findByProfileIdAndConversationKindAndConversationKey(2L, "direct", "ana");
         verifyNoInteractions(chats, events);
     }
 
