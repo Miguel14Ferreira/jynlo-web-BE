@@ -124,6 +124,14 @@ public class InboxSummaryService {
                 actor.getId(), kind, key)
                 .map(c -> c.getLastReadMessageId()).orElse(0L);
         if (watermark > previous) {
+            // A participant can lose temporary session-contact permission while
+            // the preview is being assembled. Recheck immediately before the
+            // durable cursor write and any read notifications.
+            if ("direct".equals(kind)) {
+                Profile peer = profiles.findUserByUsernameIgnoreCase(key)
+                        .orElseThrow(() -> new AccessDeniedException("No accessible chat"));
+                chatService.getChatInfo(actor.getUsername(), peer.getUsername());
+            }
             // Atomic monotonic upsert: concurrent tabs/devices must never move
             // the read cursor backwards, nor create duplicate rows.
             cursors.advance(actor.getId(), kind, key, watermark);
