@@ -37,6 +37,17 @@ public class SocialStoryController {
         return stories.view(id, auth.getName());
     }
 
+    @PostMapping("/{id}/views")
+    public ResponseEntity<Void> viewed(@PathVariable Long id,Authentication auth) {
+        stories.recordView(id,auth.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/audience")
+    public SocialStoryService.StoryAudience audience(@PathVariable Long id,Authentication auth) {
+        return stories.audience(id,auth.getName());
+    }
+
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public StoryResponse publish(@RequestParam(value = "caption", required = false) String caption,
                                  @RequestParam(value = "communityId", required = false) Long communityId,
