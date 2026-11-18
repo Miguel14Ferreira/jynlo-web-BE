@@ -1,0 +1,49 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-18-story-view-audience
+      author: jynlo
+      changes:
+        - createTable:
+            tableName: social_story_view
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints: { primaryKey: true, nullable: false }
+              - column:
+                  name: story_id
+                  type: BIGINT
+                  constraints: { nullable: false }
+              - column:
+                  name: profile_id
+                  type: BIGINT
+                  constraints: { nullable: false }
+              - column:
+                  name: viewed_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints: { nullable: false }
+        - addForeignKeyConstraint:
+            baseTableName: social_story_view
+            baseColumnNames: story_id
+            referencedTableName: social_story
+            referencedColumnNames: id
+            constraintName: fk_social_story_view_story
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: social_story_view
+            baseColumnNames: profile_id
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_social_story_view_profile
+            onDelete: CASCADE
+        - addUniqueConstraint:
+            tableName: social_story_view
+            columnNames: story_id, profile_id
+            constraintName: uk_social_story_view
+        - createIndex:
+            indexName: idx_social_story_view_recent
+            tableName: social_story_view
+            columns:
+              - column: { name: story_id }
+              - column: { name: viewed_at }
