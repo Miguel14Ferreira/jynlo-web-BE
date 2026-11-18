@@ -578,6 +578,9 @@ class SocialStoryServiceTest {
 
     @Test
     void blockedProfileCannotRecordAnAuthenticatedStoryView() {
+        // This test exercises an unrelated signed-in profile, not the default
+        // "joao" stub from @BeforeEach. Avoid Mockito unnecessary stubbing.
+        reset(profiles);
         Profile outsider=new Profile();
         outsider.setId(502L);outsider.setUsername("blocked");
         when(profiles.findUserByUsernameIgnoreCase("blocked")).thenReturn(Optional.of(outsider));
