@@ -16,6 +16,7 @@ import com.example.desporto24.repository.social.ProfileFollowRepository;
 import com.example.desporto24.repository.social.SocialStoryRepository;
 import com.example.desporto24.repository.social.SocialStoryLikeRepository;
 import com.example.desporto24.repository.social.SocialStoryReplyRepository;
+import com.example.desporto24.repository.social.SocialStoryViewRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import com.example.desporto24.storage.MediaStorage;
 import com.example.desporto24.storage.PrivateProfileMediaStorage;
@@ -44,6 +45,7 @@ class SocialStoryServiceTest {
     @Mock private SocialStoryRepository stories;
     @Mock private SocialStoryLikeRepository likes;
     @Mock private SocialStoryReplyRepository replies;
+    @Mock private SocialStoryViewRepository views;
     @Mock private ApplicationEventPublisher events;
     @Mock private UserBlockService userBlockService;
     @Mock private ProfileRepository profiles;
@@ -560,4 +562,34 @@ class SocialStoryServiceTest {
         community.setVisibility(CommunityVisibility.PUBLIC);
         return community;
     }
+    @Test
+    void viewsAreUniqueAndNeverCountTheAuthorsOwnPreview() {
+        Profile visitor = new Profile();
+        visitor.setId(52L);visitor.setUsername("visitor");
+        when(profiles.findUserByUsernameIgnoreCase("visitor")).thenReturn(Optional.of(visitor));
+        SocialStory story = SocialStory.builder().id(332L).author(actor)
+                .expiresAt(Instant.now().plusSeconds(3600)).build();
+        when(stories.findById(332L)).thenReturn(Optional.of(story));
+        service.recordView(332L,"visitor");
+        verify(views).recordUniqueView(332L,52L);
+        service.recordView(332L,"joao");
+        verify(views,never()).recordUniqueView(332L,19L);
+    }
+
+    @Test
+    void onlyOriginalAuthorMayReadStoryAudience() {
+        Profile visitor = new Profile();
+        visitor.setId(52L);visitor.setUsername("visitor");
+        when(profiles.findUserByUsernameIgnoreCase("visitor")).thenReturn(Optional.of(visitor));
+        SocialStory story = SocialStory.builder().id(332L).author(actor)
+                .expiresAt(Instant.now().plusSeconds(3600)).build();
+        when(stories.findById(332L)).thenReturn(Optional.of(story));
+        assertThrows(AccessDeniedException.class,()->service.audience(332L,"visitor"));
+        verify(views,never()).recentViewers(anyLong(),any());
+        when(views.countByStoryId(332L)).thenReturn(1L);
+        SocialStoryService.StoryAudience info=service.audience(332L,"joao");
+        assertEquals(1L,info.viewCount());
+        assertTrue(info.viewers().isEmpty());
+    }
+
 }
