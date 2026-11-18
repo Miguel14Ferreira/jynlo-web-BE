@@ -50,6 +50,33 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void guestRevokedWhileMintingTokenCannotJoinOrAppearInRoster() {
+        var call = calls.start("ana", "bea", "video");
+        calls.accept(call.callId(), "bea");
+        calls.invite(call.callId(), "ana", "carlos");
+        Profile carlos = mock(Profile.class);
+        when(carlos.getId()).thenReturn(14L);
+        java.util.concurrent.atomic.AtomicBoolean revoked = new java.util.concurrent.atomic.AtomicBoolean();
+        when(profiles.findUserByUsernameIgnoreCase("carlos")).thenAnswer(invocation -> {
+            revoked.set(true);
+            return Optional.of(carlos);
+        });
+        doAnswer(invocation -> {
+            if (revoked.get())
+                throw new org.springframework.security.access.AccessDeniedException("Session revoked");
+            return null;
+        }).when(inbox).requireConversationAccess("carlos", "direct", "ana");
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.accept(call.callId(), "carlos"));
+        assertNull(calls.pendingFor("carlos"), "Revoked invitation must not be recoverable");
+        assertFalse(calls.members(call.callId(), "ana").participants().stream()
+                .anyMatch(member -> member.username().equals("carlos")));
+        verify(gateway, never()).publishDirectCallEventTo(eq("carlos"), anyString(),
+                anyString(), anyString(), anyString(), eq("MEMBERS_CHANGED"), anyString(), any());
+    }
+
+    @Test
     void sessionContactRevokedWhileMintingTokenCannotRingOrReserveBudget() {
         java.util.concurrent.atomic.AtomicInteger checks = new java.util.concurrent.atomic.AtomicInteger();
         doAnswer(invocation -> {
