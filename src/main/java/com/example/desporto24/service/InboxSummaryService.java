@@ -103,7 +103,7 @@ public class InboxSummaryService {
         long watermark = cursors.findByProfileIdAndConversationKindAndConversationKey(
                 peer.getId(), "direct", readerConversationKey)
                 .map(c -> c.getLastReadMessageId()).orElse(0L);
-        return new DirectReadReceiptResponse(peerKey, Math.max(0L, watermark));
+        // Permission can be revoked while the cursor is being fetched. Do not\n        // disclose a previously authorized receipt after a block or session expiry.\n        chatService.getChatInfo(actor.getUsername(), peer.getUsername());\n        return new DirectReadReceiptResponse(peerKey, Math.max(0L, watermark));
     }
 
     @Transactional(readOnly = true)
