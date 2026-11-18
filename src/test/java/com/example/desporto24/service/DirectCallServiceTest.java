@@ -269,7 +269,7 @@ class DirectCallServiceTest {
     @Test
     void createsScopedTokensForExactlyTwoAuthorizedMembers() {
         var outgoing = calls.start("ana", "bea", "video");
-        verify(inbox).requireConversationAccess("ana", "direct", "bea");
+        verify(inbox, times(2)).requireConversationAccess("ana", "direct", "bea");
         assertEquals("bea", outgoing.peer());
         assertEquals("video", outgoing.media());
         assertEquals("wss://example.livekit.cloud", outgoing.serverUrl());
@@ -310,7 +310,7 @@ class DirectCallServiceTest {
         assertEquals("bea", recovered.peer());
         assertEquals("video", recovered.media());
         assertEquals(outgoing.expiresAt(), recovered.expiresAt());
-        verify(inbox, times(2)).requireConversationAccess("bea", "direct", "ana");
+        verify(inbox, times(3)).requireConversationAccess("bea", "direct", "ana");
 
         calls.accept(outgoing.callId(), "bea");
         assertNull(calls.pendingFor("bea"), "Accepted calls must not ring again");
