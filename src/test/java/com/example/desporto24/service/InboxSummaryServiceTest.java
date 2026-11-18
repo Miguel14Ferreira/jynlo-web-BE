@@ -191,6 +191,28 @@ class InboxSummaryServiceTest {
     }
 
     @Test
+    void revokedSessionContactCannotReadDirectPreviewOrAdvanceCursor() {
+        actor();
+        when(profiles.findUserByUsernameIgnoreCase("bea"))
+                .thenReturn(Optional.of(profile(2L, "bea")));
+        doThrow(new AccessDeniedException("Session contact permission expired"))
+                .when(chatService).getChatInfo("ana", "bea");
+
+        assertTrue(service.summaries("ana",
+                request(reference("direct", "bea"))).isEmpty());
+        assertThrows(AccessDeniedException.class,
+                () -> service.markRead("ana",
+                        new InboxReadRequest("direct", "bea", Long.MAX_VALUE)));
+        assertThrows(AccessDeniedException.class,
+                () -> service.requireConversationAccess("ana", "direct", "bea"));
+
+        verify(chatService, times(3)).getChatInfo("ana", "bea");
+        verifyNoInteractions(chats);
+        verify(cursors, never()).advance(anyLong(), anyString(), anyString(), anyLong());
+        verifyNoInteractions(events);
+    }
+
+    @Test
     void malformedPeerAndSelfReceiptAreDeniedBeforeLookingUpCursor() {
         actor();
         assertThrows(ResponseStatusException.class,
