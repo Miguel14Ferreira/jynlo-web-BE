@@ -211,6 +211,22 @@ public class InboxSummaryService {
     private InboxSummaryResponse sessionSummary(Profile actor, Long id, String key, long readId) {
         Session session = sessions.findById(id)
                 .orElseThrow(() -> new AccessDeniedException("No accessible session"));
+        requireSessionSummaryAccess(actor, session, id);
+        var latest = sessionMessages.findBySessionIdOrderByIdDesc(id, PageRequest.of(0, 1));
+        if (latest.isEmpty()) {
+            requireSessionSummaryAccess(actor, session, id);
+            return empty("session", key);
+        }
+        SessionMessage entry = latest.get(0);
+        long unread = sessionMessages.countUnread(id, actor.getId(), readId);
+        // Recheck after reading messages: cancellation, expiry or removal can
+        // revoke access while the preview/unread queries are in progress.
+        requireSessionSummaryAccess(actor, session, id);
+        return new InboxSummaryResponse("session", key, entry.getId(), entry.getBody(),
+                entry.getSenderProfile().getUsername(), entry.getCreatedAt(), unread);
+    }
+
+    private void requireSessionSummaryAccess(Profile actor, Session session, Long id) {
         if (!SessionChatService.isChatOpen(session, java.time.Instant.now())) {
             throw new AccessDeniedException("Session chat is no longer available");
         }
@@ -220,12 +236,6 @@ public class InboxSummaryService {
                 id, actor.getId(), ParticipantState.ACTIVE)) {
             throw new AccessDeniedException("No accessible session");
         }
-        var latest = sessionMessages.findBySessionIdOrderByIdDesc(id, PageRequest.of(0, 1));
-        if (latest.isEmpty()) return empty("session", key);
-        SessionMessage entry = latest.get(0);
-        return new InboxSummaryResponse("session", key, entry.getId(), entry.getBody(),
-                entry.getSenderProfile().getUsername(), entry.getCreatedAt(),
-                sessionMessages.countUnread(id, actor.getId(), readId));
     }
 
     private InboxSummaryResponse empty(String kind, String key) {
