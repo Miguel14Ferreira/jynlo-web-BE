@@ -285,7 +285,7 @@ class DirectCallServiceTest {
                 eq("video"), eq("RINGING"), eq("ana"), any());
 
         var accepted = calls.accept(outgoing.callId(), "bea");
-        verify(inbox, times(2)).requireConversationAccess("bea", "direct", "ana");
+        verify(inbox, times(3)).requireConversationAccess("bea", "direct", "ana");
         assertEquals(outgoing.callId(), accepted.callId());
         assertEquals("ana", accepted.peer());
         assertEquals("jynlo-user-13", JWT.decode(accepted.token()).getSubject());
