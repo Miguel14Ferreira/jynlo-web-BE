@@ -171,6 +171,25 @@ class InboxSummaryServiceTest {
     }
 
     @Test
+    void removedParticipantDuringEmptySessionPreviewCannotSeeConversation() {
+        actor();
+        Session session = new Session();
+        session.setId(8L);
+        session.setGameDate(Date.from(Instant.now().plusSeconds(3600)));
+        session.setProfile(profile(90, "organizer"));
+        when(sessions.findById(8L)).thenReturn(Optional.of(session));
+        when(participants.existsBySessionIdAndProfileIdAndState(
+                8L, 1L, ParticipantState.ACTIVE)).thenReturn(true, false);
+        when(sessionMessages.findBySessionIdOrderByIdDesc(eq(8L), any(Pageable.class)))
+                .thenReturn(List.of());
+
+        assertTrue(service.summaries("ana", request(reference("session", "8"))).isEmpty());
+        verify(participants, times(2))
+                .existsBySessionIdAndProfileIdAndState(8L, 1L, ParticipantState.ACTIVE);
+        verifyNoInteractions(events);
+    }
+
+    @Test
     void readCursorNeverAdvancesBeyondTheLatestAuthorizedMessage() {
         actor();
         when(communities.findById(7L)).thenReturn(Optional.of(Community.builder()
