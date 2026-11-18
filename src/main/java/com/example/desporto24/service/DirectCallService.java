@@ -319,6 +319,10 @@ public class DirectCallService {
         Call call = new Call(id, caller, peer, media, "jynlo-" + id,
                 now.plusSeconds(RING_SECONDS), "RINGING");
         CallSession session = access(call, caller);
+        // Token creation can take time. A session removal or block during that work
+        // must not leave a ringing call or emit an invitation notification.
+        inbox.requireConversationAccess(caller, "direct", peer);
+        inbox.requireConversationAccess(peer, "direct", caller);
         // Reserve only after both ACL checks and successful provider token creation.
         // Atomic PostgreSQL buckets prevent switching replicas to bypass ring limits.
         distributedCallLimits.reserveDirectCall(normalized, peerBudgetKey,
