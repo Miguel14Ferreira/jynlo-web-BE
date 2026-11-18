@@ -177,12 +177,18 @@ public class InboxSummaryService {
                 PageRequest.of(0, 1, org.springframework.data.domain.Sort.by(
                         org.springframework.data.domain.Sort.Direction.DESC, "date", "id")))
                 .getContent();
-        if (latest.isEmpty()) return empty("direct", key);
+        if (latest.isEmpty()) {
+            chatService.getChatInfo(actor.getUsername(), friend.getUsername());
+            return empty("direct", key);
+        }
         Chat message = latest.get(0);
         Date at = message.getDate();
+        long unread = chats.countUnread(actor.getUsername(), friend.getUsername(), readId);
+        // Session-contact permission can expire or be revoked while message and
+        // unread queries execute. Never return a stale preview after revocation.
+        chatService.getChatInfo(actor.getUsername(), friend.getUsername());
         return new InboxSummaryResponse("direct", key, message.getId(), ChatMessagePreview.forMessage(message),
-                message.getUsername1(), at == null ? null : at.toInstant(),
-                chats.countUnread(actor.getUsername(), friend.getUsername(), readId));
+                message.getUsername1(), at == null ? null : at.toInstant(), unread);
     }
 
     private InboxSummaryResponse communitySummary(Profile actor, Long id, String key, long readId) {
