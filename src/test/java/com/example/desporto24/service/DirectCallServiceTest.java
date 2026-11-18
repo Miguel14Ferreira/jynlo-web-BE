@@ -50,6 +50,22 @@ class DirectCallServiceTest {
     }
 
     @Test
+    void sessionContactRevokedWhileMintingTokenCannotRingOrReserveBudget() {
+        java.util.concurrent.atomic.AtomicInteger checks = new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(invocation -> {
+            if (checks.incrementAndGet() == 2) {
+                throw new org.springframework.security.access.AccessDeniedException("Session access revoked");
+            }
+            return null;
+        }).when(inbox).requireConversationAccess("ana", "direct", "bea");
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> calls.start("ana", "bea", "video"));
+        verifyNoInteractions(distributedCallLimits, gateway);
+        assertNull(calls.pendingFor("bea"));
+    }
+
+    @Test
     void distributedLimiterFailurePreventsNewDirectRing() {
         doThrow(new IllegalStateException("PostgreSQL unavailable"))
                 .when(distributedCallLimits).reserveDirectCall(anyString(), anyString(),
