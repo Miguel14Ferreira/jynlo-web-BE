@@ -99,7 +99,45 @@ class InboxSummaryServiceTest {
         assertEquals(45L, values.get(0).latestMessageId());
         assertEquals("Olá", values.get(0).latestText());
         assertEquals(3, values.get(0).unreadCount());
-        verify(chatService).getChatInfo("ana", "Bea");
+        verify(chatService, times(2)).getChatInfo("ana", "Bea");
+    }
+
+    @Test
+    void revokedPermissionDuringDirectPreviewQueryDoesNotReturnSummary() {
+        actor();
+        when(profiles.findUserByUsernameIgnoreCase("bea"))
+                .thenReturn(Optional.of(profile(2L, "bea")));
+        Chat latest = new Chat("bea", "ana", "private", "",
+                Date.from(Instant.parse("2026-10-23T08:00:00Z")));
+        latest.setId(45L);
+        when(chats.findConversationPage(eq("ana"), eq("bea"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(latest)));
+        when(chatService.getChatInfo("ana", "bea"))
+                .thenReturn(null)
+                .thenThrow(new AccessDeniedException("Session contact permission expired"));
+
+        assertTrue(service.summaries("ana",
+                request(reference("direct", "bea"))).isEmpty());
+        verify(chatService, times(2)).getChatInfo("ana", "bea");
+        verify(chats).findConversationPage(eq("ana"), eq("bea"), any(Pageable.class));
+        verifyNoInteractions(events);
+    }
+
+    @Test
+    void revokedPermissionDuringEmptyDirectPreviewQueryDoesNotReturnConversation() {
+        actor();
+        when(profiles.findUserByUsernameIgnoreCase("bea"))
+                .thenReturn(Optional.of(profile(2L, "bea")));
+        when(chats.findConversationPage(eq("ana"), eq("bea"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+        when(chatService.getChatInfo("ana", "bea"))
+                .thenReturn(null)
+                .thenThrow(new AccessDeniedException("Session contact permission expired"));
+
+        assertTrue(service.summaries("ana",
+                request(reference("direct", "bea"))).isEmpty());
+        verify(chatService, times(2)).getChatInfo("ana", "bea");
+        verifyNoInteractions(events);
     }
 
     @Test
