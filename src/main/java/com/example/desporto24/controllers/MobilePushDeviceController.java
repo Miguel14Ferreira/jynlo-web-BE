@@ -2,6 +2,7 @@ package com.example.desporto24.controllers;
 
 import com.example.desporto24.service.MobilePushDeviceService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +13,18 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/notifications/me/devices")
 public class MobilePushDeviceController {
     private final MobilePushDeviceService devices;
+    @Value("${jynlo.push.enabled:false}") private boolean pushEnabled;
+    @Value("${jynlo.push.access-token:}") private String pushAccessToken;
+
+    /** Only configuration readiness is exposed; never return credentials or device tokens. */
+    public record DeliveryStatus(boolean ready) {}
+
+    @GetMapping("/delivery-status")
+    public DeliveryStatus deliveryStatus(Authentication authentication) {
+        authentication.getName(); // authentication is required like every other device endpoint
+        return new DeliveryStatus(pushEnabled && pushAccessToken != null && !pushAccessToken.isBlank());
+    }
+
 
     @PutMapping
     public MobilePushDeviceService.RegistrationStatus register(
