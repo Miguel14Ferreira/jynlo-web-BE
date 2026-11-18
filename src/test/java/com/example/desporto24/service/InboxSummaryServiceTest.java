@@ -190,6 +190,32 @@ class InboxSummaryServiceTest {
     }
 
     @Test
+    void removedSessionParticipantBetweenPreviewAndCursorWriteCannotMarkRead() {
+        actor();
+        Session session = new Session();
+        session.setId(8L);
+        session.setGameDate(Date.from(Instant.now().plusSeconds(3600)));
+        session.setProfile(profile(90, "organizer"));
+        when(sessions.findById(8L)).thenReturn(Optional.of(session));
+        when(participants.existsBySessionIdAndProfileIdAndState(
+                8L, 1L, ParticipantState.ACTIVE)).thenReturn(true, true, false);
+        var last = new com.example.desporto24.model.session.SessionMessage();
+        last.setId(25L);
+        last.setBody("Private session message");
+        last.setSenderProfile(profile(90, "organizer"));
+        last.setCreatedAt(Instant.now());
+        when(sessionMessages.findBySessionIdOrderByIdDesc(eq(8L), any(Pageable.class)))
+                .thenReturn(List.of(last));
+
+        assertThrows(AccessDeniedException.class,
+                () -> service.markRead("ana", new InboxReadRequest("session", "8", 25L)));
+        verify(participants, times(3))
+                .existsBySessionIdAndProfileIdAndState(8L, 1L, ParticipantState.ACTIVE);
+        verify(cursors, never()).advance(anyLong(), anyString(), anyString(), anyLong());
+        verifyNoInteractions(events);
+    }
+
+    @Test
     void readCursorNeverAdvancesBeyondTheLatestAuthorizedMessage() {
         actor();
         when(communities.findById(7L)).thenReturn(Optional.of(Community.builder()
