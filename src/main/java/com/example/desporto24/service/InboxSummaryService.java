@@ -134,6 +134,13 @@ public class InboxSummaryService {
                 Profile peer = profiles.findUserByUsernameIgnoreCase(key)
                         .orElseThrow(() -> new AccessDeniedException("No accessible chat"));
                 chatService.getChatInfo(actor.getUsername(), peer.getUsername());
+            } else if ("session".equals(kind)) {
+                // Membership can be revoked after the inbox preview. Recheck
+                // the current session and participant state before writing.
+                Long sessionId = Long.parseLong(key);
+                Session current = sessions.findById(sessionId)
+                        .orElseThrow(() -> new AccessDeniedException("No accessible session"));
+                requireSessionSummaryAccess(actor, current, sessionId);
             }
             // Atomic monotonic upsert: concurrent tabs/devices must never move
             // the read cursor backwards, nor create duplicate rows.
