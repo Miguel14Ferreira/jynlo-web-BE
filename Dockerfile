@@ -7,6 +7,8 @@ RUN chmod +x mvnw && ./mvnw -q -DskipTests package
 FROM eclipse-temurin:21-jre-jammy
 
 ENV CONTAINER_PORT=8080
+# Reduce glibc allocator arena retention in this thread-heavy JVM container.
+ENV MALLOC_ARENA_MAX=2
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
@@ -31,4 +33,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
 # Rebalance the 512 MiB instance: reserve more class metadata by bounding
 # heap, direct buffers, thread stacks and Tomcat worker count.
 # JAVA_TOOL_OPTIONS can override these settings for diagnosis if needed.
-ENTRYPOINT ["java", "-Xms48m", "-Xmx160m", "-XX:MaxMetaspaceSize=200m", "-XX:ReservedCodeCacheSize=20m", "-XX:MaxDirectMemorySize=20m", "-Xss512k", "-XX:ActiveProcessorCount=2", "-XX:+UseSerialGC", "-Dserver.tomcat.threads.max=24", "-Dserver.tomcat.threads.min-spare=3", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-Xms48m", "-Xmx160m", "-XX:MaxMetaspaceSize=200m", "-XX:ReservedCodeCacheSize=20m", "-XX:MaxDirectMemorySize=20m", "-Xss512k", "-XX:ActiveProcessorCount=2", "-XX:+UseSerialGC", "-Dserver.tomcat.threads.max=16", "-Dserver.tomcat.threads.min-spare=2", "-jar", "/app/app.jar"]
