@@ -366,6 +366,11 @@ public class DirectCallService {
             // fails, leave the invitation pending rather than admitting a guest
             // who never received a usable credential.
             CallSession accepted = access(call, actor);
+            // Token minting can overlap a session removal or a new block. Do not
+            // admit a guest or publish roster events using a stale ACL decision.
+            requireInviterOriginalAccess(call, guest.inviter());
+            inbox.requireConversationAccess(actor, "direct", guest.inviter());
+            inbox.requireConversationAccess(guest.inviter(), "direct", actor);
             guests.get(id).put(key(actor), new Guest(guest.username(), guest.inviter(), guest.expiresAt(), true));
             notifyParticipantsChanged(call, actor);
             return accepted;
