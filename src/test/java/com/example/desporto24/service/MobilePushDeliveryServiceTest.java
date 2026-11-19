@@ -87,6 +87,19 @@ class MobilePushDeliveryServiceTest {
     }
 
     @Test
+    void unaddressableNotificationsNeverAttemptPushDelivery() {
+        ReflectionTestUtils.setField(sender,"enabled",true);
+        ReflectionTestUtils.setField(sender,"accessToken","test-only");
+        sender.afterCommit(new MobilePushDeliveryService.StoredNotification(
+                "player",null,"SESSION_CANCELLED",14L,null,null,true));
+        sender.afterCommit(new MobilePushDeliveryService.StoredNotification(
+                "player",0L,"SESSION_CANCELLED",14L,null,null,true));
+        sender.afterCommit(new MobilePushDeliveryService.StoredNotification(
+                "player",-1L,"SESSION_CANCELLED",14L,null,null,true));
+        verifyNoInteractions(devices,preferences,mutes,receipts);
+    }
+
+    @Test
     void globallyDisabledInAppNotificationsSuppressDelivery() {
         ReflectionTestUtils.setField(sender,"enabled",true);
         ReflectionTestUtils.setField(sender,"accessToken","test-only");
