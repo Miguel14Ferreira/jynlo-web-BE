@@ -1,6 +1,7 @@
 package com.example.desporto24.service;
 
 import com.example.desporto24.model.MobilePushReceipt;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.desporto24.repository.MobilePushDeviceRepository;
 import com.example.desporto24.repository.MobilePushReceiptRepository;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,32 @@ class MobilePushReceiptPollerTest {
         poller.checkDueReceipts();
         verify(receipts).delete(expired);
         verify(receipts,never()).save(any());
+        verifyNoInteractions(devices);
+    }
+
+    @Test
+    void aFailedReceiptDoesNotRescheduleAlreadySettledReceipts() throws Exception {
+        var now=Instant.now();
+        var first=new MobilePushReceipt();
+        first.setTicketId("ticket_first");first.setCreatedAt(now);
+        var broken=new MobilePushReceipt();
+        broken.setTicketId("ticket_broken");broken.setCreatedAt(now);
+        var last=new MobilePushReceipt();
+        last.setTicketId("ticket_last");last.setCreatedAt(now);
+        doThrow(new IllegalStateException("database write failed")).when(receipts).delete(broken);
+        var response=new ObjectMapper().readTree("""
+                {"ticket_first":{"status":"ok"},"ticket_broken":{"status":"ok"},
+                 "ticket_last":{"status":"ok"}}
+                """);
+
+        poller.processReceipts(List.of(first,broken,last),response,now);
+
+        verify(receipts).delete(first);
+        verify(receipts).delete(broken);
+        verify(receipts).delete(last);
+        verify(receipts).save(broken);
+        verify(receipts,never()).save(first);
+        verify(receipts,never()).save(last);
         verifyNoInteractions(devices);
     }
 
