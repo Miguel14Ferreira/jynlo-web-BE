@@ -50,7 +50,8 @@ public class MobilePushDeliveryService {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void afterCommit(StoredNotification event) {
         if (!enabled || accessToken == null || accessToken.isBlank() || !event.permitted()
-                || event.username() == null || event.username().isBlank()) return;
+                || event.username() == null || event.username().isBlank()
+                || event.notificationId() == null || event.notificationId() <= 0) return;
         String account = event.username().toLowerCase(Locale.ROOT);
         // Re-evaluate account preferences at delivery time.
         var rules = preferences.get(account);
@@ -88,7 +89,7 @@ public class MobilePushDeliveryService {
                             : "Tens uma nova notificação.",
                     "sound", "default",
                     "channelId", "jynlo-messages",
-                    "data", Map.of("kind", "notification", "id", notificationId == null ? 0 : notificationId)
+                    "data", Map.of("kind", "notification", "id", notificationId)
             ));
             HttpRequest request = HttpRequest.newBuilder(EXPO_SEND)
                     .timeout(Duration.ofSeconds(5))
