@@ -84,27 +84,41 @@ public class MobilePushReceiptPoller {
                 defer(due,now);
                 return;
             }
-            for(var item:due){
-                JsonNode receipt=results.path(item.getTicketId());
-                switch (MobilePushReceiptPolicy.classify(receipt)) {
-                    case CONFIRMED, FAILED -> receipts.delete(item);
-                    case REVOKE_DEVICE -> {
-                        // A rotated token must not be removed by an older receipt.
-                        devices.findById(item.getDeviceId()).ifPresent(device -> {
-                            if(fingerprint(device.getPushToken()).equals(item.getTokenHash()))
-                                devices.delete(device);
-                        });
-                        receipts.delete(item);
-                    }
-                    case PENDING -> defer(List.of(item),now);
-                }
-            }
+            processReceipts(due,results,now);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             defer(due,now);
         } catch (Exception ignored) {
             // No tokens, provider body, private metadata or secrets in logs.
             defer(due,now);
+        }
+    }
+
+    /** An individual failed DB operation must never rewind already processed receipts. */
+    void processReceipts(List<MobilePushReceipt> due,JsonNode results,Instant now) {
+        for(var item:due){
+            try {
+                JsonNode receipt=results.path(item.getTicketId());
+                switch (MobilePushReceiptPolicy.classify(receipt)) {
+                    case CONFIRMED, FAILED -> receipts.delete(item);
+                    case REVOKE_DEVICE -> {
+                        // Never delete a device that has rotated its token after this ticket.
+                        devices.findById(item.getDeviceId()).ifPresent(device -> {
+                            if(device.getPushToken()!=null
+                                    && fingerprint(device.getPushToken()).equals(item.getTokenHash()))
+                                devices.delete(device);
+                        });
+                        receipts.delete(item);
+                    }
+                    case PENDING -> defer(List.of(item),now);
+                }
+            } catch (Exception ignored) {
+                // Only this receipt may be retried; successful rows stay settled.
+                try { defer(List.of(item),now); }
+                catch (Exception ignoredAgain) {
+                    // A database outage will be retried on a subsequent scheduled run.
+                }
+            }
         }
     }
 
