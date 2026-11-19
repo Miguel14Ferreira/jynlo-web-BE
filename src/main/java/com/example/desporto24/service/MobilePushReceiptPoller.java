@@ -57,11 +57,9 @@ public class MobilePushReceiptPoller {
         Instant now=Instant.now();
         List<MobilePushReceipt> batch=receipts.findTop100ByNextCheckAtBeforeOrderByNextCheckAtAsc(now);
         if(batch.isEmpty())return;
-        // Expo removes receipts after 24h. Expire stale DB rows without querying.
-        List<MobilePushReceipt> due=batch.stream()
-                .filter(row -> row.getCreatedAt()!=null && row.getCreatedAt().plus(MAX_AGE).isAfter(now))
-                .toList();
-        for(var row:batch)if(!due.contains(row))receipts.delete(row);
+        // Prune each expired ticket separately. A failed delete must not stop
+        // receipt checks for still-valid devices in the same scheduled batch.
+        List<MobilePushReceipt> due=pruneExpiredReceipts(batch,now);
         if(due.isEmpty())return;
         try {
             byte[] body=json.writeValueAsBytes(Map.of("ids",due.stream().map(MobilePushReceipt::getTicketId).toList()));
@@ -92,6 +90,22 @@ public class MobilePushReceiptPoller {
             // No tokens, provider body, private metadata or secrets in logs.
             defer(due,now);
         }
+    }
+
+    List<MobilePushReceipt> pruneExpiredReceipts(List<MobilePushReceipt> batch,Instant now) {
+        List<MobilePushReceipt> due=new java.util.ArrayList<>();
+        for(var item:batch){
+            if(item.getCreatedAt()!=null && item.getCreatedAt().plus(MAX_AGE).isAfter(now)){
+                due.add(item);
+            } else {
+                try {receipts.delete(item);}
+                catch (Exception ignored) {
+                    // Retry deletion in the next scheduled run, without blocking
+                    // still-valid Expo receipts or exposing device information.
+                }
+            }
+        }
+        return due;
     }
 
     /** An individual failed DB operation must never rewind already processed receipts. */
