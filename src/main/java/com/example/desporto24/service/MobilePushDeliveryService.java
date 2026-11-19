@@ -51,7 +51,9 @@ public class MobilePushDeliveryService {
     public void afterCommit(StoredNotification event) {
         if (!enabled || accessToken == null || accessToken.isBlank() || !event.permitted()
                 || event.username() == null || event.username().isBlank()
-                || event.notificationId() == null || event.notificationId() <= 0) return;
+                || event.notificationId() == null || event.notificationId() <= 0
+                // Mobile parses push IDs with JavaScript Number.isSafeInteger.
+                || event.notificationId() > 9_007_199_254_740_991L) return;
         String account = event.username().toLowerCase(Locale.ROOT);
         // Re-evaluate account preferences at delivery time.
         var rules = preferences.get(account);
