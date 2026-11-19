@@ -96,6 +96,8 @@ class MobilePushDeliveryServiceTest {
                 "player",0L,"SESSION_CANCELLED",14L,null,null,true));
         sender.afterCommit(new MobilePushDeliveryService.StoredNotification(
                 "player",-1L,"SESSION_CANCELLED",14L,null,null,true));
+        sender.afterCommit(new MobilePushDeliveryService.StoredNotification(
+                "player",9_007_199_254_740_992L,"SESSION_CANCELLED",14L,null,null,true));
         verifyNoInteractions(devices,preferences,mutes,receipts);
     }
 
