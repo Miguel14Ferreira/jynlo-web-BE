@@ -78,6 +78,29 @@ class MobilePushReceiptPollerTest {
     }
 
     @Test
+    void anOldInvalidTokenReceiptCannotRemoveRotatedDevice() throws Exception {
+        var now=Instant.now();
+        var old=new MobilePushReceipt();
+        old.setTicketId("old_token_ticket");
+        old.setDeviceId("131df783-4b8f-42da-8f58-382a08a395a1");
+        old.setTokenHash(MobilePushReceiptPoller.fingerprint("ExponentPushToken[old_token_123456789]"));
+        old.setCreatedAt(now);
+        var rotated=new com.example.desporto24.model.MobilePushDevice();
+        rotated.setDeviceId(old.getDeviceId());
+        rotated.setPushToken("ExponentPushToken[new_token_123456789]");
+        when(devices.findById(old.getDeviceId())).thenReturn(java.util.Optional.of(rotated));
+        var response=new ObjectMapper().readTree("""
+                {"old_token_ticket":{"status":"error","details":{"error":"DeviceNotRegistered"}}}
+                """);
+
+        poller.processReceipts(List.of(old),response,now);
+
+        verify(devices,never()).delete(any());
+        verify(receipts).delete(old);
+        verify(receipts,never()).save(any());
+    }
+
+    @Test
     void tokenFingerprintIsDeterministicWithoutStoringRawToken() {
         String hash=MobilePushReceiptPoller.fingerprint("ExponentPushToken[abcdefghijkl12345678]");
         assertEquals(64,hash.length());
