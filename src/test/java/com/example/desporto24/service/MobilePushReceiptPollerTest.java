@@ -52,6 +52,26 @@ class MobilePushReceiptPollerTest {
     }
 
     @Test
+    void failedExpiryCleanupDoesNotBlockValidReceiptsInSameBatch() {
+        var now=Instant.now();
+        var expired=new MobilePushReceipt();
+        expired.setTicketId("expired");
+        expired.setCreatedAt(now.minus(26,ChronoUnit.HOURS));
+        var valid=new MobilePushReceipt();
+        valid.setTicketId("still_valid");
+        valid.setCreatedAt(now.minus(30,ChronoUnit.MINUTES));
+        doThrow(new IllegalStateException("temporary database failure"))
+                .when(receipts).delete(expired);
+
+        var due=poller.pruneExpiredReceipts(List.of(expired,valid),now);
+
+        assertEquals(List.of(valid),due);
+        verify(receipts).delete(expired);
+        verify(receipts,never()).delete(valid);
+        verify(receipts,never()).save(any());
+    }
+
+    @Test
     void aFailedReceiptDoesNotRescheduleAlreadySettledReceipts() throws Exception {
         var now=Instant.now();
         var first=new MobilePushReceipt();
