@@ -19,10 +19,6 @@ databaseChangeLog:
                   type: bigint
                   constraints:
                     nullable: false
-                    referencedTableSchemaName: desporto24
-                    referencedTableName: sports_team
-                    referencedColumnNames: id
-                    foreignKeyName: fk_sports_team_follow_team
               - column:
                   name: follower_profile_id
                   type: bigint
@@ -33,6 +29,22 @@ databaseChangeLog:
                   type: timestamp with time zone
                   constraints:
                     nullable: false
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_follow
+            baseColumnNames: team_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: sports_team
+            referencedColumnNames: id
+            constraintName: fk_sports_team_follow_team
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: sports_team_follow
+            baseColumnNames: follower_profile_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_sports_team_follow_profile
         - addUniqueConstraint:
             schemaName: desporto24
             tableName: sports_team_follow
