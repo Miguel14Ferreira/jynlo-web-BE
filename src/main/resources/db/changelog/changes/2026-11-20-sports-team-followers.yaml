@@ -1,0 +1,47 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-20-sports-team-followers
+      author: jynlo
+      changes:
+        - createTable:
+            schemaName: desporto24
+            tableName: sports_team_follow
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: team_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+                    referencedTableSchemaName: desporto24
+                    referencedTableName: sports_team
+                    referencedColumnNames: id
+                    foreignKeyName: fk_sports_team_follow_team
+              - column:
+                  name: follower_profile_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            schemaName: desporto24
+            tableName: sports_team_follow
+            columnNames: team_id, follower_profile_id
+            constraintName: uk_sports_team_follow
+        - createIndex:
+            schemaName: desporto24
+            tableName: sports_team_follow
+            indexName: idx_sports_team_follow_profile
+            columns:
+              - column:
+                  name: follower_profile_id
