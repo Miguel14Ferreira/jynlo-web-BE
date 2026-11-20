@@ -35,6 +35,10 @@ public class SportsTeam {
     @Column(name = "logo_url", length = 1000)
     private String logoUrl;
 
+    /** Editable project for generated crests, never interpreted as HTML or remote SVG. */
+    @Column(name = "crest_design", columnDefinition = "text")
+    private String crestDesign;
+
     @Column(name = "kit_primary", length = 7)
     private String kitPrimary;
 
