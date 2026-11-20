@@ -44,13 +44,22 @@ public class SportsTeamService {
                            boolean chatEnabled, String logoUrl,
                            String kitPrimary, String kitSecondary, String kitPattern,
                            String kitGarment, String kitAccent, String kitPlayerName, String kitPlayerNumber,
-                           List<KitVariant> kitVariants) {
+                           List<KitVariant> kitVariants, String crestDesign) {
         public TeamView(Long id, String slug, String name, String sport, String location,
                         String description, Long ownerProfileId, boolean feedEnabled,
                         boolean chatEnabled, String logoUrl,
                         String kitPrimary, String kitSecondary, String kitPattern) {
             this(id, slug, name, sport, location, description, ownerProfileId, feedEnabled,
-                    chatEnabled, logoUrl, kitPrimary, kitSecondary, kitPattern, null, null, null, null, List.of());
+                    chatEnabled, logoUrl, kitPrimary, kitSecondary, kitPattern, null, null, null, null, List.of(), null);
+        }
+        public TeamView(Long id, String slug, String name, String sport, String location,
+                        String description, Long ownerProfileId, boolean feedEnabled,
+                        boolean chatEnabled, String logoUrl, String kitPrimary, String kitSecondary,
+                        String kitPattern, String kitGarment, String kitAccent, String kitPlayerName,
+                        String kitPlayerNumber, List<KitVariant> kitVariants) {
+            this(id, slug, name, sport, location, description, ownerProfileId,
+                    feedEnabled, chatEnabled, logoUrl, kitPrimary, kitSecondary, kitPattern,
+                    kitGarment, kitAccent, kitPlayerName, kitPlayerNumber, kitVariants, null);
         }
         public TeamView(Long id, String slug, String name, String sport, String location,
                         String description, Long ownerProfileId, boolean feedEnabled,
@@ -59,7 +68,7 @@ public class SportsTeamService {
                         String kitPlayerNumber) {
             this(id, slug, name, sport, location, description, ownerProfileId,
                     feedEnabled, chatEnabled, logoUrl, kitPrimary, kitSecondary, kitPattern,
-                    kitGarment, kitAccent, kitPlayerName, kitPlayerNumber, List.of());
+                    kitGarment, kitAccent, kitPlayerName, kitPlayerNumber, List.of(), null);
         }
     }
     public record CreateTeam(String name, String sport, String location, String description) {}
@@ -85,7 +94,7 @@ public class SportsTeamService {
                 team.getKitPrimary(),team.getKitSecondary(),
                 team.getKitPattern() == null ? "PLAIN" : team.getKitPattern(),
                 team.getKitGarment(), team.getKitAccent(), team.getKitPlayerName(), team.getKitPlayerNumber(),
-                readVariants(team));
+                readVariants(team),team.getCrestDesign());
     }
 
     @Transactional(readOnly = true)
@@ -192,7 +201,13 @@ public class SportsTeamService {
 
     @Transactional
     public TeamView uploadLogo(Long id, MultipartFile file, String username) {
+        return uploadLogo(id,file,null,username);
+    }
+
+    @Transactional
+    public TeamView uploadLogo(Long id, MultipartFile file, String crestDesign, String username) {
         SportsTeam team = ownedTeam(id, username);
+        String validatedDesign = validateCrestDesign(crestDesign);
         if (mediaStorage == null)
             throw new IllegalStateException("Media storage is not configured");
         if (file == null || file.isEmpty())
@@ -203,6 +218,7 @@ public class SportsTeamService {
                 "teams/" + id + "/" + UUID.randomUUID(), file);
         String old = team.getLogoUrl();
         team.setLogoUrl(uri.toString());
+        team.setCrestDesign(validatedDesign);
         TeamView result = view(teams.saveAndFlush(team));
         deleteLogo(old, id);
         return result;
@@ -213,6 +229,7 @@ public class SportsTeamService {
         SportsTeam team = ownedTeam(id, username);
         String old = team.getLogoUrl();
         team.setLogoUrl(null);
+        team.setCrestDesign(null);
         TeamView result = view(teams.saveAndFlush(team));
         deleteLogo(old, id);
         return result;
@@ -272,6 +289,56 @@ public class SportsTeamService {
             return KIT_MAPPER.writeValueAsString(clean);
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("Could not serialize kit variants", ex);
+        }
+    }
+
+    private String validateCrestDesign(String json) {
+        if (json == null) return null; // hand-uploaded logos remain supported
+        if (json.isBlank() || json.length() > 4096)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Projeto de emblema inválido");
+        try {
+            var root=KIT_MAPPER.readTree(json);
+            if (!root.isObject() || root.path("version").asInt(-1) != 1)
+                throw new IllegalArgumentException("Unknown crest version");
+            Set<String> allowed=Set.of("version","shape","symbol","pattern","primary","secondary",
+                    "textColor","borderColor","patternOpacity","borderWidth","symbolSize",
+                    "symbolY","showInitials","innerBorder","initialsSize","initialsY",
+                    "customInitials","caption");
+            var fields=root.fieldNames();
+            while(fields.hasNext()) if(!allowed.contains(fields.next()))
+                throw new IllegalArgumentException("Unknown crest field");
+            for(String key:List.of("shape","symbol","pattern","primary","secondary","textColor",
+                    "borderColor","customInitials","caption")) {
+                if(!root.path(key).isTextual())throw new IllegalArgumentException("Missing text");
+            }
+            String shape=root.path("shape").asText();
+            String symbol=root.path("symbol").asText();
+            String pattern=root.path("pattern").asText();
+            if(!Set.of("shield","rounded","circle","hex","diamond","square","oval","banner").contains(shape)
+                    || !Set.of("none","letter","star","bolt","crown","flame","heart","trophy",
+                        "ball","basketball","volleyball","tennis","rugby","badminton","cricket",
+                        "hockey","golf","cycling","running","swimming","boxing","target","mountain","wave").contains(symbol)
+                    || !Set.of("none","diagonal","stripes","hoops","split","chevron").contains(pattern))
+                throw new IllegalArgumentException("Unknown crest style");
+            for(String key:List.of("primary","secondary","textColor","borderColor"))
+                if(!root.path(key).asText().matches("#[0-9a-fA-F]{6}"))
+                    throw new IllegalArgumentException("Color invalid");
+            if(!root.path("customInitials").asText().matches("[\\p{L}0-9]{0,5}")
+                || root.path("caption").asText().length()>22
+                || root.path("caption").asText().chars().anyMatch(c->Character.isISOControl(c)))
+                throw new IllegalArgumentException("Text invalid");
+            for(String key:List.of("showInitials","innerBorder"))
+                if(!root.path(key).isBoolean())throw new IllegalArgumentException("Flag invalid");
+            int[][] ranges={{0,100},{0,14},{30,112},{85,205},{16,54},{165,265}};
+            String[] numbers={"patternOpacity","borderWidth","symbolSize","symbolY","initialsSize","initialsY"};
+            for(int i=0;i<numbers.length;i++){
+                var value=root.path(numbers[i]);
+                if(!value.isIntegralNumber() || value.asInt()<ranges[i][0] || value.asInt()>ranges[i][1])
+                    throw new IllegalArgumentException("Range invalid");
+            }
+            return KIT_MAPPER.writeValueAsString(root);
+        } catch (IllegalArgumentException | JsonProcessingException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Projeto de emblema inválido");
         }
     }
 
