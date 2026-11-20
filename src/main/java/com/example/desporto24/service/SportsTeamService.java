@@ -39,7 +39,11 @@ public class SportsTeamService {
     public record CreateTeam(String name, String sport, String location, String description) {}
     public record TeamFeatures(Boolean feedEnabled, Boolean chatEnabled) {}
     public record KitSettings(String primary, String secondary, String pattern,
-                              String garment, String accent, String playerName, String playerNumber) {}
+                              String garment, String accent, String playerName, String playerNumber) {
+        public KitSettings(String primary, String secondary, String pattern) {
+            this(primary, secondary, pattern, null, null, null, null);
+        }
+    }
 
     private TeamView view(SportsTeam team) {
         return new TeamView(team.getId(), team.getSlug(), team.getName(), team.getSport(),
