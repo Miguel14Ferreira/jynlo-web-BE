@@ -92,8 +92,9 @@ public class SportsTeamController {
     @PreAuthorize("isAuthenticated()")
     public SportsTeamService.TeamView uploadLogo(@PathVariable Long id,
             @RequestPart("logo") org.springframework.web.multipart.MultipartFile file,
+            @RequestPart(value = "crestDesign", required = false) String crestDesign,
             Authentication auth) {
-        return service.uploadLogo(id, file, auth.getName());
+        return service.uploadLogo(id, file, crestDesign, auth.getName());
     }
 
     @DeleteMapping("/{id}/logo")
