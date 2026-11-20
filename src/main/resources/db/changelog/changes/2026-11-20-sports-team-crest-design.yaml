@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-20-sports-team-crest-design
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: sports_team
+            columns:
+              - column:
+                  name: crest_design
+                  type: text
