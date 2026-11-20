@@ -16,6 +16,7 @@ public class SportsTeamController {
     private final SportsTeamService service;
     private final com.example.desporto24.service.SportsTeamChampionshipHonoursService championshipHonours;
     private final com.example.desporto24.service.SportsTeamDeletionService deletion;
+    private final com.example.desporto24.service.SportsTeamFollowService follows;
 
     @GetMapping
     public List<SportsTeamService.TeamView> discover(@RequestParam(defaultValue = "") String q) {
@@ -25,6 +26,27 @@ public class SportsTeamController {
     @GetMapping("/{id}")
     public SportsTeamService.TeamView get(@PathVariable Long id) {
         return service.get(id);
+    }
+
+    @GetMapping("/{id}/followers")
+    @PreAuthorize("isAuthenticated()")
+    public com.example.desporto24.service.SportsTeamFollowService.FollowState followerState(
+            @PathVariable Long id,Authentication auth) {
+        return follows.state(id,auth.getName());
+    }
+
+    @PutMapping("/{id}/followers/me")
+    @PreAuthorize("isAuthenticated()")
+    public com.example.desporto24.service.SportsTeamFollowService.FollowState follow(
+            @PathVariable Long id,Authentication auth) {
+        return follows.follow(id,auth.getName());
+    }
+
+    @DeleteMapping("/{id}/followers/me")
+    @PreAuthorize("isAuthenticated()")
+    public com.example.desporto24.service.SportsTeamFollowService.FollowState unfollow(
+            @PathVariable Long id,Authentication auth) {
+        return follows.unfollow(id,auth.getName());
     }
 
     @GetMapping("/{id}/honours")
