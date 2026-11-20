@@ -18,11 +18,19 @@ import java.text.Normalizer;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class SportsTeamService {
+    private static final ObjectMapper KIT_MAPPER = new ObjectMapper();
+    private static final TypeReference<List<KitVariant>> KIT_LIST_TYPE = new TypeReference<>() {};
     private final SportsTeamRepository teams;
     private final com.example.desporto24.repository.community.CommunityTournamentTeamRepository tournamentTeams;
     private final ProfileRepository profiles;
@@ -35,21 +43,38 @@ public class SportsTeamService {
                            String description, Long ownerProfileId, boolean feedEnabled,
                            boolean chatEnabled, String logoUrl,
                            String kitPrimary, String kitSecondary, String kitPattern,
-                           String kitGarment, String kitAccent, String kitPlayerName, String kitPlayerNumber) {
+                           String kitGarment, String kitAccent, String kitPlayerName, String kitPlayerNumber,
+                           List<KitVariant> kitVariants) {
         public TeamView(Long id, String slug, String name, String sport, String location,
                         String description, Long ownerProfileId, boolean feedEnabled,
                         boolean chatEnabled, String logoUrl,
                         String kitPrimary, String kitSecondary, String kitPattern) {
             this(id, slug, name, sport, location, description, ownerProfileId, feedEnabled,
-                    chatEnabled, logoUrl, kitPrimary, kitSecondary, kitPattern, null, null, null, null);
+                    chatEnabled, logoUrl, kitPrimary, kitSecondary, kitPattern, null, null, null, null, List.of());
+        }
+        public TeamView(Long id, String slug, String name, String sport, String location,
+                        String description, Long ownerProfileId, boolean feedEnabled,
+                        boolean chatEnabled, String logoUrl, String kitPrimary, String kitSecondary,
+                        String kitPattern, String kitGarment, String kitAccent, String kitPlayerName,
+                        String kitPlayerNumber) {
+            this(id, slug, name, sport, location, description, ownerProfileId,
+                    feedEnabled, chatEnabled, logoUrl, kitPrimary, kitSecondary, kitPattern,
+                    kitGarment, kitAccent, kitPlayerName, kitPlayerNumber, List.of());
         }
     }
     public record CreateTeam(String name, String sport, String location, String description) {}
     public record TeamFeatures(Boolean feedEnabled, Boolean chatEnabled) {}
+    public record KitVariant(String type, String primary, String secondary, String pattern,
+                             String garment, String accent, String playerName, String playerNumber) {}
     public record KitSettings(String primary, String secondary, String pattern,
-                              String garment, String accent, String playerName, String playerNumber) {
+                              String garment, String accent, String playerName, String playerNumber,
+                              List<KitVariant> variants) {
         public KitSettings(String primary, String secondary, String pattern) {
-            this(primary, secondary, pattern, null, null, null, null);
+            this(primary, secondary, pattern, null, null, null, null, null);
+        }
+        public KitSettings(String primary, String secondary, String pattern,
+                           String garment, String accent, String playerName, String playerNumber) {
+            this(primary, secondary, pattern, garment, accent, playerName, playerNumber, null);
         }
     }
 
@@ -59,7 +84,8 @@ public class SportsTeamService {
                 team.isFeedEnabled(), team.isChatEnabled(),team.getLogoUrl(),
                 team.getKitPrimary(),team.getKitSecondary(),
                 team.getKitPattern() == null ? "PLAIN" : team.getKitPattern(),
-                team.getKitGarment(), team.getKitAccent(), team.getKitPlayerName(), team.getKitPlayerNumber());
+                team.getKitGarment(), team.getKitAccent(), team.getKitPlayerName(), team.getKitPlayerNumber(),
+                readVariants(team));
     }
 
     @Transactional(readOnly = true)
@@ -160,6 +186,7 @@ public class SportsTeamService {
         if (request.accent() != null) team.setKitAccent(color(request.accent()));
         if (request.playerName() != null) team.setKitPlayerName(playerName(request.playerName()));
         if (request.playerNumber() != null) team.setKitPlayerNumber(playerNumber(request.playerNumber()));
+        if (request.variants() != null) team.setKitVariants(writeVariants(request.variants()));
         return view(teams.saveAndFlush(team));
     }
 
@@ -212,6 +239,40 @@ public class SportsTeamService {
                 || "HOOPS".equals(value) || "HALVES".equals(value) || "CHEVRON".equals(value))
             return value;
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Modelo de equipamento inválido");
+    }
+
+    private List<KitVariant> readVariants(SportsTeam team) {
+        String serialized = team.getKitVariants();
+        if (serialized == null || serialized.isBlank()) return List.of();
+        try {
+            return KIT_MAPPER.readValue(serialized, KIT_LIST_TYPE);
+        } catch (JsonProcessingException ex) {
+            log.error("Invalid saved kit variants for team {}", team.getId(), ex);
+            return List.of();
+        }
+    }
+
+    /** Server-owned validation: never trust the client's variant names or arbitrary JSON. */
+    private String writeVariants(List<KitVariant> incoming) {
+        if (incoming.size() > 2)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Máximo de dois equipamentos adicionais");
+        Set<String> types = new HashSet<>();
+        List<KitVariant> clean = new ArrayList<>();
+        for (KitVariant value : incoming) {
+            if (value == null || !Set.of("ALTERNATE", "TRAINING").contains(value.type())
+                    || !types.add(value.type()))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tipo de equipamento duplicado ou inválido");
+            clean.add(new KitVariant(value.type(), color(value.primary()), color(value.secondary()),
+                    value.pattern() == null ? "PLAIN" : pattern(value.pattern()),
+                    value.garment() == null ? "jersey" : garment(value.garment()),
+                    color(value.accent()), value.playerName() == null ? null : playerName(value.playerName()),
+                    value.playerNumber() == null ? null : playerNumber(value.playerNumber())));
+        }
+        try {
+            return KIT_MAPPER.writeValueAsString(clean);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Could not serialize kit variants", ex);
+        }
     }
 
     private String garment(String input) {
