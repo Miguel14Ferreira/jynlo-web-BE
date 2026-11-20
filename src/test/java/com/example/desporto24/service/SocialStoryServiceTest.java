@@ -354,12 +354,12 @@ class SocialStoryServiceTest {
     void storyFeedExcludesBlockedAuthorsEvenWhenCommunityIsFollowed() {
         when(userBlockService.blockedProfileIds(actor)).thenReturn(java.util.Set.of(33L, 44L));
         when(stories.findActiveFeed(any(Instant.class), anyCollection(), anyCollection(),
-                anyCollection(), any(org.springframework.data.domain.Pageable.class)))
+                anyCollection(), anyCollection(), any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(java.util.List.of());
         assertTrue(service.feed("joao").isEmpty());
         verify(stories).findActiveFeed(any(Instant.class),
                 argThat(ids -> ids.contains(19L) && !ids.contains(33L)),
-                anyCollection(),
+                anyCollection(), anyCollection(),
                 argThat(ids -> ids.contains(33L) && ids.contains(44L)),
                 any(org.springframework.data.domain.Pageable.class));
     }
@@ -368,11 +368,11 @@ class SocialStoryServiceTest {
     void storyFeedUsesSafePlaceholderWhenNoProfilesAreBlocked() {
         when(userBlockService.blockedProfileIds(actor)).thenReturn(java.util.Set.of());
         when(stories.findActiveFeed(any(Instant.class), anyCollection(), anyCollection(),
-                anyCollection(), any(org.springframework.data.domain.Pageable.class)))
+                anyCollection(), anyCollection(), any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(java.util.List.of());
         assertTrue(service.feed("joao").isEmpty());
         verify(stories).findActiveFeed(any(Instant.class), anyCollection(),
-                anyCollection(), argThat(ids -> ids.size()==1 && ids.contains(-1L)),
+                anyCollection(), anyCollection(), argThat(ids -> ids.size()==1 && ids.contains(-1L)),
                 any(org.springframework.data.domain.Pageable.class));
     }
 
