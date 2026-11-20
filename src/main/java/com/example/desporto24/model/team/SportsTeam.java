@@ -56,6 +56,10 @@ public class SportsTeam {
     @Column(name = "kit_player_number", length = 2)
     private String kitPlayerNumber;
 
+    /** Optional alternate/training kits; canonical primary kit uses the legacy columns. */
+    @Column(name = "kit_variants", columnDefinition = "text")
+    private String kitVariants;
+
     @Column(name = "feed_enabled", nullable = false)
     private boolean feedEnabled;
 
