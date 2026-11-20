@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-20-sports-team-kit-design
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: sports_team
+            columns:
+              - column:
+                  name: kit_garment
+                  type: varchar(24)
+              - column:
+                  name: kit_accent
+                  type: varchar(7)
+              - column:
+                  name: kit_player_name
+                  type: varchar(14)
+              - column:
+                  name: kit_player_number
+                  type: varchar(2)
