@@ -268,7 +268,7 @@ class SportsTeamBrandingServiceTest {
         when(teams.saveAndFlush(team)).thenReturn(team);
         var saved=service.uploadLogo(21L,file,editableCrest(),"captain");
         assertNotNull(saved.crestDesign());
-        assertTrue(saved.crestDesign().contains("\\\"cycling\\\""));
+        assertTrue(saved.crestDesign().contains("\"cycling\""));
         assertEquals("https://cdn.example.com/teams/21/crest.png",saved.logoUrl());
     }
 
@@ -279,7 +279,7 @@ class SportsTeamBrandingServiceTest {
         var file=new MockMultipartFile("logo","emblema.png","image/png",new byte[]{1,2,3});
         assertThrows(ResponseStatusException.class,
                 () -> service.uploadLogo(21L,file,editableCrest().replace(
-                        "\\\"cycling\\\"","\\\"<script>\\\""),"captain"));
+                        "\"cycling\"","\"<script>\""),"captain"));
         assertThrows(ResponseStatusException.class,
                 () -> service.uploadLogo(21L,file,"x".repeat(4097),"captain"));
         verifyNoInteractions(mediaStorage);
