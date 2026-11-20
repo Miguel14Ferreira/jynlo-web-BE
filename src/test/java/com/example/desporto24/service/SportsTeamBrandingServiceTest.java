@@ -272,6 +272,52 @@ class SportsTeamBrandingServiceTest {
         assertEquals("https://cdn.example.com/teams/21/crest.png",saved.logoUrl());
     }
 
+    private String layeredCrest() {
+        return editableCrest().replace("\"version\":1", "\"version\":2")
+            .replace("\"caption\":\"LISBOA\"",
+                "\"caption\":\"LISBOA\",\"layers\":["
+                + "{\"id\":\"layer-1\",\"kind\":\"text\",\"text\":\"JYNLO\","
+                + "\"symbol\":\"star\",\"x\":130,\"y\":155,\"size\":48,"
+                + "\"rotation\":-30,\"color\":\"#FFFFFF\",\"opacity\":85},"
+                + "{\"id\":\"layer-2\",\"kind\":\"symbol\",\"text\":\"\","
+                + "\"symbol\":\"cycling\",\"x\":200,\"y\":240,\"size\":62,"
+                + "\"rotation\":0,\"color\":\"#AACCEE\",\"opacity\":100}]");
+    }
+
+    @Test
+    void persistsLayeredVersionTwoCrestWithExactGeometry() {
+        var team=owned();
+        when(teams.findById(21L)).thenReturn(Optional.of(team));
+        var file=new MockMultipartFile("logo","emblema.png","image/png",new byte[]{1,2,3});
+        when(mediaStorage.storeCommunityPhoto(startsWith("teams/21/"),same(file)))
+                .thenReturn(URI.create("https://cdn.example.com/teams/21/layers.png"));
+        when(teams.saveAndFlush(team)).thenReturn(team);
+        var result=service.uploadLogo(21L,file,layeredCrest(),"captain");
+        assertTrue(result.crestDesign().contains("\"rotation\":-30"));
+        assertTrue(result.crestDesign().contains("\"cycling\""));
+    }
+
+    @Test
+    void rejectsForgedLayerGeometryAndUnknownFieldsBeforeMediaUpload() {
+        var team=owned();
+        when(teams.findById(21L)).thenReturn(Optional.of(team));
+        var file=new MockMultipartFile("logo","emblema.png","image/png",new byte[]{1,2,3});
+        String base=layeredCrest();
+        for(String invalid:java.util.List.of(
+                base.replace("\"x\":130", "\"x\":999"),
+                base.replace("\"rotation\":-30", "\"rotation\":360"),
+                base.replace("\"layer-2\"", "\"layer-1\""),
+                base.replace("\"text\":\"JYNLO\"", "\"text\":\"<script>\"")
+                    .replace("\"kind\":\"text\"", "\"kind\":\"video\""),
+                base.replace("\"opacity\":85", "\"opacity\":101"),
+                base.replace("\"symbol\":\"cycling\"", "\"symbol\":\"unknown\""))) {
+            assertThrows(ResponseStatusException.class,
+                    ()->service.uploadLogo(21L,file,invalid,"captain"));
+        }
+        verifyNoInteractions(mediaStorage);
+        verify(teams,never()).saveAndFlush(any());
+    }
+
     @Test
     void rejectsUnexpectedOrOversizedCrestDesignWithoutStoringMedia() {
         var team=owned();
