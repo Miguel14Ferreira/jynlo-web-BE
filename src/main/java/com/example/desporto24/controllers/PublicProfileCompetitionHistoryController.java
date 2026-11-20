@@ -17,6 +17,13 @@ import java.util.List;
 public class PublicProfileCompetitionHistoryController {
     private final PublicProfileCompetitionHistoryService history;
 
+    @GetMapping("/{username}/completed-individual-participations")
+    @PreAuthorize("isAuthenticated()")
+    public List<PublicProfileCompetitionHistoryService.CompletedParticipation> completedParticipations(
+            @PathVariable String username, Authentication authentication) {
+        return history.completedParticipations(authentication.getName(), username);
+    }
+
     @GetMapping("/{username}/individual-titles")
     @PreAuthorize("isAuthenticated()")
     public List<PublicProfileCompetitionHistoryService.IndividualTitle> individualTitles(
