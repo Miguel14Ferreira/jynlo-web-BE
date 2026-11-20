@@ -79,6 +79,7 @@ class CommunityImportRealFilesHttpTest {
                         seasons, standingArchives, standingRows);
         CommunityController controller = new CommunityController(
                 mock(CommunityManagementService.class),
+                mock(com.example.desporto24.service.CommunityFollowService.class),
                 mock(CommunityCompetitionService.class),
                 mock(CommunityHistoricalPlayerLinkService.class),
                 mock(CommunityImportService.class),
