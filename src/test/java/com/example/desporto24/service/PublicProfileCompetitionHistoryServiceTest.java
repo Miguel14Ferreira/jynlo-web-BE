@@ -3,6 +3,8 @@ package com.example.desporto24.service;
 import com.example.desporto24.model.Profile;
 import com.example.desporto24.model.community.Community;
 import com.example.desporto24.model.community.CommunityTournament;
+import com.example.desporto24.model.community.CommunityTournamentParticipant;
+import com.example.desporto24.repository.community.CommunityTournamentParticipantRepository;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.community.CommunityTournamentRepository;
 import com.example.desporto24.service.interfaces.ProfileService;
@@ -20,8 +22,9 @@ class PublicProfileCompetitionHistoryServiceTest {
     private final ProfileRepository profiles = mock(ProfileRepository.class);
     private final ProfileService publicProfiles = mock(ProfileService.class);
     private final CommunityTournamentRepository tournaments = mock(CommunityTournamentRepository.class);
+    private final CommunityTournamentParticipantRepository participants = mock(CommunityTournamentParticipantRepository.class);
     private final PublicProfileCompetitionHistoryService history =
-            new PublicProfileCompetitionHistoryService(profiles, publicProfiles, tournaments);
+            new PublicProfileCompetitionHistoryService(profiles, publicProfiles, tournaments, participants);
 
     @Test void privateProfileNeverQueriesCompetitionHistory() {
         var target = new Profile(); target.setId(7L); target.setPrivateProfile(true);
@@ -43,6 +46,38 @@ class PublicProfileCompetitionHistoryServiceTest {
                 12L, "Taça Individual", 9L, "Liga Aberta", "Ténis", finished)),
                 history.individualTitles("viewer", "player"));
         verify(publicProfiles).findPublicProfile("viewer","player");
+    }
+
+    @Test void confirmedFinishedParticipationIsNotMistakenForAChampionshipTitle() {
+        var target = new Profile(); target.setId(7L);
+        when(profiles.findUserByUsernameIgnoreCase("player")).thenReturn(Optional.of(target));
+        var community = Community.builder().id(9L).name("Liga Aberta").build();
+        var finished = Instant.parse("2026-09-20T17:00:00Z");
+        var tournament = CommunityTournament.builder().id(12L).name("Taça Individual")
+                .sport("Ténis").community(community).completedAt(finished)
+                .championProfileId(42L).build();
+        var entry = CommunityTournamentParticipant.builder()
+                .tournament(tournament).profile(target).build();
+        when(participants.findPublicCompletedIndividualParticipations(eq(7L), any(Pageable.class)))
+                .thenReturn(List.of(entry));
+        assertEquals(List.of(new PublicProfileCompetitionHistoryService.CompletedParticipation(
+                12L, "Taça Individual", 9L, "Liga Aberta", "Ténis", finished, false)),
+                history.completedParticipations("viewer", "player"));
+    }
+
+    @Test void privateProfileNeverDisclosesParticipationHistory() {
+        var target = new Profile(); target.setId(7L); target.setPrivateProfile(true);
+        when(profiles.findUserByUsernameIgnoreCase("player")).thenReturn(Optional.of(target));
+        assertTrue(history.completedParticipations("viewer", "player").isEmpty());
+        verifyNoInteractions(participants);
+    }
+
+    @Test void blockedViewerNeverSeesParticipationHistory() {
+        doThrow(new AccessDeniedException("blocked"))
+                .when(publicProfiles).findPublicProfile("viewer", "player");
+        assertThrows(AccessDeniedException.class,
+                () -> history.completedParticipations("viewer", "player"));
+        verifyNoInteractions(participants);
     }
 
     @Test void existingBlockPolicyCannotBeBypassed() {
