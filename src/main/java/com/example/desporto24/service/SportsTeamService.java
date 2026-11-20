@@ -34,17 +34,20 @@ public class SportsTeamService {
     public record TeamView(Long id, String slug, String name, String sport, String location,
                            String description, Long ownerProfileId, boolean feedEnabled,
                            boolean chatEnabled, String logoUrl,
-                           String kitPrimary, String kitSecondary, String kitPattern) {}
+                           String kitPrimary, String kitSecondary, String kitPattern,
+                           String kitGarment, String kitAccent, String kitPlayerName, String kitPlayerNumber) {}
     public record CreateTeam(String name, String sport, String location, String description) {}
     public record TeamFeatures(Boolean feedEnabled, Boolean chatEnabled) {}
-    public record KitSettings(String primary, String secondary, String pattern) {}
+    public record KitSettings(String primary, String secondary, String pattern,
+                              String garment, String accent, String playerName, String playerNumber) {}
 
     private TeamView view(SportsTeam team) {
         return new TeamView(team.getId(), team.getSlug(), team.getName(), team.getSport(),
                 team.getLocation(), team.getDescription(), team.getOwner().getId(),
                 team.isFeedEnabled(), team.isChatEnabled(),team.getLogoUrl(),
                 team.getKitPrimary(),team.getKitSecondary(),
-                team.getKitPattern() == null ? "PLAIN" : team.getKitPattern());
+                team.getKitPattern() == null ? "PLAIN" : team.getKitPattern(),
+                team.getKitGarment(), team.getKitAccent(), team.getKitPlayerName(), team.getKitPlayerNumber());
     }
 
     @Transactional(readOnly = true)
@@ -141,6 +144,10 @@ public class SportsTeamService {
         team.setKitPrimary(color(request.primary()));
         team.setKitSecondary(color(request.secondary()));
         if (request.pattern() != null) team.setKitPattern(pattern(request.pattern()));
+        if (request.garment() != null) team.setKitGarment(garment(request.garment()));
+        if (request.accent() != null) team.setKitAccent(color(request.accent()));
+        if (request.playerName() != null) team.setKitPlayerName(playerName(request.playerName()));
+        if (request.playerNumber() != null) team.setKitPlayerNumber(playerNumber(request.playerNumber()));
         return view(teams.saveAndFlush(team));
     }
 
@@ -193,6 +200,30 @@ public class SportsTeamService {
                 || "HOOPS".equals(value) || "HALVES".equals(value) || "CHEVRON".equals(value))
             return value;
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Modelo de equipamento inválido");
+    }
+
+    private String garment(String input) {
+        if (input == null) return null;
+        return switch (input) {
+            case "jersey", "singlet", "vest", "polo", "cycling", "rashguard" -> input;
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tipo de equipamento inválido");
+        };
+    }
+
+    private String playerName(String input) {
+        String value = input.trim();
+        if (value.isEmpty()) return null;
+        if (value.length() > 14 || !value.matches("[\\p{L}0-9 .'-]+"))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nome do equipamento inválido");
+        return value;
+    }
+
+    private String playerNumber(String input) {
+        String value = input.trim();
+        if (value.isEmpty()) return null;
+        if (!value.matches("[0-9]{1,2}"))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Número do equipamento inválido");
+        return value;
     }
 
     private String color(String input) {
