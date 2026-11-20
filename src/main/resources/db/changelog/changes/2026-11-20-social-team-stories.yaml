@@ -1,0 +1,32 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-20-social-team-stories
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: social_story
+            columns:
+              - column:
+                  name: team_id
+                  type: bigint
+        - addForeignKeyConstraint:
+            baseTableSchemaName: desporto24
+            baseTableName: social_story
+            baseColumnNames: team_id
+            referencedTableSchemaName: desporto24
+            referencedTableName: sports_team
+            referencedColumnNames: id
+            constraintName: fk_social_story_sports_team
+        - createIndex:
+            schemaName: desporto24
+            tableName: social_story
+            indexName: idx_social_story_team_expiry
+            columns:
+              - column: {name: team_id}
+              - column: {name: expires_at}
+        - addCheckConstraint:
+            schemaName: desporto24
+            tableName: social_story
+            constraintName: ck_social_story_single_entity
+            checkConstraint: "(team_id IS NULL OR community_id IS NULL)"
