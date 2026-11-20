@@ -51,6 +51,7 @@ public class SocialStoryController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public StoryResponse publish(@RequestParam(value = "caption", required = false) String caption,
                                  @RequestParam(value = "communityId", required = false) Long communityId,
+                                 @RequestParam(value = "teamId", required = false) Long teamId,
                                  @RequestPart(value = "image", required = false) MultipartFile image,
                                  @RequestPart(value = "video", required = false) MultipartFile video,
                                  @RequestParam(value = "textPosition", required = false) String textPosition,
@@ -68,7 +69,7 @@ public class SocialStoryController {
                                  @RequestParam(value = "textBackground", required = false) String textBackground,
                                  @RequestParam(value = "textFont", required = false) String textFont,
                                  Authentication auth) {
-        return stories.create(auth.getName(), communityId, caption, image, video,
+        return stories.create(auth.getName(), communityId, teamId, caption, image, video,
                 textPosition, textScale, textStyle, altText, Boolean.TRUE.equals(showTime),
                 locationLabel, taggedUsernames, textX, textY, textRotation, textZoom,
                 textColor, textBackground, textFont);
