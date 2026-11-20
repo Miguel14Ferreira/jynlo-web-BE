@@ -233,7 +233,32 @@ public class SocialStoryService {
                                 String locationLabel, String taggedUsernames,
                                 Double textX, Double textY, Double textRotation, Double textZoom,
                                 String textColor, String textBackground, String textFont) {
+        return create(username,communityId,null,caption,image,video,position,scale,style,altText,showTime,
+                locationLabel,taggedUsernames,textX,textY,textRotation,textZoom,
+                textColor,textBackground,textFont);
+    }
+
+    /** Only the owner can publish publicly as this permanent team. */
+    @Transactional
+    public StoryResponse create(String username, Long communityId, Long teamId, String caption,
+                                MultipartFile image, MultipartFile video,
+                                String position, String scale, String style,
+                                String altText, boolean showTime,
+                                String locationLabel, String taggedUsernames,
+                                Double textX, Double textY, Double textRotation, Double textZoom,
+                                String textColor, String textBackground, String textFont) {
         Profile actor = actor(username);
+        if (communityId != null && teamId != null)
+            throw new IllegalArgumentException("A Story só pode pertencer a uma entidade.");
+        SportsTeam team = null;
+        if (teamId != null) {
+            if (teams == null)
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Equipas indisponíveis");
+            team = teams.findById(teamId).orElseThrow(() ->
+                    new ResponseStatusException(HttpStatus.NOT_FOUND, "Equipa não encontrada"));
+            if (!team.getOwner().getId().equals(actor.getId()))
+                throw new AccessDeniedException("Apenas o responsável pode publicar como equipa");
+        }
         String safeTextColor = allowedStoryOption(textColor,
                 Set.of("white", "black", "yellow", "mint", "pink", "blue"), "white");
         String safeTextBackground = allowedStoryOption(textBackground,
@@ -444,7 +469,8 @@ public class SocialStoryService {
         Profile actor = actor(username);
         SocialStory story = activeStory(id);
         if (!story.getAuthor().getId().equals(actor.getId())
-                && (story.getCommunity() == null || !canManage(story.getCommunity(), actor))) {
+                && (story.getCommunity() == null || !canManage(story.getCommunity(), actor))
+                && (story.getTeam() == null || !story.getTeam().getOwner().getId().equals(actor.getId()))) {
             throw new AccessDeniedException("Cannot delete another person's story");
         }
         String mediaKey=story.getMediaStorageKey();
