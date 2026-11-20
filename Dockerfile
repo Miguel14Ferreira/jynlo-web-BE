@@ -2,7 +2,9 @@ FROM eclipse-temurin:21-jdk-jammy AS build
 
 WORKDIR /workspace
 COPY . .
-RUN chmod +x mvnw && ./mvnw -q -DskipTests package
+# maven.test.skip also skips compiling tests: an out-of-date test must not
+# block a production image. Tests run in CI (develop-verify workflow).
+RUN chmod +x mvnw && ./mvnw -q -Dmaven.test.skip=true package
 
 FROM eclipse-temurin:21-jre-jammy
 
@@ -28,12 +30,10 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
   CMD curl --fail --silent "http://127.0.0.1:${PORT:-${CONTAINER_PORT:-8080}}/actuator/health" >/dev/null || exit 1
 
-# Keep a hard memory budget for the Render 512 MiB instance.
-# A 144 MiB metaspace cap produced repeated OutOfMemoryError on normal HTTP requests.
-# Rebalance the 512 MiB instance: reserve more class metadata by bounding
-# heap, direct buffers, thread stacks and Tomcat worker count.
-# Encourage the Serial GC to return unused heap/metaspace sooner after bursts,
-# while retaining the already-validated 160 MiB heap and 200 MiB metaspace caps.
-# Lower idle heap floor and reduce native memory pressure from Tomcat workers.
-# Validate post-deploy RSS and class-loading pressure before reducing hard caps.
-ENTRYPOINT ["java", "-Xms32m", "-Xmx160m", "-XX:MinHeapFreeRatio=10", "-XX:MaxHeapFreeRatio=20", "-XX:MaxMetaspaceSize=200m", "-XX:MinMetaspaceFreeRatio=0", "-XX:MaxMetaspaceFreeRatio=10", "-XX:ReservedCodeCacheSize=20m", "-XX:MaxDirectMemorySize=20m", "-Xss512k", "-XX:ActiveProcessorCount=2", "-XX:+UseSerialGC", "-Dserver.tomcat.threads.max=12", "-Dserver.tomcat.threads.min-spare=2", "-jar", "/app/app.jar"]
+# Render plan 1c-2g (2 GiB, 1 CPU) since the 2026-11-18 OOM incident.
+# Size the JVM from the container limit instead of the old 512 MiB caps:
+# heap up to 55% of RAM (~1.1 GiB), bounded metaspace/direct memory, and
+# enough Tomcat workers for normal concurrency (DB pool: JYNLO_DB_POOL_MAX).
+# If the plan is ever lowered back to 512 MiB, restore the previous flags
+# (see git history) - 55% heap plus 256 MiB metaspace would not fit there.
+ENTRYPOINT ["java", "-XX:InitialRAMPercentage=10", "-XX:MaxRAMPercentage=55", "-XX:MaxMetaspaceSize=256m", "-XX:ReservedCodeCacheSize=64m", "-XX:MaxDirectMemorySize=64m", "-Xss512k", "-XX:+ExitOnOutOfMemoryError", "-Dserver.tomcat.threads.max=40", "-Dserver.tomcat.threads.min-spare=4", "-jar", "/app/app.jar"]
