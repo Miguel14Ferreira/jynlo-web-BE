@@ -2,6 +2,7 @@ package com.example.desporto24.service;
 
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.community.CommunityTournamentRepository;
+import com.example.desporto24.repository.community.CommunityTournamentParticipantRepository;
 import com.example.desporto24.service.interfaces.ProfileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -22,10 +23,32 @@ public class PublicProfileCompetitionHistoryService {
     private final ProfileRepository profiles;
     private final ProfileService profileService;
     private final CommunityTournamentRepository tournaments;
+    private final CommunityTournamentParticipantRepository participants;
 
     public record IndividualTitle(Long tournamentId, String tournamentName,
                                   Long communityId, String communityName,
                                   String sport, Instant completedAt) {}
+
+    /** Confirmed participation, not a claimed podium or reconstructed ranking. */
+    public record CompletedParticipation(Long tournamentId, String tournamentName,
+            Long communityId, String communityName, String sport,
+            Instant completedAt, boolean individualChampion) {}
+
+    @Transactional(readOnly = true)
+    public List<CompletedParticipation> completedParticipations(String viewer, String username) {
+        profileService.findPublicProfile(viewer, username);
+        var target = profiles.findUserByUsernameIgnoreCase(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (target.isPrivateProfile()) return List.of();
+        return participants.findPublicCompletedIndividualParticipations(
+                target.getId(), PageRequest.of(0, 20)).stream()
+                .map(p -> p.getTournament())
+                .map(t -> new CompletedParticipation(t.getId(), t.getName(),
+                        t.getCommunity().getId(), t.getCommunity().getName(),
+                        t.getSport(), t.getCompletedAt(),
+                        !t.isChampionTied() && target.getId().equals(t.getChampionProfileId())))
+                .toList();
+    }
 
     @Transactional(readOnly = true)
     public List<IndividualTitle> individualTitles(String viewer, String username) {
