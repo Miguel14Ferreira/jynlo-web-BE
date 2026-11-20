@@ -8,6 +8,7 @@ import com.example.desporto24.service.CommunityStandingsArchiveService;
 import com.example.desporto24.service.CommunityHistoricalMatchPreviewService;
 import com.example.desporto24.service.CommunityHistoricalMatchArchiveService;
 import com.example.desporto24.service.CommunityManagementService;
+import com.example.desporto24.service.CommunityFollowService;
 import com.example.desporto24.service.CommunityCreationQuotaService;
 import com.example.desporto24.service.CommunityHistoricalPlayerLinkService;
 import com.example.desporto24.service.CommunitySessionService;
@@ -30,6 +31,7 @@ import com.example.desporto24.domain.CommunityImportHttpResponse;
 public class CommunityController {
 
     private final CommunityManagementService service;
+    private final CommunityFollowService communityFollows;
     private final CommunityCompetitionService competitionService;
     private final CommunityHistoricalPlayerLinkService historicalPlayerLinkService;
     private final CommunityImportService communityImportService;
@@ -54,6 +56,24 @@ public class CommunityController {
     @GetMapping("/mine")
     public ResponseEntity<List<CommunityResponse>> mine(Authentication authentication) {
         return ResponseEntity.ok(service.mine(authentication.getName()));
+    }
+
+    @GetMapping("/{id}/followers")
+    public CommunityFollowService.FollowState followerState(
+            @PathVariable Long id,Authentication authentication) {
+        return communityFollows.state(id,authentication.getName());
+    }
+
+    @PutMapping("/{id}/followers/me")
+    public CommunityFollowService.FollowState followCommunity(
+            @PathVariable Long id,Authentication authentication) {
+        return communityFollows.follow(id,authentication.getName());
+    }
+
+    @DeleteMapping("/{id}/followers/me")
+    public CommunityFollowService.FollowState unfollowCommunity(
+            @PathVariable Long id,Authentication authentication) {
+        return communityFollows.unfollow(id,authentication.getName());
     }
 
     @GetMapping("/{id}")
