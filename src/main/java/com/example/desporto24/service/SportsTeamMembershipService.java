@@ -24,7 +24,20 @@ public class SportsTeamMembershipService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private org.springframework.context.ApplicationEventPublisher realtimeEvents;
 
-    public record RosterPlayer(Long profileId, String username, String role, String profilePicUrl) {}
+    public record RosterPlayer(Long profileId, String username, String role, String profilePicUrl,
+                               String fullName, String bio) {}
+    private String publicRosterName(Profile profile) {
+        if (profile.isPrivateProfile()) return null;
+        String name = profile.getFullName();
+        return name == null || name.isBlank() ? null : name.trim();
+    }
+    private String publicRosterBio(Profile profile) {
+        if (profile.isPrivateProfile()) return null;
+        String bio = profile.getBio();
+        if (bio == null || bio.isBlank()) return null;
+        String cleaned = bio.strip().replaceAll("\\s+", " ");
+        return cleaned.length() > 140 ? cleaned.substring(0, 140) + "…" : cleaned;
+    }
     private String publicRosterPhoto(Profile profile) {
         // Team rosters are publicly accessible. Do not expose a private
         // profile's avatar through a team membership endpoint.
@@ -94,13 +107,15 @@ public class SportsTeamMembershipService {
         SportsTeam team = team(id);
         List<RosterPlayer> result = new ArrayList<>();
         result.add(new RosterPlayer(team.getOwner().getId(), team.getOwner().getUsername(),
-                "OWNER", publicRosterPhoto(team.getOwner())));
+                "OWNER", publicRosterPhoto(team.getOwner()),
+                publicRosterName(team.getOwner()), publicRosterBio(team.getOwner())));
         members.findByTeamIdAndStatusOrderByIdAsc(id, SportsTeamMember.Status.ACTIVE)
                 .stream()
                 .filter(m -> !m.getProfile().getId().equals(team.getOwner().getId()))
                 .forEach(m -> result.add(new RosterPlayer(
                         m.getProfile().getId(), m.getProfile().getUsername(),
-                        "PLAYER", publicRosterPhoto(m.getProfile()))));
+                        "PLAYER", publicRosterPhoto(m.getProfile()),
+                        publicRosterName(m.getProfile()), publicRosterBio(m.getProfile()))));
         return result;
     }
 
