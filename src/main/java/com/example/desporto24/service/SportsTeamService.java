@@ -293,53 +293,95 @@ public class SportsTeamService {
     }
 
     private String validateCrestDesign(String json) {
-        if (json == null) return null; // hand-uploaded logos remain supported
-        if (json.isBlank() || json.length() > 4096)
+        if (json == null) return null; // Hand-uploaded logos remain supported.
+        if (json.isBlank() || json.length() > 8192)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Projeto de emblema inválido");
         try {
-            var root=KIT_MAPPER.readTree(json);
-            if (!root.isObject() || root.path("version").asInt(-1) != 1)
+            var root = KIT_MAPPER.readTree(json);
+            int version = root.path("version").asInt(-1);
+            if (!root.isObject() || (version != 1 && version != 2))
                 throw new IllegalArgumentException("Unknown crest version");
-            Set<String> allowed=Set.of("version","shape","symbol","pattern","primary","secondary",
-                    "textColor","borderColor","patternOpacity","borderWidth","symbolSize",
-                    "symbolY","showInitials","innerBorder","initialsSize","initialsY",
-                    "customInitials","caption");
-            var fields=root.fieldNames();
-            while(fields.hasNext()) if(!allowed.contains(fields.next()))
+            Set<String> allowed = new HashSet<>(Set.of("version","shape","symbol","pattern",
+                    "primary","secondary","textColor","borderColor","patternOpacity",
+                    "borderWidth","symbolSize","symbolY","showInitials","innerBorder",
+                    "initialsSize","initialsY","customInitials","caption"));
+            if (version == 2) allowed.add("layers");
+            var fields = root.fieldNames();
+            while (fields.hasNext()) if (!allowed.contains(fields.next()))
                 throw new IllegalArgumentException("Unknown crest field");
-            for(String key:List.of("shape","symbol","pattern","primary","secondary","textColor",
-                    "borderColor","customInitials","caption")) {
-                if(!root.path(key).isTextual())throw new IllegalArgumentException("Missing text");
+            for (String key: List.of("shape","symbol","pattern","primary","secondary",
+                    "textColor","borderColor","customInitials","caption")) {
+                if (!root.path(key).isTextual()) throw new IllegalArgumentException("Missing text");
             }
-            String shape=root.path("shape").asText();
-            String symbol=root.path("symbol").asText();
-            String pattern=root.path("pattern").asText();
-            if(!Set.of("shield","rounded","circle","hex","diamond","square","oval","banner").contains(shape)
-                    || !Set.of("none","letter","star","bolt","crown","flame","heart","trophy",
-                        "ball","basketball","volleyball","tennis","rugby","badminton","cricket",
-                        "hockey","golf","cycling","running","swimming","boxing","target","mountain","wave").contains(symbol)
-                    || !Set.of("none","diagonal","stripes","hoops","split","chevron").contains(pattern))
+            String shape = root.path("shape").asText();
+            String symbol = root.path("symbol").asText();
+            String pattern = root.path("pattern").asText();
+            if (!Set.of("shield","rounded","circle","hex","diamond","square","oval","banner").contains(shape)
+                || !Set.of("none","letter","star","bolt","crown","flame","heart","trophy",
+                    "ball","basketball","volleyball","tennis","rugby","badminton","cricket",
+                    "hockey","golf","cycling","running","swimming","boxing","target",
+                    "mountain","wave").contains(symbol)
+                || !Set.of("none","diagonal","stripes","hoops","split","chevron").contains(pattern))
                 throw new IllegalArgumentException("Unknown crest style");
-            for(String key:List.of("primary","secondary","textColor","borderColor"))
-                if(!root.path(key).asText().matches("#[0-9a-fA-F]{6}"))
+            for (String key: List.of("primary","secondary","textColor","borderColor"))
+                if (!root.path(key).asText().matches("#[0-9a-fA-F]{6}"))
                     throw new IllegalArgumentException("Color invalid");
-            if(!root.path("customInitials").asText().matches("[\\p{L}0-9]{0,5}")
-                || root.path("caption").asText().length()>22
-                || root.path("caption").asText().chars().anyMatch(c->Character.isISOControl(c)))
+            if (!root.path("customInitials").asText().matches("[\\p{L}0-9]{0,5}")
+                || root.path("caption").asText().length() > 22
+                || root.path("caption").asText().chars().anyMatch(Character::isISOControl))
                 throw new IllegalArgumentException("Text invalid");
-            for(String key:List.of("showInitials","innerBorder"))
-                if(!root.path(key).isBoolean())throw new IllegalArgumentException("Flag invalid");
-            int[][] ranges={{0,100},{0,14},{30,112},{85,205},{16,54},{165,265}};
-            String[] numbers={"patternOpacity","borderWidth","symbolSize","symbolY","initialsSize","initialsY"};
-            for(int i=0;i<numbers.length;i++){
-                var value=root.path(numbers[i]);
-                if(!value.isIntegralNumber() || value.asInt()<ranges[i][0] || value.asInt()>ranges[i][1])
-                    throw new IllegalArgumentException("Range invalid");
+            for (String key: List.of("showInitials","innerBorder"))
+                if (!root.path(key).isBoolean()) throw new IllegalArgumentException("Flag invalid");
+            int[][] ranges = {{0,100},{0,14},{30,112},{85,205},{16,54},{165,265}};
+            String[] numbers = {"patternOpacity","borderWidth","symbolSize","symbolY",
+                    "initialsSize","initialsY"};
+            for (int i=0;i<numbers.length;i++) checkCrestInteger(root.path(numbers[i]),
+                    ranges[i][0], ranges[i][1]);
+            if (version == 2) {
+                var layers = root.path("layers");
+                if (!layers.isArray() || layers.size() > 6)
+                    throw new IllegalArgumentException("Invalid crest layers");
+                Set<String> ids = new HashSet<>();
+                for (var layer:layers) {
+                    if (!layer.isObject()) throw new IllegalArgumentException("Invalid layer");
+                    Set<String> layerKeys = Set.of("id","kind","text","symbol","x","y",
+                            "size","rotation","color","opacity");
+                    var keys = layer.fieldNames();
+                    while (keys.hasNext()) if (!layerKeys.contains(keys.next()))
+                        throw new IllegalArgumentException("Unknown layer field");
+                    for (String key:List.of("id","kind","text","symbol","color"))
+                        if (!layer.path(key).isTextual())
+                            throw new IllegalArgumentException("Invalid layer text");
+                    String id=layer.path("id").asText();
+                    String kind=layer.path("kind").asText();
+                    String text=layer.path("text").asText();
+                    if (!id.matches("[A-Za-z0-9_-]{1,32}") || !ids.add(id)
+                        || !Set.of("text","symbol").contains(kind)
+                        || text.length() > 18 || text.chars().anyMatch(Character::isISOControl)
+                        || !layer.path("color").asText().matches("#[0-9a-fA-F]{6}"))
+                        throw new IllegalArgumentException("Invalid layer values");
+                    String icon=layer.path("symbol").asText();
+                    if (!Set.of("star","bolt","crown","flame","heart","trophy","ball",
+                        "basketball","volleyball","tennis","rugby","badminton","cricket",
+                        "hockey","golf","cycling","running","swimming","boxing","target",
+                        "mountain","wave").contains(icon))
+                        throw new IllegalArgumentException("Invalid layer symbol");
+                    checkCrestInteger(layer.path("x"),24,296);
+                    checkCrestInteger(layer.path("y"),24,330);
+                    checkCrestInteger(layer.path("size"),18,110);
+                    checkCrestInteger(layer.path("rotation"),-180,180);
+                    checkCrestInteger(layer.path("opacity"),0,100);
+                }
             }
             return KIT_MAPPER.writeValueAsString(root);
         } catch (IllegalArgumentException | JsonProcessingException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Projeto de emblema inválido");
         }
+    }
+
+    private void checkCrestInteger(com.fasterxml.jackson.databind.JsonNode value,int min,int max) {
+        if (!value.isIntegralNumber() || value.asInt() < min || value.asInt() > max)
+            throw new IllegalArgumentException("Invalid crest numeric value");
     }
 
     private String garment(String input) {
