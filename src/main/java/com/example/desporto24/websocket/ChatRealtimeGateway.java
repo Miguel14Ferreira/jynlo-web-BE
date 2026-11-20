@@ -268,6 +268,28 @@ public class ChatRealtimeGateway extends TextWebSocketHandler {
      * Team messages are never sent in WebSocket payloads: only current active
      * members receive a conversation-scoped invalidation signal.
      */
+    /** Private community feed update: no post data, delivered to current members only. */
+    public void publishCommunityFeedInvalidated(Set<String> recipients, Long communityId) {
+        if (recipients == null || recipients.isEmpty() || communityId == null || communityId <= 0) return;
+        try {
+            String payload = objectMapper.createObjectNode()
+                    .put("type", "COMMUNITY_FEED_INVALIDATED")
+                    .put("communityId", communityId)
+                    .toString();
+            for (String username : recipients) {
+                Set<WebSocketSession> sockets = sessionsByUsername.get(username);
+                if (sockets == null) continue;
+                for (WebSocketSession socket : sockets) {
+                    if (!socket.isOpen() || !isCurrentAuthenticatedSession(socket)) continue;
+                    try { send(socket, payload); }
+                    catch (IOException | RuntimeException ignored) { }
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // Invalidations must never make a committed post fail.
+        }
+    }
+
     public void publishTeamContentInvalidated(Set<String> recipients, Long teamId, String kind) {
         if (recipients == null || recipients.isEmpty() || teamId == null || teamId <= 0
                 || !("chat".equals(kind) || "feed".equals(kind))) return;
