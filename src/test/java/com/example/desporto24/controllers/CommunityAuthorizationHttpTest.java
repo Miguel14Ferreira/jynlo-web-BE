@@ -44,6 +44,7 @@ class CommunityAuthorizationHttpTest {
         service = mock(CommunityManagementService.class);
         var controller = new CommunityController(
                 service,
+                mock(com.example.desporto24.service.CommunityFollowService.class),
                 mock(CommunityCompetitionService.class),
                 mock(CommunityHistoricalPlayerLinkService.class),
                 mock(CommunityImportService.class),
