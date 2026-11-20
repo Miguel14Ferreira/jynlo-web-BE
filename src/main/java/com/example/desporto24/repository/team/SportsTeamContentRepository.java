@@ -6,12 +6,15 @@ import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 public interface SportsTeamContentRepository extends JpaRepository<SportsTeamContent, Long> {
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "author")
     List<SportsTeamContent> findByTeamIdAndKindOrderByIdDesc(
             Long teamId, SportsTeamContent.Kind kind, Pageable pageable);
     /** Cursor pagination keeps historical team content scoped to one team and kind. */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "author")
     List<SportsTeamContent> findByTeamIdAndKindAndIdLessThanOrderByIdDesc(
             Long teamId, SportsTeamContent.Kind kind, Long beforeId, Pageable pageable);
     /** Server-side search is scoped to the requested team and content type. */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "author")
     @org.springframework.data.jpa.repository.Query("""
         select content from SportsTeamContent content
         where content.team.id = :teamId and content.kind = :kind
