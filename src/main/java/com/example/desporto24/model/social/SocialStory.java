@@ -2,6 +2,7 @@ package com.example.desporto24.model.social;
 
 import com.example.desporto24.model.Profile;
 import com.example.desporto24.model.community.Community;
+import com.example.desporto24.model.team.SportsTeam;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;
@@ -18,6 +19,9 @@ public class SocialStory {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id")
     private Community community;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_id")
+    private SportsTeam team;
     @Column(length = 180)
     private String caption;
     // Visual metadata is saved with the Story, so the editor preview matches
