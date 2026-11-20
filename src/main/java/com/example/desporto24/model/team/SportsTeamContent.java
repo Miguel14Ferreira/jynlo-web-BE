@@ -43,7 +43,8 @@ public class SportsTeamContent {
     @Column(name = "attachment_size")
     private Long attachmentSize;
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.LAZY)
+    @org.hibernate.annotations.BatchSize(size = 50)
     @CollectionTable(name = "sports_team_content_extra_attachment",
             schema = "desporto24", joinColumns = @JoinColumn(name = "message_id"))
     @OrderColumn(name = "position")
