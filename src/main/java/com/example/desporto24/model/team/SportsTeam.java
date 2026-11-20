@@ -44,6 +44,18 @@ public class SportsTeam {
     @Column(name = "kit_pattern", length = 16)
     private String kitPattern;
 
+    @Column(name = "kit_garment", length = 24)
+    private String kitGarment;
+
+    @Column(name = "kit_accent", length = 7)
+    private String kitAccent;
+
+    @Column(name = "kit_player_name", length = 14)
+    private String kitPlayerName;
+
+    @Column(name = "kit_player_number", length = 2)
+    private String kitPlayerNumber;
+
     @Column(name = "feed_enabled", nullable = false)
     private boolean feedEnabled;
 
