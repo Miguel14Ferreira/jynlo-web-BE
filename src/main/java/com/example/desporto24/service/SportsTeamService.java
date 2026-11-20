@@ -35,7 +35,15 @@ public class SportsTeamService {
                            String description, Long ownerProfileId, boolean feedEnabled,
                            boolean chatEnabled, String logoUrl,
                            String kitPrimary, String kitSecondary, String kitPattern,
-                           String kitGarment, String kitAccent, String kitPlayerName, String kitPlayerNumber) {}
+                           String kitGarment, String kitAccent, String kitPlayerName, String kitPlayerNumber) {
+        public TeamView(Long id, String slug, String name, String sport, String location,
+                        String description, Long ownerProfileId, boolean feedEnabled,
+                        boolean chatEnabled, String logoUrl,
+                        String kitPrimary, String kitSecondary, String kitPattern) {
+            this(id, slug, name, sport, location, description, ownerProfileId, feedEnabled,
+                    chatEnabled, logoUrl, kitPrimary, kitSecondary, kitPattern, null, null, null, null);
+        }
+    }
     public record CreateTeam(String name, String sport, String location, String description) {}
     public record TeamFeatures(Boolean feedEnabled, Boolean chatEnabled) {}
     public record KitSettings(String primary, String secondary, String pattern,
