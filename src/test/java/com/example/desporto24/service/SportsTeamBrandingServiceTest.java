@@ -248,6 +248,58 @@ class SportsTeamBrandingServiceTest {
         verify(mediaStorage,never()).store(anyString(),any());
     }
 
+    private String editableCrest() {
+        return """
+                {"version":1,"shape":"hex","symbol":"cycling","pattern":"stripes",
+                 "primary":"#112233","secondary":"#F0F0F0","textColor":"#FFFFFF",
+                 "borderColor":"#332211","patternOpacity":40,"borderWidth":5,
+                 "symbolSize":80,"symbolY":145,"showInitials":false,"innerBorder":true,
+                 "initialsSize":28,"initialsY":225,"customInitials":"","caption":"LISBOA"}
+                """;
+    }
+
+    @Test
+    void ownerUploadsPngAndEditableCrestAsOneTeamVersion() {
+        var team=owned();
+        when(teams.findById(21L)).thenReturn(Optional.of(team));
+        var file=new MockMultipartFile("logo","emblema.png","image/png",new byte[]{1,2,3});
+        when(mediaStorage.storeCommunityPhoto(startsWith("teams/21/"),same(file)))
+                .thenReturn(URI.create("https://cdn.example.com/teams/21/crest.png"));
+        when(teams.saveAndFlush(team)).thenReturn(team);
+        var saved=service.uploadLogo(21L,file,editableCrest(),"captain");
+        assertNotNull(saved.crestDesign());
+        assertTrue(saved.crestDesign().contains("\\\"cycling\\\""));
+        assertEquals("https://cdn.example.com/teams/21/crest.png",saved.logoUrl());
+    }
+
+    @Test
+    void rejectsUnexpectedOrOversizedCrestDesignWithoutStoringMedia() {
+        var team=owned();
+        when(teams.findById(21L)).thenReturn(Optional.of(team));
+        var file=new MockMultipartFile("logo","emblema.png","image/png",new byte[]{1,2,3});
+        assertThrows(ResponseStatusException.class,
+                () -> service.uploadLogo(21L,file,editableCrest().replace(
+                        "\\\"cycling\\\"","\\\"<script>\\\""),"captain"));
+        assertThrows(ResponseStatusException.class,
+                () -> service.uploadLogo(21L,file,"x".repeat(4097),"captain"));
+        verifyNoInteractions(mediaStorage);
+        verify(teams,never()).saveAndFlush(any());
+    }
+
+    @Test
+    void manualLogoUploadAndDeletionDoNotLeaveStaleEditableCrest() {
+        var team=owned();
+        team.setCrestDesign(editableCrest());
+        when(teams.findById(21L)).thenReturn(Optional.of(team));
+        var file=new MockMultipartFile("logo","manual.png","image/png",new byte[]{1,2,3});
+        when(mediaStorage.storeCommunityPhoto(startsWith("teams/21/"),same(file)))
+                .thenReturn(URI.create("https://cdn.example.com/teams/21/manual.png"));
+        when(teams.saveAndFlush(team)).thenReturn(team);
+        assertNull(service.uploadLogo(21L,file,"captain").crestDesign());
+        team.setCrestDesign(editableCrest());
+        assertNull(service.removeLogo(21L,"captain").crestDesign());
+    }
+
     @Test
     void removingLogoDoesNotDeleteMediaOutsideOwnTeamPrefix() {
         var team=owned();
