@@ -2,6 +2,7 @@ package com.example.desporto24.service;
 
 import com.example.desporto24.enumeration.CommunityRole;
 import com.example.desporto24.websocket.CommunityChatMessageCreatedEvent;
+import com.example.desporto24.websocket.CommunityFeedChangedEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -120,6 +121,7 @@ public class CommunityTimelineService {
                 .build());
         CommunityTimelineEntryResponse response = toResponse(saved);
         if (kind == CommunityTimelineEntry.Kind.CHAT) publishChatEvent(access, communityId, response);
+        else publishFeedChange(communityId);
         return response;
     }
 
@@ -249,6 +251,10 @@ public class CommunityTimelineService {
         eventPublisher.publishEvent(new CommunityChatMessageCreatedEvent(response, recipients));
     }
 
+    private void publishFeedChange(Long communityId) {
+        eventPublisher.publishEvent(new CommunityFeedChangedEvent(communityId));
+    }
+
     /**
      * Public API mirrors the regular social composer while maintaining
      * membership checks and keeping chat entries text-only.
@@ -290,7 +296,9 @@ public class CommunityTimelineService {
                             .videoStorageKey(hasVideo ? key : null)
                             .createdAt(Instant.now())
                             .build());
-            return toResponse(entry);
+            CommunityTimelineEntryResponse response = toResponse(entry);
+            publishFeedChange(communityId);
+            return response;
         } catch (RuntimeException exception) {
             if (key != null) {
                 try { mediaStorage.delete(key); }
@@ -356,7 +364,9 @@ public class CommunityTimelineService {
                     .extraMedia(new java.util.ArrayList<>(stored.subList(1, stored.size())))
                     .createdAt(Instant.now())
                     .build());
-            return toResponse(entry);
+            CommunityTimelineEntryResponse response = toResponse(entry);
+            publishFeedChange(communityId);
+            return response;
         } catch (RuntimeException failure) {
             for (var media : stored) {
                 try { if (media.getStorageKey() != null) mediaStorage.delete(media.getStorageKey()); }
@@ -408,7 +418,9 @@ public class CommunityTimelineService {
         entry.setBody(normalized);
         entry.setEditedAt(Instant.now());
         timelineRepository.saveAndFlush(entry);
-        return toResponse(entry);
+        CommunityTimelineEntryResponse response = toResponse(entry);
+        publishFeedChange(communityId);
+        return response;
     }
 
     @Transactional
@@ -489,6 +501,7 @@ public class CommunityTimelineService {
                 }
             }
         }
+        if (kind == CommunityTimelineEntry.Kind.POST) publishFeedChange(communityId);
     }
 
     private Access requireMember(Long communityId, String username) {
