@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
@@ -49,7 +48,6 @@ public class PublicProfileAffiliationsService {
                 .map(member -> member.getTeam())
                 .filter(Objects::nonNull)
                 .distinct()
-                .sorted(Comparator.comparing(team -> team.getId(), Comparator.reverseOrder()))
                 .limit(20)
                 .map(team -> new TeamLink(team.getId(), team.getName(), team.getSport()))
                 .toList();
