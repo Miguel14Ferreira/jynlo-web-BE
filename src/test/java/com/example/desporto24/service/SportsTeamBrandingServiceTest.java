@@ -171,6 +171,60 @@ class SportsTeamBrandingServiceTest {
     }
 
     @Test
+    void captainCanPersistAlternateAndTrainingDesignsIndependently() {
+        var team=owned();
+        when(teams.findById(21L)).thenReturn(Optional.of(team));
+        when(teams.saveAndFlush(team)).thenReturn(team);
+        var alternate=new SportsTeamService.KitVariant("ALTERNATE","#1144aa","#ffffff",
+                "HOOPS","singlet","#eeddcc","ALVES","12");
+        var training=new SportsTeamService.KitVariant("TRAINING","#bb2211","#000000",
+                "CHEVRON","rashguard","#aaee11","SILVA","7");
+        var saved=service.kit(21L,new SportsTeamService.KitSettings(
+                "#112233","#ddeeff","STRIPES","jersey","#aabbcc","JOAO","10",
+                java.util.List.of(alternate,training)),"captain");
+        assertEquals("#112233",saved.kitPrimary());
+        assertEquals(2,saved.kitVariants().size());
+        assertEquals("ALTERNATE",saved.kitVariants().get(0).type());
+        assertEquals("#1144AA",saved.kitVariants().get(0).primary());
+        assertEquals("TRAINING",saved.kitVariants().get(1).type());
+        assertEquals("rashguard",saved.kitVariants().get(1).garment());
+        assertTrue(team.getKitVariants().contains("TRAINING"));
+    }
+
+    @Test
+    void duplicateOrUnknownKitVariantsAreRejected() {
+        var team=owned();
+        when(teams.findById(21L)).thenReturn(Optional.of(team));
+        var alt=new SportsTeamService.KitVariant("ALTERNATE","#1144aa","#ffffff",
+                "PLAIN","jersey","#eeddcc","","");
+        var invalid=new SportsTeamService.KitVariant("PRIMARY","#1144aa","#ffffff",
+                "PLAIN","jersey","#eeddcc","","");
+        var duplicate=new SportsTeamService.KitVariant("ALTERNATE","#1144aa","#ffffff",
+                "PLAIN","jersey","#eeddcc","","");
+        assertThrows(ResponseStatusException.class,()->service.kit(21L,
+                new SportsTeamService.KitSettings("#112233","#ddeeff","PLAIN",
+                        "jersey","#ffffff","","",java.util.List.of(alt,invalid)),"captain"));
+        assertThrows(ResponseStatusException.class,()->service.kit(21L,
+                new SportsTeamService.KitSettings("#112233","#ddeeff","PLAIN",
+                        "jersey","#ffffff","","",java.util.List.of(alt,duplicate)),"captain"));
+        verify(teams,never()).saveAndFlush(any());
+    }
+
+    @Test
+    void oldKitClientsPreserveAdditionalDesigns() {
+        var team=owned();
+        team.setKitVariants("[{\"type\":\"TRAINING\",\"primary\":\"#000000\",\"secondary\":\"#FFFFFF\","
+                + "\"pattern\":\"PLAIN\",\"garment\":\"vest\",\"accent\":\"#EEEEEE\","
+                + "\"playerName\":\"\",\"playerNumber\":\"\"}]");
+        when(teams.findById(21L)).thenReturn(Optional.of(team));
+        when(teams.saveAndFlush(team)).thenReturn(team);
+        var updated=service.kit(21L,new SportsTeamService.KitSettings(
+                "#667788","#ffffff","DIAGONAL"),"captain");
+        assertEquals("TRAINING",updated.kitVariants().get(0).type());
+        assertEquals("vest",updated.kitVariants().get(0).garment());
+    }
+
+    @Test
     void noOutsiderCanUploadOrDeleteTeamLogo() {
         var team=owned();
         when(teams.findById(21L)).thenReturn(Optional.of(team));
