@@ -23,16 +23,19 @@ public interface SocialStoryRepository extends JpaRepository<SocialStory, Long> 
             select story from SocialStory story
             join fetch story.author
             left join fetch story.community
+            left join fetch story.team
             where story.expiresAt > :now
               and story.author.id not in :blockedAuthorIds
               and ((story.community is null and story.author.id in :authorIds)
-                or story.community.id in :communityIds)
+                or story.community.id in :communityIds
+                or story.team.id in :teamIds)
             order by story.createdAt desc, story.id desc
             """)
     List<SocialStory> findActiveFeed(
             @Param("now") Instant now,
             @Param("authorIds") Collection<Long> authorIds,
             @Param("communityIds") Collection<Long> communityIds,
+            @Param("teamIds") Collection<Long> teamIds,
             @Param("blockedAuthorIds") Collection<Long> blockedAuthorIds,
             Pageable page);
 
@@ -40,6 +43,8 @@ public interface SocialStoryRepository extends JpaRepository<SocialStory, Long> 
     List<SocialStory> findTop20ByAuthorIdAndExpiresAtAfterOrderByCreatedAtDesc(Long authorId, Instant now);
 
     List<SocialStory> findByAuthorId(Long authorId);
+
+    List<SocialStory> findTop20ByTeamIdAndExpiresAtAfterOrderByCreatedAtDesc(Long teamId, Instant now);
 
     List<SocialStory> findByExpiresAtLessThanEqualOrderByIdAsc(Instant expiresAt, Pageable page);
 }
