@@ -27,6 +27,24 @@ public interface CommunityTournamentRepository extends JpaRepository<CommunityTo
     java.util.List<CommunityTournament> discoverOpenTeams(@org.springframework.data.repository.query.Param("q") String q,
       @org.springframework.data.repository.query.Param("sport") String sport, Pageable pageable);
 
+    /**
+     * Immutable individual champion snapshots in publicly visible communities.
+     * No draft tournaments, tied winners or private community data.
+     */
+    @Query("""
+      select tournament from CommunityTournament tournament
+      join fetch tournament.community community
+      where tournament.championProfileId = :profileId
+        and tournament.status = com.example.desporto24.enumeration.TournamentStatus.COMPLETED
+        and tournament.entryType = com.example.desporto24.enumeration.TournamentEntryType.INDIVIDUAL
+        and tournament.championTied = false
+        and tournament.completedAt is not null
+        and community.visibility = com.example.desporto24.enumeration.CommunityVisibility.PUBLIC
+      order by tournament.completedAt desc, tournament.id desc
+      """)
+    List<CommunityTournament> findPublicIndividualTitlesForProfile(
+            @Param("profileId") Long profileId, Pageable pageable);
+
     long countByStatus(com.example.desporto24.enumeration.TournamentStatus status);
 
 
