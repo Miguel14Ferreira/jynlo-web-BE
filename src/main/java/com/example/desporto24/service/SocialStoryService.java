@@ -5,6 +5,7 @@ import com.example.desporto24.enumeration.CommunityVisibility;
 import com.example.desporto24.model.Profile;
 import com.example.desporto24.model.community.Community;
 import com.example.desporto24.model.community.CommunityMember;
+import com.example.desporto24.model.team.SportsTeam;
 import com.example.desporto24.model.dto.social.StoryResponse;
 import com.example.desporto24.model.social.SocialStory;
 import com.example.desporto24.model.social.SocialStoryLike;
@@ -60,6 +61,12 @@ public class SocialStoryService {
     private final MediaStorage storage;
     @org.springframework.beans.factory.annotation.Autowired(required=false)
     private com.example.desporto24.repository.community.CommunityFollowRepository followedCommunities;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private com.example.desporto24.repository.team.SportsTeamFollowRepository teamFollowers;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private com.example.desporto24.repository.team.SportsTeamRepository teams;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private com.example.desporto24.repository.team.SportsTeamMemberRepository teamMembers;
 
     @org.springframework.beans.factory.annotation.Autowired(required=false)
     private com.example.desporto24.storage.PrivateProfileMediaStorage privateMedia;
@@ -94,6 +101,15 @@ public class SocialStoryService {
         if (followedCommunities != null) {
             groups.addAll(followedCommunities.followedPublicCommunityIds(actor.getId()));
         }
+        Set<Long> teamIds = new LinkedHashSet<>();
+        if (teams != null && teamFollowers != null && teamMembers != null) {
+            teams.findByOwnerIdOrderByIdDesc(actor.getId()).forEach(team -> teamIds.add(team.getId()));
+            teamMembers.findByProfileIdAndStatusOrderByIdDesc(actor.getId(),
+                com.example.desporto24.model.team.SportsTeamMember.Status.ACTIVE)
+                .forEach(member -> teamIds.add(member.getTeam().getId()));
+            teamIds.addAll(teamFollowers.followedTeamIds(actor.getId()));
+        }
+        if (teamIds.isEmpty()) teamIds.add(-1L);
         // Avoid passing an empty collection into JPQL IN on different databases.
         if (groups.isEmpty()) groups.add(-1L);
         Set<Long> blockedAuthors = new LinkedHashSet<>(userBlockService.blockedProfileIds(actor));
@@ -101,8 +117,8 @@ public class SocialStoryService {
         if (blockedAuthors.isEmpty()) blockedAuthors.add(-1L);
         authors.removeAll(blockedAuthors);
         return responses(stories.findActiveFeed(
-                Instant.now(), authors, groups, blockedAuthors, PageRequest.of(0, FEED_LIMIT))
-                .stream().filter(story -> story.getCommunity() != null ||
+                Instant.now(), authors, groups, teamIds, blockedAuthors, PageRequest.of(0, FEED_LIMIT))
+                .stream().filter(story -> story.getCommunity() != null || story.getTeam() != null ||
                   canViewPersonalStories(actor,story.getAuthor())).toList(), actor);
     }
 
@@ -274,7 +290,7 @@ public class SocialStoryService {
                 throw new AccessDeniedException("Private community stories are not available yet");
             }
         }
-        boolean protectedStory = group == null && actor.isPrivateProfile();
+        boolean protectedStory = group == null && team == null && actor.isPrivateProfile();
         if (protectedStory && (privateMedia == null || !privateMedia.isConfigured()))
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Protected media unavailable");
         String objectKey;
@@ -291,7 +307,7 @@ public class SocialStoryService {
         Instant now = Instant.now();
         try {
             SocialStory story = stories.save(SocialStory.builder()
-                    .author(actor).community(group).caption(text)
+                    .author(actor).community(group).team(team).caption(text)
                     .textPosition(safePosition).textScale(safeScale).textStyle(safeStyle)
                     .textX(textX).textY(textY).textRotation(textRotation).textZoom(textZoom)
                     .textColor(safeTextColor).textBackground(safeTextBackground).textFont(safeTextFont)
@@ -400,7 +416,7 @@ public class SocialStoryService {
         if (userBlockService.isBlockedBetween(viewer, story.getAuthor())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Story not found");
         }
-        if (story.getCommunity() == null && !canViewPersonalStories(viewer,story.getAuthor()))
+        if (story.getCommunity() == null && story.getTeam() == null && !canViewPersonalStories(viewer,story.getAuthor()))
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Story not found");
         if (story.getCommunity() != null &&
                 story.getCommunity().getVisibility() != CommunityVisibility.PUBLIC &&
@@ -503,6 +519,7 @@ public class SocialStoryService {
     private StoryResponse response(SocialStory story, Profile actor, long likeCount, boolean likedByMe) {
         Profile author = story.getAuthor();
         Community group = story.getCommunity();
+        SportsTeam team = story.getTeam();
         String name = author.getNickname() != null && !author.getNickname().isBlank()
                 ? author.getNickname()
                 : author.getFullName() != null && !author.getFullName().isBlank()
@@ -516,7 +533,8 @@ public class SocialStoryService {
                     ? "/api/profile-media/stories/" + story.getId() : story.getMediaUrl(),
                 story.isVideo(),
                 story.getCreatedAt(), story.getExpiresAt(),
-                author.getId().equals(actor.getId()) || (group != null && canManage(group, actor)),
+                author.getId().equals(actor.getId()) || (group != null && canManage(group, actor))
+                   || (team != null && team.getOwner().getId().equals(actor.getId())),
                 likeCount, likedByMe,
                 story.getTextPosition() == null ? "bottom" : story.getTextPosition(),
                 story.getTextScale() == null ? "medium" : story.getTextScale(),
@@ -524,7 +542,9 @@ public class SocialStoryService {
                 story.getAltText(), story.isShowTime(),
                 story.getLocationLabel(), story.getTaggedUsernames(),
                 story.getTextX(), story.getTextY(), story.getTextRotation(), story.getTextZoom(),
-                story.getTextColor(), story.getTextBackground(), story.getTextFont());
+                story.getTextColor(), story.getTextBackground(), story.getTextFont(),
+                team == null ? null : team.getId(), team == null ? null : team.getName(),
+                team == null ? null : team.getLogoUrl());
     }
 
     private static boolean isValidPlacement(Double value, double min, double max) {
