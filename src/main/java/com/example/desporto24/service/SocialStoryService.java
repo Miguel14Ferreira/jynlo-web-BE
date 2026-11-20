@@ -59,6 +59,9 @@ public class SocialStoryService {
     private final ProfileFollowRepository follows;
     private final MediaStorage storage;
     @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private com.example.desporto24.repository.community.CommunityFollowRepository followedCommunities;
+
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
     private com.example.desporto24.storage.PrivateProfileMediaStorage privateMedia;
     @org.springframework.beans.factory.annotation.Autowired(required=false)
     private ProfileMediaDeletionOutbox mediaDeletionOutbox;
@@ -86,6 +89,11 @@ public class SocialStoryService {
         communities.findByOwnerId(actor.getId()).stream()
                 .filter(group -> group.getVisibility() == CommunityVisibility.PUBLIC)
                 .forEach(group -> groups.add(group.getId()));
+        // A follow is a public subscription, not membership: subscribed
+        // community Stories join the discovery rail, never private content.
+        if (followedCommunities != null) {
+            groups.addAll(followedCommunities.followedPublicCommunityIds(actor.getId()));
+        }
         // Avoid passing an empty collection into JPQL IN on different databases.
         if (groups.isEmpty()) groups.add(-1L);
         Set<Long> blockedAuthors = new LinkedHashSet<>(userBlockService.blockedProfileIds(actor));
