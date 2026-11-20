@@ -22,6 +22,7 @@ public class SportsTeamDeletionService {
     private final ProfileRepository profiles;
     private final SportsTeamMemberRepository members;
     private final SportsTeamContentRepository content;
+    private final SportsTeamFollowRepository followers;
     private final SportsTeamCommunityMembershipRepository communities;
     private final SportsTeamCompetitionApplicationRepository applications;
     private final SportsTeamCompetitionInvitationRepository invitations;
@@ -43,7 +44,8 @@ public class SportsTeamDeletionService {
             throw new AccessDeniedException("Conta indisponível para gerir equipas");
         // Refuse deletion if anything might be retained or referenced by another module.
         // All invitation statuses (including declined) are checked, not only ACTIVE.
-        if (members.existsByTeamId(teamId)
+        if (followers.existsByTeamId(teamId)
+                || members.existsByTeamId(teamId)
                 || content.existsByTeamId(teamId)
                 || communities.existsByTeamId(teamId)
                 || applications.existsByTeamId(teamId)
