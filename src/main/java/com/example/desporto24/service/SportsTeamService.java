@@ -189,7 +189,8 @@ public class SportsTeamService {
         // Old clients omitted pattern. Preserve their current design; existing
         // teams without a saved design display the plain shirt by default.
         if (value == null) return null;
-        if ("PLAIN".equals(value) || "STRIPES".equals(value) || "DIAGONAL".equals(value))
+        if ("PLAIN".equals(value) || "STRIPES".equals(value) || "DIAGONAL".equals(value)
+                || "HOOPS".equals(value) || "HALVES".equals(value) || "CHEVRON".equals(value))
             return value;
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Modelo de equipamento inválido");
     }
