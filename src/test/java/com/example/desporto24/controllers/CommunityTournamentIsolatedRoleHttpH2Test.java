@@ -152,6 +152,7 @@ class CommunityTournamentIsolatedRoleHttpH2Test {
                 profiles, members, tournaments, participants, matches);
 
         var communityController = new CommunityController(management,
+                mock(com.example.desporto24.service.CommunityFollowService.class),
                 mock(CommunityCompetitionService.class),
                 mock(CommunityHistoricalPlayerLinkService.class),
                 mock(CommunityImportService.class),
