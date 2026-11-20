@@ -17,6 +17,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -59,18 +60,21 @@ public class CommunityController {
     }
 
     @GetMapping("/{id}/followers")
+    @PreAuthorize("isAuthenticated()")
     public CommunityFollowService.FollowState followerState(
             @PathVariable Long id,Authentication authentication) {
         return communityFollows.state(id,authentication.getName());
     }
 
     @PutMapping("/{id}/followers/me")
+    @PreAuthorize("isAuthenticated()")
     public CommunityFollowService.FollowState followCommunity(
             @PathVariable Long id,Authentication authentication) {
         return communityFollows.follow(id,authentication.getName());
     }
 
     @DeleteMapping("/{id}/followers/me")
+    @PreAuthorize("isAuthenticated()")
     public CommunityFollowService.FollowState unfollowCommunity(
             @PathVariable Long id,Authentication authentication) {
         return communityFollows.unfollow(id,authentication.getName());
