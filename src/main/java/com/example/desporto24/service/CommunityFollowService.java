@@ -9,6 +9,7 @@ import com.example.desporto24.repository.community.CommunityFollowRepository;
 import com.example.desporto24.repository.community.CommunityRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,9 +51,17 @@ public class CommunityFollowService {
         if(Boolean.FALSE.equals(user.getEnabled())||user.getModerationSuspendedAt()!=null)
           throw new AccessDeniedException("Conta indisponível");
         // Idempotent requests plus a unique DB constraint prevent duplicate subscriptions.
-        if(!follows.existsByCommunityIdAndFollowerId(id,user.getId()))
-          follows.saveAndFlush(CommunityFollow.builder().community(community)
-             .follower(user).createdAt(Instant.now()).build());
+        if(!follows.existsByCommunityIdAndFollowerId(id,user.getId())) {
+          try {
+            follows.saveAndFlush(CommunityFollow.builder().community(community)
+                .follower(user).createdAt(Instant.now()).build());
+          } catch (DataIntegrityViolationException concurrentFollow) {
+            // Database uniqueness wins races across Render instances; clients
+            // can refresh authoritative follow state before trying again.
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "A subscrição foi alterada noutro pedido. Atualiza os seguidores.");
+          }
+        }
         return new FollowState(follows.countByCommunityId(id),true);
     }
     @Transactional
