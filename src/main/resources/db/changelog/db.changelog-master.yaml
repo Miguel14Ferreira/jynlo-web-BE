@@ -480,3 +480,6 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-18-story-view-audience.yaml
   - include:
       file: db/changelog/changes/2026-11-20-sports-team-followers.yaml
+
+  - include:
+      file: db/changelog/changes/2026-11-20-community-followers.yaml
