@@ -33,6 +33,8 @@ public class SessionInviteService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.service.NotificationPreferencesService preferenceService;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.moderation.UserBlockRepository userBlocks;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
     private org.springframework.context.ApplicationEventPublisher pushEvents;
 
     private final SessionRepository sessions;
@@ -65,6 +67,9 @@ public class SessionInviteService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogador não encontrado."));
         if (recipient.getId().equals(actor.getId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Não podes convidar-te a ti próprio.");
+        }
+        if (userBlocks != null && userBlocks.existsBetween(actor.getId(), recipient.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Não é possível convidar este jogador.");
         }
         if (participants.existsBySessionIdAndProfileIdAndState(sessionId, recipient.getId(), ParticipantState.ACTIVE)
                 || waitlist.findBySessionIdAndProfileId(sessionId, recipient.getId()).isPresent()) {
@@ -106,6 +111,44 @@ public class SessionInviteService {
         }
         return inviteId;
     }
+    public record InviteSummary(int invited, int skipped) {}
+
+    /**
+     * "Jogar outra vez": the organiser invites the players who were in one of
+     * their previous sessions into a new one. Only the organiser of both
+     * sessions can do it; players already in, waiting, invited or blocked
+     * are skipped (same rules as a single invite). At most 50 invites.
+     */
+    @Transactional
+    public InviteSummary inviteFromPrevious(Long sessionId, Long previousSessionId, String organizerUsername) {
+        Profile actor = profiles.findUserByUsername(organizerUsername)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        Session previous = sessions.findById(previousSessionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sessão anterior não encontrada."));
+        if (previous.getProfile() == null || !previous.getProfile().getId().equals(actor.getId())
+                || previousSessionId.equals(sessionId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Só podes repetir convites de sessões que organizaste.");
+        }
+        Session target = sessions.findById(sessionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sessão não encontrada."));
+        if (target.getProfile() == null || !target.getProfile().getId().equals(actor.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Apenas o organizador pode enviar convites.");
+        }
+        int invited = 0, skipped = 0;
+        var players = participants.findBySessionIdAndStateOrderByJoinedAtAsc(previousSessionId, ParticipantState.ACTIVE);
+        for (var participant : players.subList(0, Math.min(players.size(), 50))) {
+            var player = participant.getProfile();
+            if (player == null || player.getId().equals(actor.getId())) continue;
+            try {
+                invite(sessionId, organizerUsername, player.getUsername());
+                invited++;
+            } catch (ResponseStatusException notPossible) {
+                skipped++;
+            }
+        }
+        return new InviteSummary(invited, skipped);
+    }
+
     @Transactional(readOnly = true)
     public List<PendingSessionInvite> pendingFor(String username) {
         Profile actor = profiles.findUserByUsername(username)

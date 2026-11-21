@@ -26,6 +26,14 @@ public class SessionInviteController {
                                     Authentication authentication) {
         return Map.of("id", inviteService.invite(sessionId, authentication.getName(), request.username()));
     }
+    /** Invite the players of one of my previous sessions ("jogar outra vez"). */
+    @PostMapping("/from-session/{previousSessionId}")
+    public SessionInviteService.InviteSummary inviteFromPrevious(@PathVariable Long sessionId,
+                                                                 @PathVariable Long previousSessionId,
+                                                                 Authentication authentication) {
+        return inviteService.inviteFromPrevious(sessionId, previousSessionId, authentication.getName());
+    }
+
     @PostMapping("/{inviteId}/accept")
     public JoinSessionResponse accept(@PathVariable Long sessionId,
                                       @PathVariable Long inviteId,
