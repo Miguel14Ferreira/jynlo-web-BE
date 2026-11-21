@@ -40,7 +40,14 @@ public class MobilePushDeliveryService {
 
     public record StoredNotification(String username, Long notificationId,
             String category, Long sessionId, Long communityId, String relatedUsername,
-            boolean permitted) {}
+            boolean permitted, Long privateGroupId) {
+        /** Preserve callers that predate private group alerts. */
+        public StoredNotification(String username, Long notificationId,
+                String category, Long sessionId, Long communityId, String relatedUsername,
+                boolean permitted) {
+            this(username, notificationId, category, sessionId, communityId, relatedUsername, permitted, null);
+        }
+    }
 
     /**
      * No delivery on transaction rollback. Notifications are only a cue to reopen
@@ -63,7 +70,9 @@ public class MobilePushDeliveryService {
             // be checked against per-conversation mutes: fail closed.
             String kind;
             String key;
-            if (event.sessionId()!=null && event.sessionId()>0) {
+            if (event.privateGroupId()!=null && event.privateGroupId()>0) {
+                kind="private"; key=event.privateGroupId().toString();
+            } else if (event.sessionId()!=null && event.sessionId()>0) {
                 kind="session"; key=event.sessionId().toString();
             } else if (event.communityId()!=null && event.communityId()>0) {
                 kind="community"; key=event.communityId().toString();

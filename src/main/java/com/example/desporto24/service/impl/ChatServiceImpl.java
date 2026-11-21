@@ -153,7 +153,15 @@ public class ChatServiceImpl implements ChatService {
         boolean muted = muteService != null && muteService.muted(
                 notification.getUsername(), "direct",
                 chat.getUsername1().toLowerCase(java.util.Locale.ROOT));
-        if (enabled && !muted) notificationsRepository.save(notification);
+        if (enabled && !muted) {
+            Notifications saved = notificationsRepository.save(notification);
+            // Phone alert after commit; MobilePushDeliveryService re-checks preferences and mutes.
+            if (saved != null && saved.getId() != null) {
+                eventPublisher.publishEvent(new com.example.desporto24.service.MobilePushDeliveryService.StoredNotification(
+                        saved.getUsername(), saved.getId(), NotificationType.CHAT_MESSAGE.name(),
+                        null, null, saved.getRelatedUsername(), true));
+            }
+        }
     }
 
     @Override

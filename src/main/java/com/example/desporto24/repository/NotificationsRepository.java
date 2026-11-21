@@ -17,6 +17,9 @@ public interface NotificationsRepository extends JpaRepository<Notifications, Lo
 
     List<Notifications> findByUsername(String username);
     long countByUsernameAndReadFalse(String username);
+    /** Collapse a burst of group messages into one unread alert per group. */
+    boolean existsByUsernameAndPrivateGroupIdAndReadFalse(String username, Long privateGroupId);
+    List<Notifications> findByUsernameIgnoreCaseAndPrivateGroupIdAndReadFalse(String username, Long privateGroupId);
     Optional<Notifications> findByToken(String token);
 
     @Transactional
