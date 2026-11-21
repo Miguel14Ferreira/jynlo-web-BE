@@ -97,6 +97,7 @@ public class CommunityCompetitionService {
     }
 
     private CommunityCompetitionOverviewResponse buildOverview(Long communityId, Long seasonId) {
+        Community community = community(communityId);
         CommunitySeason selectedSeason = null;
         if (seasonId != null) {
             selectedSeason = seasonRepository.findById(seasonId)
