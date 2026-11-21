@@ -63,6 +63,10 @@ public class CommunityPublicRankingService {
                 .map(s -> new Season(s.id(), clean(s.name()), clean(s.sport()), s.active(), s.startsAt(), s.endedAt()))
                 .toList();
         List<CommunityStandingResponse> standings = overview.standings() == null ? List.of() : overview.standings();
+        if (standings.isEmpty() && overview.sportStandings() != null && !overview.sportStandings().isEmpty()) {
+            // Multi-sport seasons group the table by sport: show the first (the community's main) one.
+            standings = overview.sportStandings().getFirst().standings();
+        }
         List<Row> table = standings.stream()
                 .filter(row -> row.games() > 0)
                 .map(row -> new Row(row.position(), clean(row.username() != null ? row.username() : "Jogador"),
