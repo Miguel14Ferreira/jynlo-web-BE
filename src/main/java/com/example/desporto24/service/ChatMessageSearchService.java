@@ -33,6 +33,23 @@ public class ChatMessageSearchService {
     private final ChatRepository direct;
     private final SessionMessageRepository sessions;
     private final CommunityTimelineEntryRepository communities;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.PrivateGroupMessageRepository groupMessages;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.PrivateGroupMemberRepository groupMembers;
+
+    /** A private group member only sees messages sent since they joined. */
+    private java.time.Instant joinedAt(String username, String id) {
+        if (groupMessages == null || groupMembers == null) throw invalidSearch();
+        return groupMembers.findByGroupIdAndUsernameIgnoreCase(Long.parseLong(id), username)
+                .map(m -> m.getJoinedAt())
+                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("No accessible group"));
+    }
+
+    private ChatSearchHit groupHit(com.example.desporto24.model.PrivateGroupMessage msg) {
+        return new ChatSearchHit(msg.getId(), msg.getSenderUsername(),
+                msg.getDeletedAt() != null ? "" : msg.getBody(), msg.getCreatedAt(), msg.getReplyToId(), null, null);
+    }
 
     @Transactional(readOnly = true)
     public ChatSearchResponse search(String username, String kind,
@@ -44,7 +61,7 @@ public class ChatMessageSearchService {
         if (term.length() < 2 || term.length() > 80) throw invalidSearch();
         String normalizedKind = kind.toLowerCase(Locale.ROOT);
         if (!normalizedKind.equals("direct") && !normalizedKind.equals("session")
-                && !normalizedKind.equals("community")) throw invalidSearch();
+                && !normalizedKind.equals("community") && !normalizedKind.equals("private")) throw invalidSearch();
 
         // No query or message text is returned before this membership check.
         inbox.requireConversationAccess(username, normalizedKind, id);
@@ -59,6 +76,8 @@ public class ChatMessageSearchService {
             case "community" -> communities.searchConversation(Long.parseLong(id),
                     CommunityTimelineEntry.Kind.CHAT, escaped, paging)
                     .map(this::communityHit);
+            case "private" -> groupMessages.searchConversation(Long.parseLong(id),
+                    joinedAt(username, id), escaped, paging).map(this::groupHit);
             default -> throw invalidSearch();
         };
         return new ChatSearchResponse(matches.getContent(), matches.hasNext(), page);
@@ -72,7 +91,7 @@ public class ChatMessageSearchService {
         if (kind == null || id == null || targetMessageId <= 0) throw invalidSearch();
         String normalizedKind = kind.toLowerCase(Locale.ROOT);
         if (!normalizedKind.equals("direct") && !normalizedKind.equals("session")
-                && !normalizedKind.equals("community")) throw invalidSearch();
+                && !normalizedKind.equals("community") && !normalizedKind.equals("private")) throw invalidSearch();
         // Validate access before fetching any message or revealing target existence.
         inbox.requireConversationAccess(username, normalizedKind, id);
         PageRequest older = PageRequest.of(0, 21), newer = PageRequest.of(0, 20);
@@ -96,6 +115,16 @@ public class ChatMessageSearchService {
                     communities.findByCommunityIdAndKindAndIdGreaterThanOrderByIdAsc(
                             Long.parseLong(id), CommunityTimelineEntry.Kind.CHAT, targetMessageId, newer)
                             .stream().map(this::communityHit).toList(), targetMessageId);
+            case "private" -> {
+                var since = joinedAt(username, id);
+                yield window(
+                    groupMessages.findByGroupIdAndCreatedAtGreaterThanEqualAndIdLessThanEqualOrderByIdDesc(
+                            Long.parseLong(id), since, targetMessageId, older)
+                            .stream().map(this::groupHit).toList(),
+                    groupMessages.findByGroupIdAndCreatedAtGreaterThanEqualAndIdGreaterThanOrderByIdAsc(
+                            Long.parseLong(id), since, targetMessageId, newer)
+                            .stream().map(this::groupHit).toList(), targetMessageId);
+            }
             default -> throw invalidSearch();
         };
     }
