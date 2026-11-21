@@ -270,15 +270,18 @@ public class SessionServiceImpl implements SessionService {
         SessionRecurrence recurrence = request.recurrence() == null
                 ? SessionRecurrence.NONE
                 : request.recurrence();
-        if (recurrence != SessionRecurrence.NONE && linkedCommunity == null && sharedCommunities.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Recurring sessions must belong to a community");
-        }
-
         // Preflight every weekly slot and call-up time *before* saving anything.
         // The planner also rejects oversized batches, collisions and past slots.
         var planned = com.example.desporto24.service.CommunitySessionSchedule
                 .expand(request, Instant.now());
+        // Independent organisers can repeat a game too ("futsal every Tuesday"),
+        // with a shorter horizon than communities: about three months of games.
+        if (recurrence != SessionRecurrence.NONE && linkedCommunity == null && sharedCommunities.isEmpty()
+                && planned.size() > MAX_INDEPENDENT_RECURRING_SESSIONS) {
+            throw new IllegalArgumentException(
+                    "Sessões independentes podem repetir-se até " + MAX_INDEPENDENT_RECURRING_SESSIONS
+                            + " vezes. Para mais, cria uma comunidade.");
+        }
 
         var openingMode = request.registrationOpeningMode() == null
                 ? com.example.desporto24.enumeration.RegistrationOpeningMode.IMMEDIATE
@@ -574,6 +577,26 @@ public class SessionServiceImpl implements SessionService {
         return result;
     }
 
+    static final int MAX_INDEPENDENT_RECURRING_SESSIONS = 12;
+
+    /**
+     * An independent weekly game shows once in Explore: its next occurrence that
+     * still matches the filters. The rest of the series is one tap away.
+     */
+    public static List<SessionSummaryResponse> nextOfEachIndependentSeries(List<SessionSummaryResponse> views) {
+        Map<String, SessionSummaryResponse> earliest = new java.util.HashMap<>();
+        for (SessionSummaryResponse view : views) {
+            String series = view.recurrenceSeriesId();
+            if (series == null || series.isBlank() || view.communityId() != null) continue;
+            earliest.merge(series, view, (a, b) -> b.gameDate() != null && a.gameDate() != null
+                    && b.gameDate().isBefore(a.gameDate()) ? b : a);
+        }
+        return views.stream()
+                .filter(view -> view.recurrenceSeriesId() == null || view.recurrenceSeriesId().isBlank()
+                        || view.communityId() != null || earliest.get(view.recurrenceSeriesId()) == view)
+                .toList();
+    }
+
     private List<SessionSummaryResponse> discoverSessions(SessionSearchCriteria criteria, Profile viewer) {
         String sport = criteria.sport() == null ? "" : criteria.sport().trim().toLowerCase(Locale.ROOT);
         String city = criteria.city() == null ? "" : criteria.city().trim().toLowerCase(Locale.ROOT);
@@ -610,13 +633,15 @@ public class SessionServiceImpl implements SessionService {
                 ? Set.of()
                 : waitlistRepository.findSessionIdsByProfile(sessionIds, viewer.getId());
 
-        return filteredCandidates.stream()
+        List<SessionSummaryResponse> matching = filteredCandidates.stream()
                 .map(s -> toDiscoveryView(
                         s, criteria, hasCoordinates, participantCounts, joinedSessionIds, waitlistedSessionIds))
                 .filter(v -> !hasCoordinates
                         || (v.distanceKm() != null && v.distanceKm() <= effectiveRadius))
                 .filter(v -> !"available".equalsIgnoreCase(criteria.availability())
                         || v.participantCount() < v.maxParticipants())
+                .toList();
+        return nextOfEachIndependentSeries(matching).stream()
                 .sorted(discoveryComparator(criteria.sort()))
                 .toList();
     }
