@@ -265,4 +265,8 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from Session s where s.id = :id")
     java.util.Optional<Session> findByIdForUpdate(@Param("id") Long id);
+
+    /** The organiser's previous game in the same community (for unpaid reminders). */
+    java.util.Optional<Session> findFirstByCommunity_IdAndProfile_IdAndGameDateBeforeOrderByGameDateDesc(
+            Long communityId, Long profileId, Date before);
 }

@@ -27,6 +27,11 @@ public class SessionPaymentController {
                 request == null ? null : request.method(), request == null ? null : request.phone());
     }
 
+    @GetMapping("/previous-unpaid")
+    public SessionPaymentService.PreviousUnpaid previousUnpaid(@PathVariable Long id, Authentication auth) {
+        return service.previousUnpaid(id, auth.getName());
+    }
+
     @PostMapping("/remind")
     public SessionPaymentService.Payments remind(@PathVariable Long id, Authentication auth) {
         return service.remindUnpaid(id, auth.getName());
