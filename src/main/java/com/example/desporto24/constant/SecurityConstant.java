@@ -28,6 +28,8 @@ public final class SecurityConstant {
             "/api/sessions/*/public-preview",
             // Opt-in public tournament page (table and results, no members list).
             "/api/public/tournaments/*",
+            // Opt-in public season ranking of a community (handles and results only).
+            "/api/public/communities/*/ranking",
             // Link-preview page for chat and social crawlers; same data as public-preview.
             "/api/share/sessions/*",
             "/api/venues",

@@ -46,6 +46,7 @@ class TournamentPublicPageServiceTest {
         p.setUsername(username);
         p.setNickname(nickname);
         when(profiles.findUserByUsernameIgnoreCase(username)).thenReturn(Optional.of(p));
+        when(profiles.findById(id)).thenReturn(Optional.of(p));
         return p;
     }
 
@@ -86,14 +87,16 @@ class TournamentPublicPageServiceTest {
     @Test
     void publicPageShowsTableAndGamesWithDisplayNamesOnly() {
         tournament.setPublicPageEnabled(true);
+        profile(1, "rui_secret", "Rui");
+        profile(2, "ana_secret", "Ana");
         when(standings.publicStandings(5L, 9L)).thenReturn(new CommunityTournamentStandingsResponse(9L,
                 TournamentStatus.IN_PROGRESS, 3, 1, 3, 1, 0, List.of(
                         new CommunityTournamentStandingRowResponse(1, 1L, "rui_secret", "Rui", 1, 1, 0, 0, 3, 1, 2, 3),
                         new CommunityTournamentStandingRowResponse(2, 2L, "ana_secret", "Ana", 1, 0, 0, 1, 1, 3, -2, 0))));
         CommunityTournamentParticipant home = new CommunityTournamentParticipant();
-        home.setProfile(profile(1, "rui_secret", "Rui"));
+        home.setProfile(profiles.findById(1L).orElseThrow());
         CommunityTournamentParticipant away = new CommunityTournamentParticipant();
-        away.setProfile(profile(2, "ana_secret", "Ana"));
+        away.setProfile(profiles.findById(2L).orElseThrow());
         CommunityTournamentMatch game = new CommunityTournamentMatch();
         game.setRoundNumber(1);
         game.setHomeParticipant(home);
