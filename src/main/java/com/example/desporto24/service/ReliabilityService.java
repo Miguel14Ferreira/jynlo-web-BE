@@ -339,7 +339,7 @@ public class ReliabilityService {
                 subject,
                 message,
                 "Olá,",
-                "DESPORTO24",
+                "Equipa Jynlo",
                 Instant.now().toString(),
                 false,
                 false,
