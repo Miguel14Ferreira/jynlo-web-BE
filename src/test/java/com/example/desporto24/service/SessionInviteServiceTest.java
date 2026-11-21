@@ -316,4 +316,42 @@ class SessionInviteServiceTest {
         assertEquals("organizador",pending.getFirst().inviterUsername());
     }
 
+
+    @Test
+    void invitesThePlayersOfAPreviousSessionSkippingThoseWhoCannotBeInvited() {
+        prepare();
+        Session previous = new Session();
+        previous.setId(2L);
+        previous.setProfile(owner);
+        when(sessions.findById(2L)).thenReturn(Optional.of(previous));
+        when(sessions.findById(1L)).thenReturn(Optional.of(session));
+        Profile ana = new Profile(); ana.setId(30L); ana.setUsername("ana");
+        Profile rui = new Profile(); rui.setId(31L); rui.setUsername("rui");
+        var p0 = new com.example.desporto24.model.session.SessionParticipant(); p0.setProfile(owner);
+        var p1 = new com.example.desporto24.model.session.SessionParticipant(); p1.setProfile(ana);
+        var p2 = new com.example.desporto24.model.session.SessionParticipant(); p2.setProfile(rui);
+        when(participants.findBySessionIdAndStateOrderByJoinedAtAsc(2L, com.example.desporto24.enumeration.ParticipantState.ACTIVE))
+                .thenReturn(java.util.List.of(p0, p1, p2));
+        when(profiles.findUserByUsernameIgnoreCase("ana")).thenReturn(Optional.of(ana));
+        when(profiles.findUserByUsernameIgnoreCase("rui")).thenReturn(Optional.of(rui));
+        when(participants.existsBySessionIdAndProfileIdAndState(1L, 31L, com.example.desporto24.enumeration.ParticipantState.ACTIVE)).thenReturn(true);
+        when(invites.save(any(SessionInvite.class))).thenAnswer(call -> { SessionInvite v = call.getArgument(0); v.setId(5L); return v; });
+        var summary = service.inviteFromPrevious(1L, 2L, "organizador");
+        assertEquals(1, summary.invited());
+        assertEquals(1, summary.skipped());
+    }
+
+    @Test
+    void onlyTheOrganiserOfThePreviousSessionCanRepeatIt() {
+        lenient().when(profiles.findUserByUsername("organizador")).thenReturn(Optional.of(owner));
+        Session other = new Session();
+        other.setId(3L);
+        Profile someone = new Profile(); someone.setId(77L);
+        other.setProfile(someone);
+        when(sessions.findById(3L)).thenReturn(Optional.of(other));
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> service.inviteFromPrevious(1L, 3L, "organizador"));
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatusCode());
+        verifyNoInteractions(invites);
+    }
 }
