@@ -32,6 +32,7 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -423,7 +424,54 @@ class SessionCreationServiceTest {
     }
 
     @Test
-    void recurringSessionRequiresCommunity() {
+    void independentOrganiserCanRepeatAWeeklyGame() {
+        Profile creator = new Profile();
+        creator.setId(7L);
+        creator.setUsername("miguel");
+        creator.setUserId("1234567890");
+        when(profileRepository.findUserByUsername("miguel")).thenReturn(Optional.of(creator));
+        when(sessionRepository.save(any(Session.class))).thenAnswer(invocation -> {
+            Session saved = invocation.getArgument(0);
+            if (saved.getId() == null) saved.setId(100L);
+            return saved;
+        });
+        CreateSessionRequest request = new CreateSessionRequest(
+                "Futsal", Instant.now().plusSeconds(3600), "Queluz", "Rua de Teste 1", 10,
+                BigDecimal.ZERO, false, null, 38.756, -9.254, null, null,
+                SessionRecurrence.WEEKLY, 4);
+
+        service().create(request, "miguel");
+
+        ArgumentCaptor<Session> captor = ArgumentCaptor.forClass(Session.class);
+        verify(sessionRepository, atLeast(4)).save(captor.capture());
+        var series = captor.getAllValues().stream().map(Session::getRecurrenceSeriesId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        assertEquals(1, series.size(), "one series id shared by every game");
+        assertEquals(4, captor.getAllValues().stream().map(Session::getGameDate).distinct().count());
+        assertTrue(captor.getAllValues().stream().allMatch(saved -> saved.getCommunity() == null));
+    }
+
+    @Test
+    void exploreShowsOnlyTheNextGameOfAnIndependentSeries() {
+        Instant now = Instant.now();
+        java.util.function.BiFunction<Long, Object[], com.example.desporto24.model.dto.session.SessionSummaryResponse> view =
+                (id, args) -> new com.example.desporto24.model.dto.session.SessionSummaryResponse(
+                        id, "Futsal", "Lisboa", (Instant) args[0], null, 1, 10, BigDecimal.ZERO, false,
+                        com.example.desporto24.enumeration.SessionStatus.OPEN, null, false, false,
+                        (String) args[1], (Long) args[2], null, null);
+        var list = List.of(
+                view.apply(1L, new Object[]{now.plusSeconds(86400 * 14), "s1", null}),
+                view.apply(2L, new Object[]{now.plusSeconds(86400 * 7), "s1", null}),
+                view.apply(3L, new Object[]{now.plusSeconds(86400 * 7), "s2", 12L}),
+                view.apply(4L, new Object[]{now.plusSeconds(86400 * 14), "s2", 12L}),
+                view.apply(5L, new Object[]{now.plusSeconds(86400), null, null}));
+        var ids = SessionServiceImpl.nextOfEachIndependentSeries(list).stream()
+                .map(com.example.desporto24.model.dto.session.SessionSummaryResponse::id).toList();
+        assertEquals(List.of(2L, 3L, 4L, 5L), ids);
+    }
+
+    @Test
+    void independentRecurringSessionIsLimitedToTwelveGames() {
         Profile creator = new Profile();
         creator.setId(7L);
         creator.setUsername("miguel");
@@ -446,7 +494,7 @@ class SessionCreationServiceTest {
                 null,
                 null,
                 SessionRecurrence.WEEKLY,
-                3
+                13
         );
 
         IllegalArgumentException exception = assertThrows(
@@ -454,7 +502,7 @@ class SessionCreationServiceTest {
                 () -> service().create(request, "miguel")
         );
 
-        assertEquals("Recurring sessions must belong to a community", exception.getMessage());
+        assertTrue(exception.getMessage().contains("até 12 vezes"), exception.getMessage());
         verify(sessionRepository, never()).save(any(Session.class));
     }
 
