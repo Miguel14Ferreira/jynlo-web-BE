@@ -1,0 +1,68 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-21-availability-requests
+      author: jynlo
+      changes:
+        - createTable:
+            tableName: availability_request
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true, primaryKeyName: pk_availability_request, nullable: false}}
+              - column: {name: scope_kind, type: VARCHAR(16), constraints: {nullable: false}}
+              - column: {name: scope_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: creator_username, type: VARCHAR(255), constraints: {nullable: false}}
+              - column: {name: note, type: VARCHAR(200)}
+              - column: {name: created_at, type: TIMESTAMP WITH TIME ZONE, constraints: {nullable: false}}
+              - column: {name: reminder_sent_at, type: TIMESTAMP WITH TIME ZONE}
+              - column: {name: closed_at, type: TIMESTAMP WITH TIME ZONE}
+        - sql:
+            dbms: postgresql
+            sql: ALTER TABLE availability_request ADD CONSTRAINT ck_availability_request_kind CHECK (scope_kind IN ('private', 'community'));
+        - createIndex:
+            tableName: availability_request
+            indexName: idx_availability_request_scope
+            columns:
+              - column: {name: scope_kind}
+              - column: {name: scope_id}
+              - column: {name: closed_at}
+        - createTable:
+            tableName: availability_slot
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true, primaryKeyName: pk_availability_slot, nullable: false}}
+              - column:
+                  name: request_id
+                  type: BIGINT
+                  constraints: {nullable: false, foreignKeyName: fk_availability_slot_request, references: availability_request(id), deleteCascade: true}
+              - column: {name: starts_at, type: TIMESTAMP WITH TIME ZONE, constraints: {nullable: false}}
+              - column: {name: position, type: INTEGER, constraints: {nullable: false}}
+        - createIndex:
+            tableName: availability_slot
+            indexName: idx_availability_slot_request
+            columns:
+              - column: {name: request_id}
+        - createTable:
+            tableName: availability_answer
+            columns:
+              - column:
+                  name: slot_id
+                  type: BIGINT
+                  constraints: {nullable: false, foreignKeyName: fk_availability_answer_slot, references: availability_slot(id), deleteCascade: true}
+              - column: {name: username, type: VARCHAR(255), constraints: {nullable: false}}
+              - column: {name: answer, type: VARCHAR(8), constraints: {nullable: false}}
+              - column: {name: updated_at, type: TIMESTAMP WITH TIME ZONE, constraints: {nullable: false}}
+        - addPrimaryKey:
+            tableName: availability_answer
+            columnNames: slot_id, username
+            constraintName: pk_availability_answer
+        - sql:
+            dbms: postgresql
+            sql: ALTER TABLE availability_answer ADD CONSTRAINT ck_availability_answer_value CHECK (answer IN ('YES', 'MAYBE', 'NO'));
+  - changeSet:
+      id: 2026-11-21-availability-notification-types
+      author: jynlo
+      changes:
+        - sql:
+            dbms: postgresql
+            sql: |-
+              ALTER TABLE desporto24.notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+              ALTER TABLE desporto24.notifications ADD CONSTRAINT notifications_type_check
+              CHECK (type IS NULL OR type IN ('WAITLIST_PROMOTED', 'SESSION_REMOVED', 'SESSION_CANCELLED', 'SESSION_MEETING_POINT_UPDATED', 'SESSION_DETAILS_UPDATED', 'SESSION_POST_GAME_REVIEW', 'ATTENDANCE_DISPUTE_ACCEPTED', 'ATTENDANCE_DISPUTE_REJECTED', 'COMMUNITY_INVITE', 'COMMUNITY_JOIN_REQUEST', 'COMMUNITY_JOIN_ACCEPTED', 'COMMUNITY_JOIN_REJECTED', 'SESSION_INVITE', 'CHAT_MESSAGE', 'ADMIN_MESSAGE', 'VENUE_EDIT_DECISION', 'SOCIAL_NEW_FOLLOWER', 'SOCIAL_POST_LIKED', 'SOCIAL_POST_COMMENTED', 'TEAM_MEMBER_INVITE', 'TEAM_ADMIN_TRANSFER', 'TEAM_ADMIN_ASSIGNED', 'SOCIAL_STORY_LIKED', 'SOCIAL_STORY_REPLIED', 'SESSION_REMINDER', 'TOURNAMENT_RESULT', 'TOURNAMENT_LEADER', 'PAYMENT_REMINDER', 'NEARBY_SESSION', 'AVAILABILITY_REQUEST', 'AVAILABILITY_REMINDER'));
