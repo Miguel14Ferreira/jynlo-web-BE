@@ -192,4 +192,63 @@ class PrivateGroupServiceTest {
      ()->service.send("eve",42L,new PrivateGroupService.SendRequest("Olá")));
    verifyNoInteractions(messages,publisher);
  }
+ private PrivateGroupMessage msg(long id,String sender){
+   PrivateGroupMessage m=new PrivateGroupMessage();m.setId(id);m.setGroupId(42L);m.setSenderUsername(sender);
+   m.setBody("Levo a bola");m.setCreatedAt(Instant.parse("2026-10-27T11:00:00Z"));return m;
+ }
+ private void asMember(String u){
+   lenient().when(profiles.findUserByUsernameIgnoreCase(u)).thenReturn(Optional.of(profile(u)));
+   lenient().when(members.findByGroupIdAndUsernameIgnoreCase(42L,u)).thenReturn(Optional.of(member(u)));
+   lenient().when(groups.findById(42L)).thenReturn(Optional.of(group()));
+   lenient().when(members.findByGroupIdOrderByJoinedAtAsc(42L)).thenReturn(List.of(member("ana"),member("bea")));
+   lenient().when(messages.saveAndFlush(any())).thenAnswer(i->i.getArgument(0));
+ }
+ @Test void onlyTheSenderEditsAndTheMessageIsMarkedEdited(){
+   asMember("bea");
+   when(messages.findById(7L)).thenReturn(Optional.of(msg(7,"ana")));
+   assertThrows(AccessDeniedException.class,()->service.edit("bea",42L,7L,new PrivateGroupService.EditRequest("x")));
+   PrivateGroupMessage recent=msg(8,"bea");recent.setCreatedAt(Instant.now().minusSeconds(60));
+   when(messages.findById(8L)).thenReturn(Optional.of(recent));
+   PrivateGroupMessage old=msg(10,"bea");
+   when(messages.findById(10L)).thenReturn(Optional.of(old));
+   assertThrows(org.springframework.web.server.ResponseStatusException.class,
+     ()->service.edit("bea",42L,10L,new PrivateGroupService.EditRequest("tarde demais")));
+   var view=service.edit("bea",42L,8L,new PrivateGroupService.EditRequest(" Levo duas "));
+   assertEquals("Levo duas",view.text());
+   assertNotNull(view.editedAt());
+ }
+ @Test void senderOrCreatorDeletesForEveryoneAndTheTextIsHidden(){
+   asMember("bea");
+   when(messages.findById(7L)).thenReturn(Optional.of(msg(7,"ana")));
+   assertThrows(AccessDeniedException.class,()->service.delete("bea",42L,7L));
+   asMember("ana");
+   PrivateGroupMessage own=msg(9,"bea");
+   when(messages.findById(9L)).thenReturn(Optional.of(own));
+   service.delete("ana",42L,9L);
+   assertNotNull(own.getDeletedAt());
+   assertEquals("",own.getBody());
+   verify(publisher,atLeastOnce()).publishEvent(any(PrivateGroupService.GroupEvent.class));
+ }
+ @Test void repliesMustPointToAVisibleMessageOfTheSameGroup(){
+   asMember("bea");
+   PrivateGroupMessage other=msg(5,"ana");other.setGroupId(99L);
+   when(messages.findById(5L)).thenReturn(Optional.of(other));
+   assertThrows(org.springframework.web.server.ResponseStatusException.class,
+     ()->service.send("bea",42L,new PrivateGroupService.SendRequest("ok",5L)));
+   PrivateGroupMessage before=msg(6,"ana");before.setCreatedAt(Instant.parse("2026-10-27T10:00:00Z"));
+   when(messages.findById(6L)).thenReturn(Optional.of(before));
+   assertThrows(org.springframework.web.server.ResponseStatusException.class,
+     ()->service.send("bea",42L,new PrivateGroupService.SendRequest("ok",6L)));
+ }
+ @Test void searchNeedsTwoCharactersAndOnlySeesWhatTheMemberCanSee(){
+   asMember("bea");
+   assertThrows(org.springframework.web.server.ResponseStatusException.class,()->service.search("bea",42L,"a"));
+   when(messages.searchVisible(eq(42L),eq(Instant.parse("2026-10-27T10:10:00Z")),eq("bola"),any(Pageable.class)))
+     .thenReturn(List.of(msg(7,"ana")));
+   assertEquals(1,service.search("bea",42L," bola ").size());
+ }
+ @Test void attachmentsAreUnavailableWithoutPrivateStorage(){
+   asMember("bea");
+   assertFalse(service.attachmentsAvailable("bea",42L));
+ }
 }

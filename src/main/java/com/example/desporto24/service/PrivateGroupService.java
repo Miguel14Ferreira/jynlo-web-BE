@@ -32,15 +32,28 @@ public class PrivateGroupService {
     private final ChatService chatService;
     private final MediaStorage mediaStorage;
     private final ApplicationEventPublisher events;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private com.example.desporto24.storage.PrivateChatFileStorage privateFiles;
 
     public record MemberView(String username,String displayName,String profilePicUrl,boolean admin) {}
     public record GroupView(Long id,String title,String creatorUsername,List<MemberView> members,
                             Instant createdAt,String photoUrl) {}
-    public record MessageView(Long id,Long groupId,String sender,String text,Instant createdAt) {}
+    public record MessageView(Long id,Long groupId,String sender,String text,Instant createdAt,
+                              Long replyToId,Instant editedAt,boolean deleted,
+                              List<PrivateChatAttachmentBatch.PublicMetadata> attachments) {
+        /** Text-only message (older callers and tests). */
+        public MessageView(Long id,Long groupId,String sender,String text,Instant createdAt){
+            this(id,groupId,sender,text,createdAt,null,null,false,List.of());
+        }
+    }
     public record CreateRequest(String title,List<String> usernames) {}
     public record AddRequest(List<String> usernames) {}
     public record RenameRequest(String title) {}
-    public record SendRequest(String text) {}
+    public record SendRequest(String text,Long replyToId) {
+        public SendRequest(String text){ this(text,null); }
+    }
+    public record EditRequest(String text) {}
+    public record AttachmentContent(byte[] content,String mimeType,String filename) {}
     public record GroupEvent(Long groupId,Set<String> usernames,MessageView message) {}
 
     @Transactional(readOnly=true)
@@ -182,10 +195,13 @@ public class PrivateGroupService {
         String body=request==null?null:request.text();
         if(body==null||body.isBlank()||body.trim().length()>2000)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Message must be 1–2000 characters");
+        Long replyToId=request.replyToId();
+        if(replyToId!=null)requireReplyTarget(id,sender,replyToId);
         PrivateGroupMessage m=new PrivateGroupMessage();
         m.setGroupId(id);
         m.setSenderUsername(sender.getUsername());
         m.setBody(body.trim());
+        m.setReplyToId(replyToId);
         m.setCreatedAt(Instant.now());
         var saved=messages.saveAndFlush(m);
         MessageView result=messageView(saved);
@@ -194,11 +210,148 @@ public class PrivateGroupService {
         return result;
     }
 
+    /** Probe used by clients to show the attachment button; members only. */
+    @Transactional(readOnly=true)
+    public boolean attachmentsAvailable(String actor,Long id){
+        membership(actor,id);
+        return privateFiles!=null&&privateFiles.isConfigured();
+    }
+
+    /** Photos, videos and PDFs (up to PrivateChatAttachmentBatch.MAX_FILES), stored privately. */
+    @Transactional
+    public MessageView upload(String actor,Long id,List<MultipartFile> uploads,String caption,Long replyToId){
+        PrivateGroupMember sender=membership(actor,id);
+        if(privateFiles==null||!privateFiles.isConfigured())
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Armazenamento privado indisponível");
+        String body=caption==null?"":caption.trim();
+        if(body.length()>2000)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Legenda demasiado longa");
+        if(replyToId!=null)requireReplyTarget(id,sender,replyToId);
+        var batch=PrivateChatAttachmentBatch.store(privateFiles,uploads);
+        var first=batch.first();
+        try{
+            PrivateGroupMessage m=new PrivateGroupMessage();
+            m.setGroupId(id);
+            m.setSenderUsername(sender.getUsername());
+            m.setBody(body.isBlank()?"📎 "+first.name():body);
+            m.setReplyToId(replyToId);
+            m.setCreatedAt(Instant.now());
+            m.setAttachmentKey(first.key());
+            m.setAttachmentName(first.name());
+            m.setAttachmentMimeType(first.mime());
+            m.setAttachmentSize(first.size());
+            m.setExtraAttachments(new ArrayList<>(batch.extras()));
+            var saved=messages.saveAndFlush(m);
+            MessageView result=messageView(saved);
+            events.publishEvent(new GroupEvent(id,usernames(view(groups.findById(id).orElseThrow())),result));
+            return result;
+        }catch(RuntimeException failure){
+            PrivateChatAttachmentBatch.cleanup(privateFiles,batch.files(),failure);
+            throw failure;
+        }
+    }
+
+    @Transactional(readOnly=true)
+    public AttachmentContent download(String actor,Long id,Long messageId,int index){
+        PrivateGroupMember member=membership(actor,id);
+        if(privateFiles==null||!privateFiles.isConfigured())
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Armazenamento privado indisponível");
+        if(messageId==null||messageId<=0||index<0||index>=PrivateChatAttachmentBatch.MAX_FILES)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Ficheiro não encontrado");
+        PrivateGroupMessage m=messages.findById(messageId).orElseThrow(()->
+            new ResponseStatusException(HttpStatus.NOT_FOUND,"Ficheiro não encontrado"));
+        // Same group, visible to this member (sent after they joined), not deleted.
+        if(!id.equals(m.getGroupId())||m.getDeletedAt()!=null||m.getAttachmentKey()==null
+                ||m.getCreatedAt().isBefore(member.getJoinedAt()))
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Ficheiro não encontrado");
+        if(index==0)return new AttachmentContent(privateFiles.read(m.getAttachmentKey()),m.getAttachmentMimeType(),m.getAttachmentName());
+        var extras=m.getExtraAttachments();
+        if(extras==null||extras.size()<index)throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Ficheiro não encontrado");
+        var extra=extras.get(index-1);
+        if(extra==null||extra.getStorageKey()==null||extra.getStorageKey().isBlank())
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Ficheiro não encontrado");
+        return new AttachmentContent(privateFiles.read(extra.getStorageKey()),extra.getMimeType(),extra.getFilename());
+    }
+
+    /** Only the sender edits; the text is replaced and marked as edited. */
+    @Transactional
+    public MessageView edit(String actor,Long id,Long messageId,EditRequest request){
+        PrivateGroupMember member=membership(actor,id);
+        PrivateGroupMessage m=visibleMessage(id,member,messageId);
+        if(!m.getSenderUsername().equalsIgnoreCase(member.getUsername()))
+            throw new AccessDeniedException("Só quem enviou pode editar");
+        // Same rule as direct messages: text only, within 15 minutes of sending.
+        if(m.getAttachmentKey()!=null||m.getCreatedAt().isBefore(Instant.now().minusSeconds(15*60)))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Só podes editar texto até 15 minutos após o envio");
+        String body=request==null||request.text()==null?"":request.text().trim();
+        if(body.isEmpty()||body.length()>2000)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Message must be 1–2000 characters");
+        com.example.desporto24.service.ChatPoll.reject(body);
+        m.setBody(body);
+        m.setEditedAt(Instant.now());
+        var saved=messages.saveAndFlush(m);
+        events.publishEvent(new GroupEvent(id,usernames(view(groups.findById(id).orElseThrow())),null));
+        return messageView(saved);
+    }
+
+    /** The sender or the group creator deletes for everyone; files are removed. */
+    @Transactional
+    public void delete(String actor,Long id,Long messageId){
+        PrivateGroupMember member=membership(actor,id);
+        PrivateGroupMessage m=visibleMessage(id,member,messageId);
+        PrivateGroup group=groups.findById(id).orElseThrow(()->new AccessDeniedException("No accessible group"));
+        boolean own=m.getSenderUsername().equalsIgnoreCase(member.getUsername());
+        boolean creator=member.getUsername().equalsIgnoreCase(group.getCreatorUsername());
+        if(!own&&!creator)throw new AccessDeniedException("Só quem enviou ou quem criou o grupo pode apagar");
+        List<String> keys=new ArrayList<>();
+        if(m.getAttachmentKey()!=null)keys.add(m.getAttachmentKey());
+        if(m.getExtraAttachments()!=null)m.getExtraAttachments().forEach(a->{if(a!=null&&a.getStorageKey()!=null)keys.add(a.getStorageKey());});
+        m.setBody("");
+        m.setDeletedAt(Instant.now());
+        m.setAttachmentKey(null);m.setAttachmentName(null);m.setAttachmentMimeType(null);m.setAttachmentSize(null);
+        m.setExtraAttachments(new ArrayList<>());
+        messages.saveAndFlush(m);
+        events.publishEvent(new GroupEvent(id,usernames(view(group)),null));
+        if(privateFiles!=null)for(String key:keys){
+            try{privateFiles.delete(key);}catch(RuntimeException ignored){ /* the message is already hidden */ }
+        }
+    }
+
+    /** Text search within what this member can see (since they joined). */
+    @Transactional(readOnly=true)
+    public List<MessageView> search(String actor,Long id,String term){
+        PrivateGroupMember member=membership(actor,id);
+        String q=term==null?"":term.trim();
+        if(q.length()<2||q.length()>80)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Pesquisa inválida");
+        return messages.searchVisible(id,member.getJoinedAt(),q,PageRequest.of(0,50))
+                .stream().map(this::messageView).toList();
+    }
+
+    private PrivateGroupMessage visibleMessage(Long id,PrivateGroupMember member,Long messageId){
+        if(messageId==null||messageId<=0)throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        PrivateGroupMessage m=messages.findById(messageId).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if(!id.equals(m.getGroupId())||m.getCreatedAt().isBefore(member.getJoinedAt()))
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        if(m.getDeletedAt()!=null)throw new ResponseStatusException(HttpStatus.CONFLICT,"Mensagem apagada");
+        return m;
+    }
+
+    private void requireReplyTarget(Long id,PrivateGroupMember member,Long replyToId){
+        var original=messages.findById(replyToId).orElseThrow(()->
+            new ResponseStatusException(HttpStatus.BAD_REQUEST,"Mensagem original indisponível"));
+        if(!id.equals(original.getGroupId())||original.getDeletedAt()!=null
+                ||original.getCreatedAt().isBefore(member.getJoinedAt()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Resposta inválida");
+    }
+
     private Set<String> usernames(GroupView view){
         return view.members().stream().map(MemberView::username).collect(Collectors.toUnmodifiableSet());
     }
     private MessageView messageView(PrivateGroupMessage m){
-        return new MessageView(m.getId(),m.getGroupId(),m.getSenderUsername(),m.getBody(),m.getCreatedAt());
+        boolean deleted=m.getDeletedAt()!=null;
+        return new MessageView(m.getId(),m.getGroupId(),m.getSenderUsername(),deleted?"":m.getBody(),m.getCreatedAt(),
+            m.getReplyToId(),m.getEditedAt(),deleted,
+            deleted?List.of():PrivateChatAttachmentBatch.metadata(m.getAttachmentName(),m.getAttachmentMimeType(),
+                m.getAttachmentSize(),m.getExtraAttachments()));
     }
     private GroupView view(PrivateGroup g){
         List<PrivateGroupMember> roster=members.findByGroupIdOrderByJoinedAtAsc(g.getId());
