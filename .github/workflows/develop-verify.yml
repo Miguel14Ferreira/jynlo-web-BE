@@ -38,9 +38,10 @@ jobs:
     timeout-minutes: 30
     continue-on-error: true
     env:
-      # Test-only key (the real one lives in Render). Without it every test that
+      # Test-only key (the real one lives in Render; key + userId must form a valid AES
+      # length, as in the other workflows). Without it every test that
       # encrypts profile data fails before reaching its own assertions.
-      AES_ENCRYPTION_KEY: ci-test-only-key
+      AES_ENCRYPTION_KEY: ciKey1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4

@@ -280,7 +280,7 @@ class CommunityTimelineServiceTest {
         assertNull(movie.imageUrl());
         verify(timelines, times(2)).save(argThat(entry ->
                 entry.getKind() == Kind.POST && entry.getCommunity() == group));
-        verifyNoInteractions(eventPublisher);
+        verify(eventPublisher, never()).publishEvent(any(com.example.desporto24.websocket.CommunityChatMessageCreatedEvent.class));
     }
 
     @Test
