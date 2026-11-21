@@ -16,7 +16,7 @@ import com.example.desporto24.model.dto.community.CommunityRoundEntryRequest;
 final class CommunityRoundEventType {
     private CommunityRoundEventType() {}
 
-    private static final Map<String, List<String>> TYPES = Map.ofEntries(
+    private static final Map<String, List<String>> TYPES = Map.<String, List<String>>ofEntries(
             Map.entry("BMX", List.of("RACE", "FREESTYLE")),
             Map.entry("Ciclismo de Estrada", List.of("ROAD_RACE", "TIME_TRIAL")),
             Map.entry("Ciclismo de Pista", List.of("TRACK_SCRATCH", "TRACK_TIME_TRIAL", "TRACK_FLYING_200", "TRACK_SPRINT_HEAT", "TRACK_SPRINT_REPECHAGE", "TRACK_SPRINT_5_8")),
