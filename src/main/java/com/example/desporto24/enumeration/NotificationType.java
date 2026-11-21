@@ -32,5 +32,7 @@ public enum NotificationType {
     /** The leader of a league the recipient plays in changed. */
     TOURNAMENT_LEADER,
     /** The organiser asked players who have not paid yet to pay. */
-    PAYMENT_REMINDER
+    PAYMENT_REMINDER,
+    /** A new public game near the recipient's chosen place (opt-in). */
+    NEARBY_SESSION
 }

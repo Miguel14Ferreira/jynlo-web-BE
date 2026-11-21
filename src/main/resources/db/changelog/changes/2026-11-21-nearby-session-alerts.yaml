@@ -1,0 +1,88 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-21-nearby-session-alerts-column
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            columnExists:
+              tableName: session
+              columnName: nearby_alerts_processed_at
+      changes:
+        - addColumn:
+            tableName: session
+            columns:
+              - column:
+                  name: nearby_alerts_processed_at
+                  type: TIMESTAMP WITH TIME ZONE
+  - changeSet:
+      id: 2026-11-21-nearby-session-alert-preference
+      author: jynlo
+      changes:
+        - createTable:
+            tableName: nearby_session_alert_preference
+            columns:
+              - column:
+                  name: profile_id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_nearby_session_alert_preference
+                    nullable: false
+                    foreignKeyName: fk_nearby_alert_preference_profile
+                    references: profile(id)
+                    deleteCascade: true
+              - column: {name: enabled, type: BOOLEAN, defaultValueBoolean: false, constraints: {nullable: false}}
+              - column: {name: latitude, type: DOUBLE PRECISION}
+              - column: {name: longitude, type: DOUBLE PRECISION}
+              - column: {name: place_label, type: VARCHAR(80)}
+              - column: {name: radius_km, type: INTEGER, defaultValueNumeric: 25, constraints: {nullable: false}}
+              - column: {name: sports, type: TEXT, defaultValue: '', constraints: {nullable: false}}
+              - column: {name: updated_at, type: TIMESTAMP WITH TIME ZONE, constraints: {nullable: false}}
+        - createIndex:
+            tableName: nearby_session_alert_preference
+            indexName: idx_nearby_alert_preference_enabled_position
+            columns:
+              - column: {name: enabled}
+              - column: {name: latitude}
+              - column: {name: longitude}
+        - createTable:
+            tableName: nearby_session_alert_delivery
+            columns:
+              - column:
+                  name: profile_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_nearby_alert_delivery_profile
+                    references: profile(id)
+                    deleteCascade: true
+              - column:
+                  name: session_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_nearby_alert_delivery_session
+                    references: session(id)
+                    deleteCascade: true
+              - column: {name: sent_at, type: TIMESTAMP WITH TIME ZONE, constraints: {nullable: false}}
+        - addPrimaryKey:
+            tableName: nearby_session_alert_delivery
+            columnNames: profile_id, session_id
+            constraintName: pk_nearby_session_alert_delivery
+        - createIndex:
+            tableName: nearby_session_alert_delivery
+            indexName: idx_nearby_alert_delivery_profile_sent
+            columns:
+              - column: {name: profile_id}
+              - column: {name: sent_at}
+  - changeSet:
+      id: 2026-11-21-nearby-session-notification-type
+      author: jynlo
+      changes:
+        - sql:
+            dbms: postgresql
+            sql: |-
+              ALTER TABLE desporto24.notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+              ALTER TABLE desporto24.notifications ADD CONSTRAINT notifications_type_check
+              CHECK (type IS NULL OR type IN ('WAITLIST_PROMOTED', 'SESSION_REMOVED', 'SESSION_CANCELLED', 'SESSION_MEETING_POINT_UPDATED', 'SESSION_DETAILS_UPDATED', 'SESSION_POST_GAME_REVIEW', 'ATTENDANCE_DISPUTE_ACCEPTED', 'ATTENDANCE_DISPUTE_REJECTED', 'COMMUNITY_INVITE', 'COMMUNITY_JOIN_REQUEST', 'COMMUNITY_JOIN_ACCEPTED', 'COMMUNITY_JOIN_REJECTED', 'SESSION_INVITE', 'CHAT_MESSAGE', 'ADMIN_MESSAGE', 'VENUE_EDIT_DECISION', 'SOCIAL_NEW_FOLLOWER', 'SOCIAL_POST_LIKED', 'SOCIAL_POST_COMMENTED', 'TEAM_MEMBER_INVITE', 'TEAM_ADMIN_TRANSFER', 'TEAM_ADMIN_ASSIGNED', 'SOCIAL_STORY_LIKED', 'SOCIAL_STORY_REPLIED', 'SESSION_REMINDER', 'TOURNAMENT_RESULT', 'TOURNAMENT_LEADER', 'PAYMENT_REMINDER', 'NEARBY_SESSION'));

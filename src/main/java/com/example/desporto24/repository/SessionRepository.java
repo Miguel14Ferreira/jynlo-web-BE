@@ -262,6 +262,15 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
             """)
     List<Long> findDueForPreGameReminder(@Param("from") Date from, @Param("to") Date to, Pageable pageable);
 
+    /** Recently created sessions not yet considered for "new game near you" alerts. */
+    @Query("""
+            select s.id from Session s
+            where s.nearbyAlertsProcessedAt is null
+              and s.created_at > :createdAfter
+            order by s.id asc
+            """)
+    List<Long> findDueForNearbyAlerts(@Param("createdAfter") Date createdAfter, Pageable pageable);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from Session s where s.id = :id")
     java.util.Optional<Session> findByIdForUpdate(@Param("id") Long id);

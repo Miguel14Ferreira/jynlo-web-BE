@@ -119,6 +119,10 @@ public class Session {
     @Column(name = "pre_game_reminder_sent_at")
     private Instant preGameReminderSentAt;
 
+    /** Set once when "new game near you" alerts were considered for this session. */
+    @Column(name = "nearby_alerts_processed_at")
+    private Instant nearbyAlertsProcessedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "audience")
     private SessionAudience audience;

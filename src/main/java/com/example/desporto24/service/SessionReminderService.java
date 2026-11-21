@@ -158,7 +158,7 @@ public class SessionReminderService {
         return result;
     }
 
-    static String whenLabel(Instant start, Instant now) {
+    public static String whenLabel(Instant start, Instant now) {
         var startDay = start.atZone(LISBON).toLocalDate();
         var today = now.atZone(LISBON).toLocalDate();
         String day = startDay.equals(today) ? "Hoje" : startDay.equals(today.plusDays(1)) ? "Amanhã" : DAY.format(start);
