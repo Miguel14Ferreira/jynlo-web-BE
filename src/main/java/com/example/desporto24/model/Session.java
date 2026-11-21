@@ -110,6 +110,10 @@ public class Session {
     @Column(name = "post_game_review_reminder_sent_at")
     private Instant postGameReviewReminderSentAt;
 
+    /** Set once when the pre-game reminder (in-app + optional email) is sent. */
+    @Column(name = "pre_game_reminder_sent_at")
+    private Instant preGameReminderSentAt;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "audience")
     private SessionAudience audience;

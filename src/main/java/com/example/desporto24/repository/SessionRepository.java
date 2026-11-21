@@ -250,6 +250,18 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
             """)
     List<Long> findDueUnderMinimum(@Param("cutoff") Date cutoff, Pageable pageable);
 
+    /** Upcoming open/full sessions inside the reminder window that were not reminded yet. */
+    @Query("""
+            select s.id from Session s
+            where s.preGameReminderSentAt is null
+              and s.gameDate > :from and s.gameDate <= :to
+              and s.status in (
+                com.example.desporto24.enumeration.SessionStatus.OPEN,
+                com.example.desporto24.enumeration.SessionStatus.FULL)
+            order by s.gameDate asc, s.id asc
+            """)
+    List<Long> findDueForPreGameReminder(@Param("from") Date from, @Param("to") Date to, Pageable pageable);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from Session s where s.id = :id")
     java.util.Optional<Session> findByIdForUpdate(@Param("id") Long id);

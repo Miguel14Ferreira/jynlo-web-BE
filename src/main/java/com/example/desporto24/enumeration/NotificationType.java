@@ -24,5 +24,7 @@ public enum NotificationType {
     VENUE_EDIT_DECISION,
     TEAM_MEMBER_INVITE,
     TEAM_ADMIN_TRANSFER,
-    TEAM_ADMIN_ASSIGNED
+    TEAM_ADMIN_ASSIGNED,
+    /** Pre-game reminder, about 24h before the session. */
+    SESSION_REMINDER
 }

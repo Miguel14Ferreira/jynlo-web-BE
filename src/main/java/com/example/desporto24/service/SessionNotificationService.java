@@ -154,6 +154,13 @@ public class SessionNotificationService {
     }
 
     /** Public labels only: never include the exact address, password, or meeting point. */
+    /** In-app (and mobile push, when enabled) pre-game reminder for one recipient. */
+    @Transactional
+    public void notifySessionReminder(Session session, Profile profile, String subject, String message) {
+        if (profile == null || profile.getUsername() == null || profile.getUsername().isBlank()) return;
+        save(profile, session, NotificationType.SESSION_REMINDER, subject, message);
+    }
+
     private static String safePublicLabel(String value, String fallback) {
         if (value == null || value.isBlank()) return fallback;
         String cleaned = value.strip().replaceAll("[\\p{Cntrl}]+", " ");
