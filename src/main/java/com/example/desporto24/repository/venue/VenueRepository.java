@@ -15,6 +15,10 @@ import java.util.Optional;
 public interface VenueRepository extends JpaRepository<Venue, Long> {
     List<Venue> findAllByOrderByNameAsc();
 
+    /** Ids only, for the public sitemap. */
+    @org.springframework.data.jpa.repository.Query("select v.id from Venue v order by v.id")
+    List<Long> findAllIdsForSitemap(org.springframework.data.domain.Pageable page);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT v FROM Venue v WHERE v.id = :id")
     Optional<Venue> findForEditReview(@Param("id") Long id);
