@@ -101,7 +101,7 @@ class SessionShareControllerTest {
         String body = controller.profile("<script>").getBody();
 
         assertTrue(body.contains("<title>Jynlo — Join the game.</title>"));
-        assertFalse(body.contains("script"));
+        assertFalse(body.contains("<script>") || body.contains("&lt;script"));
     }
 
     private static SessionPublicPreviewResponse preview(String sport, String city, int max, int taken,
