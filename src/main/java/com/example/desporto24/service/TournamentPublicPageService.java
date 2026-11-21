@@ -51,6 +51,9 @@ public class TournamentPublicPageService {
     private final CommunityTournamentStandingsService standings;
     private final CommunityTournamentTeamStandingsService teamStandings;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private EventRankingService eventRanking;
+
     @Transactional(readOnly = true)
     public Setting setting(Long communityId, Long tournamentId, String username) {
         CommunityTournament tournament = manageable(communityId, tournamentId, username, false);
@@ -74,7 +77,13 @@ public class TournamentPublicPageService {
         boolean team = tournament.getEntryType() == TournamentEntryType.TEAM;
         List<Row> table = List.of();
         try {
-            if (team) {
+            if (tournament.getScoringMode() == com.example.desporto24.enumeration.TournamentScoringMode.EVENT_RANKING
+                    && eventRanking != null) {
+                // Events, not games: show the points table; the events list stays in the app.
+                table = eventRanking.publicTable(tournament).stream()
+                        .map(r -> new Row(r.position(), clean(r.name()), r.events(), r.wins(), 0, 0, 0, 0, 0, r.points()))
+                        .toList();
+            } else if (team) {
                 table = teamStandings.publicStandings(communityId, tournamentId).standings().stream()
                         .map(r -> new Row(r.position(), clean(r.teamName()), r.played(), r.won(), r.drawn(), r.lost(),
                                 r.goalsFor(), r.goalsAgainst(), r.goalDifference(), r.points()))

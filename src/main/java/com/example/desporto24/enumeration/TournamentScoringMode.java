@@ -13,5 +13,7 @@ public enum TournamentScoringMode {
     FIELD_BEST_MARK,
     TRACK_BEST_TIME,
     RELAY_BEST_TIME,
-    GOLF_GROSS_STROKES
+    GOLF_GROSS_STROKES,
+    /** Generic event series: each event ranks by time, score/mark or position; points by place. */
+    EVENT_RANKING
 }

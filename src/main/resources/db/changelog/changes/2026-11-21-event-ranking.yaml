@@ -1,0 +1,116 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-21-event-ranking-value-kind
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: community_tournament
+                columnName: ranking_value_kind
+      changes:
+        - addColumn:
+            tableName: community_tournament
+            columns:
+              - column:
+                  name: ranking_value_kind
+                  type: VARCHAR(16)
+  - changeSet:
+      id: 2026-11-21-event-ranking-events
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: community_tournament_ranking_event
+      changes:
+        - createTable:
+            tableName: community_tournament_ranking_event
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_ct_ranking_event
+                    nullable: false
+              - column:
+                  name: tournament_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_ct_ranking_event_tournament
+                    references: community_tournament(id)
+                    deleteCascade: true
+              - column:
+                  name: name
+                  type: VARCHAR(80)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: held_on
+                  type: DATE
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: community_tournament_ranking_event
+            indexName: idx_ct_ranking_event_tournament
+            columns:
+              - column:
+                  name: tournament_id
+  - changeSet:
+      id: 2026-11-21-event-ranking-results
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: community_tournament_ranking_result
+      changes:
+        - createTable:
+            tableName: community_tournament_ranking_result
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_ct_ranking_result
+                    nullable: false
+              - column:
+                  name: event_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_ct_ranking_result_event
+                    references: community_tournament_ranking_event(id)
+                    deleteCascade: true
+              - column:
+                  name: participant_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_ct_ranking_result_participant
+                    references: community_tournament_participant(id)
+                    deleteCascade: true
+              - column:
+                  name: result_value
+                  type: NUMERIC(12,3)
+              - column:
+                  name: entered_position
+                  type: INTEGER
+              - column:
+                  name: did_not_finish
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: community_tournament_ranking_result
+            columnNames: event_id, participant_id
+            constraintName: uq_ct_ranking_result_event_participant
