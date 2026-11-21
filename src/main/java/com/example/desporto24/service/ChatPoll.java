@@ -61,7 +61,7 @@ public final class ChatPoll {
         }
     }
 
-    /** Direct chats, private groups and guests: polls are not offered there. */
+    /** Direct chats, feeds and guests: polls are not offered there. */
     public static void reject(String text) {
         if (isPoll(text)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Polls are only available in group chats");
