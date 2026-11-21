@@ -48,6 +48,7 @@ public final class SecurityConstant {
             "/api/auth/reset-password/**",
             "/api/auth/mfa/confirm",
             "/api/auth/mfa/resend",
+            "/api/client-errors",
             "/api/ideas/submit",
             "/api/ideas/submit-with-attachment",
             "/api/pilot/events/access",
