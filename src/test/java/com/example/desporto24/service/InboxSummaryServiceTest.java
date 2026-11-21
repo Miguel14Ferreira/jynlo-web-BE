@@ -58,6 +58,7 @@ class InboxSummaryServiceTest {
     @Mock ApplicationEventPublisher events;
     @Mock com.example.desporto24.repository.PrivateGroupMemberRepository groupMembers;
     @Mock com.example.desporto24.repository.PrivateGroupMessageRepository groupMessages;
+    @Mock ConversationNotificationMuteService mutes;
     @InjectMocks InboxSummaryService service;
 
     private Profile profile(long id, String username) {
@@ -522,5 +523,42 @@ class InboxSummaryServiceTest {
 
         service.markRead("ana", new com.example.desporto24.model.dto.chat.InboxReadRequest("private", "5", 30L));
         verify(cursors).advance(1L, "private", "5", 30L);
+    }
+
+    @Test
+    void unreadTotalSumsAccessibleConversationsAndSkipsMutedOnes() {
+        actor();
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "mutes", mutes);
+        // Direct chat with 3 unread.
+        when(chats.findConversationPeers(eq("ana"), any(Pageable.class))).thenReturn(List.of("Bea", "Rui"));
+        when(profiles.findUserByUsernameIgnoreCase("bea")).thenReturn(Optional.of(profile(2, "Bea")));
+        Chat last = new Chat("Bea", "ana", "Olá", "", Date.from(Instant.parse("2026-11-21T08:00:00Z")));
+        last.setId(45L);
+        when(chats.findConversationPage(eq("ana"), eq("Bea"), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(last)));
+        when(chats.countUnread("ana", "Bea", 0L)).thenReturn(3L);
+        // Rui is muted: never queried.
+        lenient().when(mutes.muted(anyString(), anyString(), anyString())).thenReturn(false);
+        when(mutes.muted("ana", "direct", "rui")).thenReturn(true);
+        // Private group with 2 unread.
+        Instant joined = Instant.parse("2026-11-01T10:00:00Z");
+        when(groupMembers.findByUsernameIgnoreCaseOrderByGroupIdDesc("ana")).thenReturn(List.of(groupMember(joined)));
+        when(groupMembers.findByGroupIdAndUsernameIgnoreCase(5L, "ana")).thenReturn(Optional.of(groupMember(joined)));
+        var msg = new com.example.desporto24.model.PrivateGroupMessage();
+        msg.setId(30L); msg.setGroupId(5L); msg.setSenderUsername("rui"); msg.setBody("Bora?");
+        msg.setCreatedAt(Instant.parse("2026-11-21T18:00:00Z"));
+        when(groupMessages.findByGroupIdAndCreatedAtGreaterThanEqualOrderByIdDesc(eq(5L), eq(joined), any(Pageable.class))).thenReturn(List.of(msg));
+        when(groupMessages.countUnread(5L, joined, 0L, "ana")).thenReturn(2L);
+
+        assertEquals(5L, service.unreadTotal("ana"));
+        verify(chats, never()).findConversationPage(eq("ana"), eq("Rui"), any(Pageable.class));
+    }
+
+    @Test
+    void unreadTotalIgnoresConversationsThatAreNoLongerAccessible() {
+        actor();
+        when(chats.findConversationPeers(eq("ana"), any(Pageable.class))).thenReturn(List.of("bea"));
+        when(profiles.findUserByUsernameIgnoreCase("bea")).thenReturn(Optional.of(profile(2, "bea")));
+        when(chatService.getChatInfo("ana", "bea")).thenThrow(new AccessDeniedException("blocked"));
+        assertEquals(0L, service.unreadTotal("ana"));
     }
 }

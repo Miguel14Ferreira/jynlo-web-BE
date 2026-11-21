@@ -24,6 +24,12 @@ public class InboxController {
         return service.summaries(authentication.getName(), request);
     }
 
+    /** Total unread messages for the Messages badge (muted conversations excluded). */
+    @GetMapping("/unread-count")
+    public java.util.Map<String, Long> unreadCount(Authentication authentication) {
+        return java.util.Map.of("total", service.unreadTotal(authentication.getName()));
+    }
+
     @GetMapping("/direct/{peer}/receipt")
     public DirectReadReceiptResponse directReadReceipt(
             @PathVariable String peer, Authentication authentication) {
