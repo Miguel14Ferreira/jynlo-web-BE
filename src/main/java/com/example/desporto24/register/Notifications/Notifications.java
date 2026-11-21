@@ -32,7 +32,8 @@ public class Notifications {
         @Override
         public void serialize(String value, JsonGenerator generator,
                               SerializerProvider provider) throws IOException {
-            generator.writeString(value.startsWith("[JYNLO:GIPHY:1]") ? "🎞️ GIF" : value);
+            generator.writeString(value.startsWith("[JYNLO:GIPHY:1]") ? "🎞️ GIF"
+                    : com.example.desporto24.service.SessionCallUp.isCallUp(value) ? "📣 Convocatória" : value);
         }
     }
     @Column(nullable = false)

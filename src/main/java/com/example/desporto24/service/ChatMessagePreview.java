@@ -11,7 +11,9 @@ public final class ChatMessagePreview {
     private ChatMessagePreview() {}
 
     public static String forText(String text) {
-        return text != null && text.startsWith("[JYNLO:GIPHY:1]") ? "🎞️ GIF" : text;
+        if (text != null && text.startsWith("[JYNLO:GIPHY:1]")) return "🎞️ GIF";
+        if (SessionCallUp.isCallUp(text)) return "📣 Convocatória";
+        return text;
     }
 
     public static String forMessage(Chat message) {

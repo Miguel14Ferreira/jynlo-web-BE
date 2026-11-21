@@ -31,6 +31,9 @@ public class ChatController {
 
     private final ChatService chatService;
     private final com.example.desporto24.Chat.ChatRepository chatRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.service.SessionCallUp sessionCallUp;
+
 
     /** Lists existing direct conversations for the signed-in user. Never accepts an actor from client input.
      * Chat access is rechecked for each candidate to avoid revealing blocked/removed friendships.
@@ -79,6 +82,7 @@ public class ChatController {
             @PathVariable String username,
             @RequestBody @Valid ChatMessageRequest request,
             Authentication authentication) {
+        if (sessionCallUp != null) sessionCallUp.validate(request.text(), authentication.getName());
         Chat chat = new Chat();
         chat.setUsername1(authentication.getName());
         chat.setUsername2(username);
@@ -148,6 +152,7 @@ public class ChatController {
             @RequestBody @Valid ChatMessageRequest request,
             Authentication authentication) {
         String other = resolveOtherParticipant(sender, recipient, authentication.getName());
+        if (sessionCallUp != null) sessionCallUp.validate(request.text(), authentication.getName());
         Chat authenticatedMessage = new Chat();
         authenticatedMessage.setUsername1(authentication.getName());
         authenticatedMessage.setUsername2(other);

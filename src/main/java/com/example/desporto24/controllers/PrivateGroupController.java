@@ -12,6 +12,9 @@ import java.util.List;
 @RequestMapping("/api/private-groups")
 public class PrivateGroupController {
     private final PrivateGroupService service;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.service.SessionCallUp sessionCallUp;
+
     @GetMapping public List<PrivateGroupService.GroupView> list(Authentication auth){
         return service.list(auth.getName());
     }
@@ -46,6 +49,7 @@ public class PrivateGroupController {
     }
     @PostMapping("/{id}/messages") public PrivateGroupService.MessageView send(
             @PathVariable Long id,@RequestBody PrivateGroupService.SendRequest input,Authentication auth){
+        if (sessionCallUp != null && input != null) sessionCallUp.validate(input.text(), auth.getName());
         return service.send(auth.getName(),id,input);
     }
 }
