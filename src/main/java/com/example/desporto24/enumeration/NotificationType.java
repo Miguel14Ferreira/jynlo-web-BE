@@ -26,5 +26,9 @@ public enum NotificationType {
     TEAM_ADMIN_TRANSFER,
     TEAM_ADMIN_ASSIGNED,
     /** Pre-game reminder, about 24h before the session. */
-    SESSION_REMINDER
+    SESSION_REMINDER,
+    /** A tournament result involving the recipient was recorded or corrected. */
+    TOURNAMENT_RESULT,
+    /** The leader of a league the recipient plays in changed. */
+    TOURNAMENT_LEADER
 }

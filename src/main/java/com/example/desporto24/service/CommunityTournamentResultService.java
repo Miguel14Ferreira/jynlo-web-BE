@@ -32,6 +32,12 @@ public class CommunityTournamentResultService {
     private final CommunityTournamentRepository tournamentRepository;
     private final CommunityTournamentMatchRepository matchRepository;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private TournamentResultNotificationService resultNotifications;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher events;
+
     /**
      * First result marks the match COMPLETED; subsequent writes may correct its scores
      * while the tournament is IN_PROGRESS. Both paths serialize on the tournament row.
@@ -97,13 +103,21 @@ public class CommunityTournamentResultService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Estado do jogo inválido");
         }
         boolean firstCompletion = match.getStatus() == TournamentMatchStatus.SCHEDULED;
+        // Leader before this result, to tell players when first place changes.
+        String leaderBefore = resultNotifications == null ? null
+                : resultNotifications.leader(communityId, tournamentId, username);
         match.setHomeScore(request.homeScore());
         match.setAwayScore(request.awayScore());
         match.setStatus(TournamentMatchStatus.COMPLETED);
         if (firstCompletion) {
             match.setCompletedAt(Instant.now());
         }
-        return response(matchRepository.save(match));
+        var saved = matchRepository.save(match);
+        if (events != null) {
+            events.publishEvent(new TournamentResultNotificationService.ResultRecorded(
+                    communityId, tournamentId, saved.getId(), false, !firstCompletion, username, leaderBefore));
+        }
+        return response(saved);
     }
 
     private boolean validScore(Integer score) {
