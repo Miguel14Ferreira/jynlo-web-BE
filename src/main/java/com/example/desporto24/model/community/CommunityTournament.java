@@ -30,6 +30,10 @@ public class CommunityTournament {
     @Column(nullable = false, length = 120)
     private String name;
 
+    /** EVENT_RANKING only: TIME (lowest wins), SCORE (highest wins) or POSITION (entered places). */
+    @Column(name = "ranking_value_kind", length = 16)
+    private String rankingValueKind;
+
     /** Opt-in by an Owner/Admin: anyone with the link can see the table and results. */
     @Builder.Default
     @Column(name = "public_page_enabled", nullable = false)

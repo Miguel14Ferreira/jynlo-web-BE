@@ -234,6 +234,21 @@ public class CommunityTournamentService {
             }
         }
 
+        // Generic event series ("classificação por provas") for individual sports without a match format.
+        if (scoringMode == TournamentScoringMode.EVENT_RANKING) {
+            if (!EventRankingService.supports(selectedSport)
+                    || type != TournamentEntryType.INDIVIDUAL
+                    || format != TournamentFormat.LEAGUE
+                    || request.winPoints() != null || request.drawPoints() != null
+                    || request.lossPoints() != null || request.playersPerTeam() != null
+                    || request.roundRobinLegs() != null || request.teamTieBreakPriority() != null
+                    || request.groupCount() != null || request.eventType() != null
+                    || request.eventDiscipline() != null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Classificação por provas: torneio individual, sem pontos por vitória/empate/derrota");
+            }
+        }
+
         // Golf tournaments use gross strokes, never match points or race placements.
         if (scoringMode == TournamentScoringMode.GOLF_GROSS_STROKES) {
             if (!"Golfe".equals(selectedSport)
@@ -269,7 +284,9 @@ public class CommunityTournamentService {
                 .eventDiscipline(tournamentDiscipline)
                 .scoringMode(scoringMode)
                 .racePointsByPlace(scoringMode == TournamentScoringMode.RACE_POINTS
-                        ? CommunityTournamentRaceService.DEFAULT_POINTS : null)
+                        ? CommunityTournamentRaceService.DEFAULT_POINTS
+                        : scoringMode == TournamentScoringMode.EVENT_RANKING ? EventRankingService.DEFAULT_POINTS : null)
+                .rankingValueKind(scoringMode == TournamentScoringMode.EVENT_RANKING ? EventRankingService.POSITION : null)
                 .entryType(type)
                 .playersPerTeam(request.playersPerTeam())
                 .roundRobinLegs(roundRobinLegs)
@@ -366,7 +383,7 @@ public class CommunityTournamentService {
         Profile actor = profile(username);
         requireMember(communityId, actor);
         CommunityTournament tournament = tournament(communityId, tournamentId);
-        requireDraft(tournament);
+        requireOpenForEntries(tournament);
         suspensionService.requireEligible(communityId, actor.getId());
         return participantRepository.findByTournamentIdAndProfileId(tournamentId, actor.getId())
                 .map(this::participantResponse)
@@ -392,7 +409,7 @@ public class CommunityTournamentService {
         Profile actor = profile(username);
         requireAdmin(communityId, actor);
         CommunityTournament tournament = tournament(communityId, tournamentId);
-        requireDraft(tournament);
+        requireOpenForEntries(tournament);
 
         CommunityTournamentParticipant enrollment = participantRepository
                 .findByTournamentIdAndProfileId(tournamentId, profileId)
@@ -502,6 +519,19 @@ public class CommunityTournamentService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Esta competição utiliza equipas e não inscrições individuais");
         }
+    }
+
+    /**
+     * New entries: before the start, or at any time during an event series
+     * (players can join a season of events halfway; earlier events are unaffected).
+     */
+    private void requireOpenForEntries(CommunityTournament tournament) {
+        if (tournament.getScoringMode() == TournamentScoringMode.EVENT_RANKING
+                && tournament.getStatus() == TournamentStatus.IN_PROGRESS) {
+            requireIndividual(tournament);
+            return;
+        }
+        requireDraft(tournament);
     }
 
     private void requireDraft(CommunityTournament tournament) {
