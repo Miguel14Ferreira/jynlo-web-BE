@@ -22,6 +22,8 @@ class ProfileFollowServiceTest {
     @Mock private ProfileFollowRepository followRepository;
     @Mock private ProfileRepository profileRepository;
     @Mock private UserBlockService userBlockService;
+    @Mock private com.example.desporto24.repository.NotificationsRepository notificationsRepository;
+    @Mock private NotificationPreferencesService notificationPreferencesService;
 
     @InjectMocks
     private ProfileFollowService service;

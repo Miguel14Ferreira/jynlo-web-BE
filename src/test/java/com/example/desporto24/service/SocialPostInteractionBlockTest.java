@@ -30,6 +30,7 @@ class SocialPostInteractionBlockTest {
     @Mock private SocialPostRepository posts;
     @Mock private SocialPostLikeRepository likes;
     @Mock private SocialPostCommentRepository comments;
+    @Mock private com.example.desporto24.repository.social.SocialPostCommentLikeRepository commentLikes;
     @Mock private ProfileRepository profiles;
     @Mock private UserReportService reports;
     @Mock private SessionParticipantRepository participants;

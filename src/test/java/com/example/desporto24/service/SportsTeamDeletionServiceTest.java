@@ -24,6 +24,7 @@ class SportsTeamDeletionServiceTest {
     @Mock ProfileRepository profiles;
     @Mock SportsTeamMemberRepository members;
     @Mock SportsTeamContentRepository content;
+    @Mock com.example.desporto24.repository.team.SportsTeamFollowRepository followers;
     @Mock SportsTeamCommunityMembershipRepository communities;
     @Mock SportsTeamCompetitionApplicationRepository applications;
     @Mock SportsTeamCompetitionInvitationRepository invitations;

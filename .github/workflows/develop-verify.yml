@@ -1,7 +1,7 @@
 # Two checks on develop:
 # - compile (main + tests): the failure that blocked Render builds on
 #   2026-11-20. Required to stay green.
-# - full test suite: informational until it is reliably green on H2.
+# - full test suite: green since 2026-11-21 (2630 tests); a failure now fails the check.
 name: Jynlo BE develop verify
 
 on:
@@ -32,11 +32,15 @@ jobs:
       - run: chmod +x mvnw && ./mvnw -B -q test-compile
 
   tests:
-    name: Full test suite (informational)
+    name: Full test suite
     needs: compile
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    continue-on-error: true
+    env:
+      # Test-only key (the real one lives in Render; key + userId must form a valid AES
+      # length, as in the other workflows). Without it every test that
+      # encrypts profile data fails before reaching its own assertions.
+      AES_ENCRYPTION_KEY: ciKey1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4

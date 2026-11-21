@@ -105,6 +105,9 @@ class ChatServiceImplReplyTest {
     private void authorizeSessionOnlyContact() {
         when(friends.findConnection(1L, 2L)).thenReturn(Optional.empty());
         when(sessionContacts.mayContact("ana", "bea")).thenReturn(true);
+        // The service now takes a row lock on the sender before counting the quota.
+        org.mockito.Mockito.lenient().when(profiles.lockForSessionChatQuota("ana"))
+                .thenAnswer(invocation -> profiles.findUserByUsername("ana"));
         ReflectionTestUtils.setField(service, "sessionContactAccess", sessionContacts);
     }
 

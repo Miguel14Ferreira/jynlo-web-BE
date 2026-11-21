@@ -94,6 +94,7 @@ class CommunitySecurityFilterChainTest {
     @MockitoBean private com.example.desporto24.service.SessionGuestRequestService guests;
     @MockitoBean private com.example.desporto24.service.interfaces.SessionService publicSessionService;
     @MockitoBean private com.example.desporto24.service.CommunitySessionResultService sessionResults;
+    @MockitoBean private com.example.desporto24.service.CommunityFollowService follows;
 
     @BeforeEach
     void configureAccounts() {

@@ -62,9 +62,9 @@ class CommunitySessionResultServiceTest {
         var community = Community.builder().id(communityId).rankingsEnabled(rankingsEnabled).build();
         var owner = new Profile(); owner.setId(90L);
         var member = CommunityMember.builder().role(role).build();
-        when(communities.findById(communityId)).thenReturn(Optional.of(community));
-        when(profiles.findUserByUsernameIgnoreCase("manager")).thenReturn(Optional.of(owner));
-        when(memberships.findByCommunityIdAndProfileId(communityId, 90L)).thenReturn(Optional.of(member));
+        org.mockito.Mockito.lenient().when(communities.findById(communityId)).thenReturn(Optional.of(community));
+        org.mockito.Mockito.lenient().when(profiles.findUserByUsernameIgnoreCase("manager")).thenReturn(Optional.of(owner));
+        org.mockito.Mockito.lenient().when(memberships.findByCommunityIdAndProfileId(communityId, 90L)).thenReturn(Optional.of(member));
     }
 
     private void pastSession(SessionStatus status) {
