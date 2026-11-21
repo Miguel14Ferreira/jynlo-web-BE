@@ -60,10 +60,12 @@ public class SessionController {
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) String sort,
+            @RequestParam(required = false) String skillLevel,
             Authentication authentication) {
         SessionSearchCriteria criteria = new SessionSearchCriteria(
                 sport, city, from, to, latitude, longitude, radiusKm,
-                availability, privateGame, freeOnly, minPrice, maxPrice, sort, query
+                availability, privateGame, freeOnly, minPrice, maxPrice, sort, query,
+                com.example.desporto24.enumeration.SessionSkillLevel.parseOrNull(skillLevel)
         );
 
         if (authentication == null
@@ -185,6 +187,18 @@ public class SessionController {
             @RequestParam int maxParticipants,
             Authentication authentication) {
         return sessionService.updateCapacity(id, maxParticipants, authentication.getName());
+    }
+
+    /** Organizer-only: the level the session is aimed at (null = all levels). */
+    public record SkillLevelRequest(com.example.desporto24.enumeration.SessionSkillLevel skillLevel) {}
+
+    @PatchMapping("/{id}/skill-level")
+    public SessionDetailResponse updateSkillLevel(
+            @PathVariable Long id,
+            @RequestBody SkillLevelRequest request,
+            Authentication authentication) {
+        return sessionService.updateSkillLevel(id, request == null ? null : request.skillLevel(),
+                authentication.getName());
     }
 
     @PatchMapping("/{id}/meeting-point")

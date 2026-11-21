@@ -364,6 +364,7 @@ public class SessionServiceImpl implements SessionService {
         session.setAirsoftGameType(request.airsoftGameType());
         session.setPlayFormat(com.example.desporto24.service.SessionPlayFormatPolicy
                 .resolve(sport, request.playFormat()));
+        session.setSkillLevel(request.skillLevel());
         session.setGameDate(Date.from(gameDate));
         session.setCity(linkedVenue == null ? request.city() : linkedVenue.getCity());
         session.setAddress(linkedVenue == null ? request.address() : linkedVenue.getAddress());
@@ -640,6 +641,9 @@ public class SessionServiceImpl implements SessionService {
                         || (v.distanceKm() != null && v.distanceKm() <= effectiveRadius))
                 .filter(v -> !"available".equalsIgnoreCase(criteria.availability())
                         || v.participantCount() < v.maxParticipants())
+                // A level filter also shows sessions open to all levels (no level set).
+                .filter(v -> criteria.skillLevel() == null || v.skillLevel() == null
+                        || v.skillLevel() == criteria.skillLevel())
                 .toList();
         return nextOfEachIndependentSeries(matching).stream()
                 .sorted(discoveryComparator(criteria.sort()))
@@ -1146,6 +1150,28 @@ public class SessionServiceImpl implements SessionService {
     /** Update only private arrival instructions, not the catalogue venue or
      * its reference point. Row locking serializes concurrent organizer edits.
      */
+    @Override
+    @Transactional
+    public SessionDetailResponse updateSkillLevel(
+            Long sessionId, com.example.desporto24.enumeration.SessionSkillLevel skillLevel, String username) {
+        Session session = sessionRepository.findByIdForUpdate(sessionId)
+                .orElseThrow(() -> new SessionNotFound("Session not found"));
+        Profile actor = profileRepository.findUserByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException(NO_USER_FOUND_BY_USERNAME));
+        requireCreator(session, actor);
+        if (session.getStatus() != SessionStatus.OPEN && session.getStatus() != SessionStatus.FULL) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "O nível só pode ser alterado enquanto a sessão está aberta");
+        }
+        if (session.getSkillLevel() != skillLevel) {
+            session.setSkillLevel(skillLevel);
+            session.setUpdatedAt(Instant.now());
+            sessionRepository.save(session);
+        }
+        return sessionViewMapper.toDetail(session, actor);
+    }
+
     @Override
     @Transactional
     public SessionDetailResponse updateMeetingPoint(

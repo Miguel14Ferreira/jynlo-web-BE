@@ -43,6 +43,8 @@ public interface SessionService {
 
     SessionDetailResponse updateGoogleMapsUrl(Long sessionId, String mapsUrl, String username);
     SessionDetailResponse updateMeetingPoint(Long sessionId, String instructions, String username);
+
+    SessionDetailResponse updateSkillLevel(Long sessionId, com.example.desporto24.enumeration.SessionSkillLevel skillLevel, String username);
     SessionDetailResponse updateExternalConfirmations(Long sessionId, int externalConfirmed, String username);
     SessionDetailResponse openRegistration(Long sessionId, String username);
     void leave(Long sessionId, String username);

@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-21-session-skill-level
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: session
+                columnName: skill_level
+      changes:
+        - addColumn:
+            tableName: session
+            columns:
+              - column:
+                  name: skill_level
+                  type: VARCHAR(16)

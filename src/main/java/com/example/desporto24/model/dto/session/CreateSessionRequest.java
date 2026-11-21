@@ -52,8 +52,42 @@ public record CreateSessionRequest(
         @Min(2) @Max(100) Integer minParticipants,
         com.example.desporto24.enumeration.AirsoftGameType airsoftGameType,
         @Size(max = 1000) String description,
-        @Size(max = 512) String googleMapsUrl
+        @Size(max = 512) String googleMapsUrl,
+        com.example.desporto24.enumeration.SessionSkillLevel skillLevel
 ) {
+    /** Former canonical signature (before the session level). */
+    public CreateSessionRequest(
+            String sport,
+            Instant gameDate,
+            String city,
+            String address,
+            Integer maxParticipants,
+            BigDecimal priceAmount,
+            boolean privateGame,
+            String password,
+            Double latitude,
+            Double longitude,
+            Long communityId,
+            Long venueId,
+            SessionRecurrence recurrence,
+            Integer recurrenceOccurrences,
+            Integer externalConfirmedParticipants,
+            com.example.desporto24.enumeration.RegistrationOpeningMode registrationOpeningMode,
+            Instant registrationOpensAt,
+            java.util.List<Instant> additionalWeeklyGameDates,
+            String recurrenceTimeZone,
+            com.example.desporto24.enumeration.SessionPlayFormat playFormat,
+            java.util.List<Long> communityShareIds,
+            Long seasonCompetitionCommunityId,
+            boolean confirmActivateRankings,
+            String meetingPointInstructions,
+            Integer minParticipants,
+            com.example.desporto24.enumeration.AirsoftGameType airsoftGameType,
+            String description,
+            String googleMapsUrl) {
+        this(sport, gameDate, city, address, maxParticipants, priceAmount, privateGame, password, latitude, longitude, communityId, venueId, recurrence, recurrenceOccurrences, externalConfirmedParticipants, registrationOpeningMode, registrationOpensAt, additionalWeeklyGameDates, recurrenceTimeZone, playFormat, communityShareIds, seasonCompetitionCommunityId, confirmActivateRankings, meetingPointInstructions, minParticipants, airsoftGameType, description, googleMapsUrl, null);
+    }
+
     /** Former canonical signature: preserve all Java callers while allowing Maps URLs in new requests. */
     public CreateSessionRequest(
             String sport, Instant gameDate, String city, String address,

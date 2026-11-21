@@ -25,8 +25,33 @@ public record SessionSummaryResponse(
         Long seasonCommunityId,
         com.example.desporto24.enumeration.AirsoftGameType airsoftGameType,
         Double latitude,
-        Double longitude
+        Double longitude,
+        com.example.desporto24.enumeration.SessionSkillLevel skillLevel
 ) {
+    /** Former canonical signature (before the session level). */
+    public SessionSummaryResponse(
+            Long id,
+            String sport,
+            String city,
+            Instant gameDate,
+            Double distanceKm,
+            int participantCount,
+            int maxParticipants,
+            BigDecimal priceAmount,
+            boolean privateGame,
+            SessionStatus status,
+            SessionAudience audience,
+            boolean joinedByViewer,
+            boolean waitlistedByViewer,
+            String recurrenceSeriesId,
+            Long communityId,
+            Long seasonCommunityId,
+            com.example.desporto24.enumeration.AirsoftGameType airsoftGameType,
+            Double latitude,
+            Double longitude) {
+        this(id, sport, city, gameDate, distanceKm, participantCount, maxParticipants, priceAmount, privateGame, status, audience, joinedByViewer, waitlistedByViewer, recurrenceSeriesId, communityId, seasonCommunityId, airsoftGameType, latitude, longitude, null);
+    }
+
     /** Original full projection is retained for existing service and test consumers. */
     public SessionSummaryResponse(
             Long id, String sport, String city, Instant gameDate, Double distanceKm,
@@ -46,7 +71,14 @@ public record SessionSummaryResponse(
         return new SessionSummaryResponse(id, sport, city, gameDate, distanceKm,
                 participantCount, maxParticipants, priceAmount, privateGame, status,
                 audience, joinedByViewer, waitlistedByViewer, recurrenceSeriesId,
-                communityId, seasonCommunityId, airsoftGameType, publicLatitude, publicLongitude);
+                communityId, seasonCommunityId, airsoftGameType, publicLatitude, publicLongitude, skillLevel);
+    }
+
+    public SessionSummaryResponse withSkillLevel(com.example.desporto24.enumeration.SessionSkillLevel level) {
+        return new SessionSummaryResponse(id, sport, city, gameDate, distanceKm,
+                participantCount, maxParticipants, priceAmount, privateGame, status,
+                audience, joinedByViewer, waitlistedByViewer, recurrenceSeriesId,
+                communityId, seasonCommunityId, airsoftGameType, latitude, longitude, level);
     }
 
     /** Backwards-compatible constructor for existing summary projections. */
