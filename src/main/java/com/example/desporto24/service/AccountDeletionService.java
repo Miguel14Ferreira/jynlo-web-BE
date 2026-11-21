@@ -80,6 +80,16 @@ public class AccountDeletionService {
     private com.example.desporto24.repository.social.ProfileFollowRequestRepository followRequests;
     @Autowired(required = false)
     private com.example.desporto24.repository.social.SocialPostCommentLikeRepository commentLikes;
+    @Autowired(required = false)
+    private com.example.desporto24.repository.PrivateGroupRepository privateGroups;
+    @Autowired(required = false)
+    private com.example.desporto24.repository.PrivateGroupMemberRepository privateGroupMembers;
+    @Autowired(required = false)
+    private com.example.desporto24.repository.PrivateGroupMessageRepository privateGroupMessages;
+    @Autowired(required = false)
+    private com.example.desporto24.repository.MobilePushDeviceRepository pushDevices;
+    @Autowired(required = false)
+    private com.example.desporto24.repository.ConversationNotificationMuteRepository conversationMutes;
 
     @Transactional
     public void deleteMyAccount(String username) {
@@ -154,6 +164,7 @@ public class AccountDeletionService {
         socialPostLikeRepository.deleteByProfileId(profileId);
         socialPostRepository.deleteAll(ownPosts);
 
+        deletePrivateGroupDataAndDevices(originalUsername);
         anonymize(profile, anonymousUsername, anonymousUserId);
         profileRepository.saveAndFlush(profile);
 
@@ -207,6 +218,43 @@ public class AccountDeletionService {
                     || session.getStatus() == SessionStatus.FULL)) {
                 waitlistPromotionService.promoteNext(session, now);
             }
+        }
+    }
+
+    /**
+     * Data keyed by the username text (not the profile id) would survive anonymization:
+     * private group messages and memberships, push devices and conversation mutes.
+     * Groups the user created pass to the longest-standing remaining member, or are
+     * deleted when nobody else is left.
+     */
+    private void deletePrivateGroupDataAndDevices(String username) {
+        if (privateGroupMessages != null) {
+            privateGroupMessages.deleteAll(privateGroupMessages.findBySenderUsernameIgnoreCase(username));
+        }
+        if (privateGroupMembers != null) {
+            privateGroupMembers.deleteAll(privateGroupMembers.findByUsernameIgnoreCaseOrderByGroupIdDesc(username));
+        }
+        if (privateGroups != null && privateGroupMembers != null) {
+            for (var group : privateGroups.findByCreatorUsernameIgnoreCase(username)) {
+                var remaining = privateGroupMembers.findByGroupIdOrderByJoinedAtAsc(group.getId()).stream()
+                        .filter(m -> !username.equalsIgnoreCase(m.getUsername()))
+                        .findFirst();
+                if (remaining.isPresent()) {
+                    group.setCreatorUsername(remaining.get().getUsername());
+                    privateGroups.save(group);
+                } else {
+                    if (privateGroupMessages != null) {
+                        privateGroupMessages.deleteAll(privateGroupMessages.findByGroupId(group.getId()));
+                    }
+                    privateGroups.delete(group);
+                }
+            }
+        }
+        if (pushDevices != null) {
+            pushDevices.deleteAll(pushDevices.findByUsernameIgnoreCase(username));
+        }
+        if (conversationMutes != null) {
+            conversationMutes.deleteAll(conversationMutes.findByUsername(username.toLowerCase(java.util.Locale.ROOT)));
         }
     }
 

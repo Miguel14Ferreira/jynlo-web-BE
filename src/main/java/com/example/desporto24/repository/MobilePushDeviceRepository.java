@@ -9,4 +9,5 @@ public interface MobilePushDeviceRepository extends JpaRepository<MobilePushDevi
     Optional<MobilePushDevice> findByPushToken(String pushToken);
     List<MobilePushDevice> findTop20ByUsernameOrderByUpdatedAtDesc(String username);
     void deleteByPushToken(String pushToken);
+    List<MobilePushDevice> findByUsernameIgnoreCase(String username);
 }
