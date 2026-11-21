@@ -92,6 +92,11 @@ public class Community {
     @Column(name = "rankings_enabled", nullable = false)
     private boolean rankingsEnabled;
 
+    /** Opt-in by Owner/Admin: the season ranking can be opened by anyone with the link. */
+    @Builder.Default
+    @Column(name = "public_ranking_enabled", nullable = false)
+    private boolean publicRankingEnabled = false;
+
     // Optional community modules. All groups always retain sessions and their history.
     @Builder.Default
     @Column(name = "individual_tournaments_enabled", nullable = false)

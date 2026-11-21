@@ -81,7 +81,7 @@ public class TournamentPublicPageService {
                         .toList();
             } else {
                 table = standings.publicStandings(communityId, tournamentId).standings().stream()
-                        .map(r -> new Row(r.position(), clean(r.displayName() != null ? r.displayName() : r.username()),
+                        .map(r -> new Row(r.position(), publicName(r.profileId(), r.username()),
                                 r.played(), r.won(), r.drawn(), r.lost(),
                                 r.goalsFor(), r.goalsAgainst(), r.goalDifference(), r.points()))
                         .toList();
@@ -132,11 +132,16 @@ public class TournamentPublicPageService {
         return "/torneio/" + tournament.getId();
     }
 
+    private String publicName(Long profileId, String username) {
+        Profile profile = profileId == null ? null : profiles.findById(profileId).orElse(null);
+        return profile != null ? display(profile) : clean(username);
+    }
+
     private static String display(Profile profile) {
         if (profile == null) return "?";
-        String nickname = profile.getNickname(), full = profile.getFullName();
-        return clean(nickname != null && !nickname.isBlank() ? nickname
-                : full != null && !full.isBlank() ? full : profile.getUsername());
+        // Public pages show the nickname or the public handle, never the full real name.
+        String nickname = profile.getNickname();
+        return clean(nickname != null && !nickname.isBlank() ? nickname : profile.getUsername());
     }
 
     private static String clean(String value) {

@@ -502,3 +502,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-21-session-payments.yaml
   - include:
       file: db/changelog/changes/2026-11-21-tournament-public-page.yaml
+  - include:
+      file: db/changelog/changes/2026-11-21-community-public-ranking.yaml

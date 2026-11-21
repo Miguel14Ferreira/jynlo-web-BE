@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-21-community-public-ranking
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: community
+                columnName: public_ranking_enabled
+      changes:
+        - addColumn:
+            tableName: community
+            columns:
+              - column:
+                  name: public_ranking_enabled
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false

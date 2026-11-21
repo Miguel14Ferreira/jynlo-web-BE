@@ -86,7 +86,18 @@ public class CommunityCompetitionService {
         Profile actor = profile(username);
         Community community = community(communityId);
         requireAccess(community, actor);
+        return buildOverview(communityId, seasonId);
+    }
 
+    /** Same overview without a membership check: only for communities with a public ranking page. */
+    @Transactional(readOnly = true)
+    public CommunityCompetitionOverviewResponse publicOverview(Long communityId, Long seasonId) {
+        community(communityId);
+        return buildOverview(communityId, seasonId);
+    }
+
+    private CommunityCompetitionOverviewResponse buildOverview(Long communityId, Long seasonId) {
+        Community community = community(communityId);
         CommunitySeason selectedSeason = null;
         if (seasonId != null) {
             selectedSeason = seasonRepository.findById(seasonId)
