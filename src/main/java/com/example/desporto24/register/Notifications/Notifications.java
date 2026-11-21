@@ -89,6 +89,10 @@ public class Notifications {
     @Column(name = "private_group_id")
     private Long privateGroupId;
 
+    /** Sports team chat this alert opens (team chat message notifications only). */
+    @Column(name = "sports_team_id")
+    private Long sportsTeamId;
+
     @Column(name = "read", nullable = false)
     private boolean read;
 

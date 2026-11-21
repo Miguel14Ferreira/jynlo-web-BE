@@ -39,6 +39,21 @@ public class SportsTeamContentService {
                     teamId, kind.name().toLowerCase(java.util.Locale.ROOT)));
     }
 
+    /** Team chat messages alert the other members after commit (TeamChatNotificationListener). */
+    private void announceChat(SportsTeamContent saved, Profile sender) {
+        if (realtimeEvents == null || saved == null || saved.getKind() != SportsTeamContent.Kind.CHAT) return;
+        realtimeEvents.publishEvent(new TeamChatNotificationListener.TeamChatMessagePosted(
+                saved.getTeam().getId(), saved.getId(), sender.getUsername(), saved.getBody()));
+    }
+
+    /** Active member or owner of a team whose chat is on; used by the inbox and read cursors. */
+    @Transactional(readOnly = true)
+    public void requireChatAccess(Long teamId, Profile actor) {
+        var team = team(teamId);
+        requireActiveMember(team, actor);
+        requireFeature(team, SportsTeamContent.Kind.CHAT);
+    }
+
     public record Entry(Long id, Long teamId, String username, String body, Instant createdAt,
                         Long replyToId, Instant editedAt, boolean deleted, boolean canManage, boolean canEdit,
                         List<PrivateChatAttachmentBatch.PublicMetadata> attachments,
@@ -173,6 +188,7 @@ public class SportsTeamContentService {
                 .team(team).author(sender).kind(kind).body(body).replyToId(replyToId)
                 .createdAt(Instant.now()).build());
         invalidate(teamId, kind);
+        announceChat(saved, sender);
         return view(saved, sender, team);
     }
     /** Probe is member-only, matching the other private chat surfaces. */
@@ -216,6 +232,7 @@ public class SportsTeamContentService {
                     .attachmentMimeType(first.mime()).attachmentSize(first.size())
                     .extraAttachments(new java.util.ArrayList<>(batch.extras())).build());
             invalidate(teamId, kind);
+            announceChat(saved, sender);
             return view(saved, sender, team);
         } catch (RuntimeException failure) {
             PrivateChatAttachmentBatch.cleanup(privateFiles, batch.files(), failure);

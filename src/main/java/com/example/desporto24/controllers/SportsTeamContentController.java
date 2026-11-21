@@ -14,11 +14,16 @@ import java.util.List;
 @RequestMapping("/api/teams/{teamId}")
 @PreAuthorize("isAuthenticated()")
 public class SportsTeamContentController {
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.service.TeamChatNotificationListener chatAlerts;
     private final SportsTeamContentService service;
 
     @GetMapping("/chat")
     public List<SportsTeamContentService.Entry> chat(@PathVariable Long teamId, Authentication auth) {
-        return service.recent(teamId, Kind.CHAT, auth.getName());
+        var entries = service.recent(teamId, Kind.CHAT, auth.getName());
+        // Access was checked by recent(): opening the chat clears its alert.
+        if (chatAlerts != null) chatAlerts.markRead(auth.getName(), teamId);
+        return entries;
     }
 
     @GetMapping("/chat/search")
