@@ -32,6 +32,8 @@ public final class SecurityConstant {
             "/api/public/communities/*/ranking",
             // Link-preview page for chat and social crawlers; same data as public-preview.
             "/api/share/sessions/*",
+            "/api/share/communities/*",
+            "/api/share/profiles/*",
             "/api/venues",
             "/api/venues/*",
             "/api/venues/*/ratings/summary"
