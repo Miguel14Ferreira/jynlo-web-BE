@@ -1,0 +1,61 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-21-session-payment-setup
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: session_payment_setup
+      changes:
+        - createTable:
+            tableName: session_payment_setup
+            columns:
+              - column:
+                  name: session_id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_session_payment_setup
+                    nullable: false
+                    foreignKeyName: fk_session_payment_setup_session
+                    references: session(id)
+                    deleteCascade: true
+              - column:
+                  name: mbway_phone
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+  - changeSet:
+      id: 2026-11-21-session-participant-payment
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: session_participant_payment
+      changes:
+        - createTable:
+            tableName: session_participant_payment
+            columns:
+              - column:
+                  name: participant_id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_session_participant_payment
+                    nullable: false
+                    foreignKeyName: fk_session_participant_payment_participant
+                    references: session_participant(id)
+                    deleteCascade: true
+              - column:
+                  name: claimed_at
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: confirmed_at
+                  type: TIMESTAMP WITH TIME ZONE
