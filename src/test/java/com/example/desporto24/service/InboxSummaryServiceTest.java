@@ -537,6 +537,7 @@ class InboxSummaryServiceTest {
         when(chats.findConversationPage(eq("ana"), eq("Bea"), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(last)));
         when(chats.countUnread("ana", "Bea", 0L)).thenReturn(3L);
         // Rui is muted: never queried.
+        lenient().when(mutes.muted(anyString(), anyString(), anyString())).thenReturn(false);
         when(mutes.muted("ana", "direct", "rui")).thenReturn(true);
         // Private group with 2 unread.
         Instant joined = Instant.parse("2026-11-01T10:00:00Z");
