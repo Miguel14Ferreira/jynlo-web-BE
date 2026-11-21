@@ -85,6 +85,10 @@ public class Notifications {
     @Column(name = "story_id")
     private Long storyId;
 
+    /** Private group chat this alert opens (group message notifications only). */
+    @Column(name = "private_group_id")
+    private Long privateGroupId;
+
     @Column(name = "read", nullable = false)
     private boolean read;
 

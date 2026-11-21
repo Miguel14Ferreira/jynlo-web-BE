@@ -56,6 +56,19 @@ class MobilePushDeliveryServiceTest {
     }
 
     @Test
+    void mutedPrivateGroupBlocksLookupAndDelivery() {
+        ReflectionTestUtils.setField(sender,"enabled",true);
+        ReflectionTestUtils.setField(sender,"accessToken","test-only");
+        when(preferences.get("player")).thenReturn(
+                new NotificationPreferencesRequest(true,true,Set.of(),Set.of()));
+        when(mutes.muted("player","private","5")).thenReturn(true);
+        sender.afterCommit(new MobilePushDeliveryService.StoredNotification(
+                "player",42L,"CHAT_MESSAGE",null,null,"someone",true,5L));
+        verify(mutes).muted("player","private","5");
+        verifyNoInteractions(devices);
+    }
+
+    @Test
     void unscopedChatCannotSendPush() {
         ReflectionTestUtils.setField(sender,"enabled",true);
         ReflectionTestUtils.setField(sender,"accessToken","test-only");

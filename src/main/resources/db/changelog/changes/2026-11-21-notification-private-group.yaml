@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-21-notification-private-group
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: notifications
+            columns:
+              - column: {name: private_group_id, type: bigint}

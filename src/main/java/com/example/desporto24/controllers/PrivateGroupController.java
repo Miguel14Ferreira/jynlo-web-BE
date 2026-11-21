@@ -14,6 +14,8 @@ public class PrivateGroupController {
     private final PrivateGroupService service;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.service.SessionCallUp sessionCallUp;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.service.PrivateGroupNotificationListener groupAlerts;
 
     @GetMapping public List<PrivateGroupService.GroupView> list(Authentication auth){
         return service.list(auth.getName());
@@ -45,7 +47,12 @@ public class PrivateGroupController {
     @GetMapping("/{id}/messages")
     public List<PrivateGroupService.MessageView> history(
             @PathVariable Long id,@RequestParam(required=false) Long beforeId,Authentication auth){
-        return service.history(auth.getName(),id,beforeId);
+        var page=service.history(auth.getName(),id,beforeId);
+        // Only after the membership check in history(): reading the latest page clears the group's alert.
+        if (beforeId == null && groupAlerts != null) {
+            try { groupAlerts.markRead(auth.getName(), id); } catch (RuntimeException ignored) { }
+        }
+        return page;
     }
     @PostMapping("/{id}/messages") public PrivateGroupService.MessageView send(
             @PathVariable Long id,@RequestBody PrivateGroupService.SendRequest input,Authentication auth){
