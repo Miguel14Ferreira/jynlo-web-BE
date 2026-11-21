@@ -14,15 +14,32 @@ import static org.junit.jupiter.api.Assertions.*;
 class MeetingPointNotificationTypeConstraintTest {
     @Test
     void currentNotificationTypesAreAllowedByLatestPostgresConstraint() throws Exception {
-        String path = "db/changelog/changes/2026-10-28-session-meeting-point-notification-type.yaml";
-        try (InputStream in = getClass().getClassLoader().getResourceAsStream(path)) {
-            assertNotNull(in, "Migration missing from the classpath");
-            String changelog = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-            assertTrue(changelog.contains("ADD CONSTRAINT notifications_type_check"));
-            for (NotificationType type : NotificationType.values()) {
-                assertTrue(changelog.contains("'" + type.name() + "'"),
-                        () -> "PostgreSQL check is missing notification type " + type.name());
+        // The newest migration (in master order) that recreates the check is the one in force.
+        String master;
+        try (InputStream in = getClass().getClassLoader()
+                .getResourceAsStream("db/changelog/db.changelog-master.yaml")) {
+            assertNotNull(in);
+            master = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        String latest = null;
+        String latestPath = null;
+        java.util.regex.Matcher files = java.util.regex.Pattern.compile("file:\\s*(\\S+)").matcher(master);
+        while (files.find()) {
+            try (InputStream in = getClass().getClassLoader().getResourceAsStream(files.group(1))) {
+                if (in == null) continue;
+                String changelog = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                if (changelog.contains("ADD CONSTRAINT notifications_type_check")) {
+                    latest = changelog;
+                    latestPath = files.group(1);
+                }
             }
+        }
+        assertNotNull(latest, "No migration recreates notifications_type_check");
+        final String constraint = latest;
+        final String path = latestPath;
+        for (NotificationType type : NotificationType.values()) {
+            assertTrue(constraint.contains("'" + type.name() + "'"),
+                    () -> "PostgreSQL check in " + path + " is missing notification type " + type.name());
         }
     }
 

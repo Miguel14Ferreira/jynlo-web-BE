@@ -300,8 +300,10 @@ class SessionCreationServiceTest {
         when(profileRepository.findUserByUsername("miguel"))
                 .thenReturn(Optional.of(creator));
 
+        // Custom sports are allowed since the community catalogue opened up;
+        // a name that is not a sport at all must still be refused.
         CreateSessionRequest request = new CreateSessionRequest(
-                "Desporto Inventado",
+                "<script>alert(1)</script>",
                 Instant.now().plusSeconds(3600),
                 "Queluz",
                 "Rua de Teste 1",
