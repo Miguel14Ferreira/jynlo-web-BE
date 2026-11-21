@@ -34,5 +34,9 @@ public enum NotificationType {
     /** The organiser asked players who have not paid yet to pay. */
     PAYMENT_REMINDER,
     /** A new public game near the recipient's chosen place (opt-in). */
-    NEARBY_SESSION
+    NEARBY_SESSION,
+    /** A member of a group or community asked who can play at some proposed times. */
+    AVAILABILITY_REQUEST,
+    /** Reminder, 24h later, to members who have not answered an availability request. */
+    AVAILABILITY_REMINDER
 }

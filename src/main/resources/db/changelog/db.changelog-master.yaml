@@ -514,3 +514,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-21-chat-read-cursor-private.yaml
   - include:
       file: db/changelog/changes/2026-11-21-nearby-session-alerts.yaml
+  - include:
+      file: db/changelog/changes/2026-11-21-availability-requests.yaml
