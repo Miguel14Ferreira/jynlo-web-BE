@@ -84,6 +84,7 @@ public class CommunityTimelineController {
     public CommunityTimelineEntryResponse message(
             @PathVariable Long communityId, @RequestBody @Valid CommunityTimelineEntryRequest request,
             Authentication authentication) {
+        com.example.desporto24.service.ChatPoll.validate(request.body());
         if (sessionCallUp != null) sessionCallUp.validate(request.body(), authentication.getName());
         return service.post(communityId, Kind.CHAT, request.body(), authentication.getName(), request.replyToMessageId());
     }

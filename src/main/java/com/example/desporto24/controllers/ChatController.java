@@ -82,6 +82,7 @@ public class ChatController {
             @PathVariable String username,
             @RequestBody @Valid ChatMessageRequest request,
             Authentication authentication) {
+        com.example.desporto24.service.ChatPoll.reject(request.text());
         if (sessionCallUp != null) sessionCallUp.validate(request.text(), authentication.getName());
         Chat chat = new Chat();
         chat.setUsername1(authentication.getName());
@@ -152,6 +153,7 @@ public class ChatController {
             @RequestBody @Valid ChatMessageRequest request,
             Authentication authentication) {
         String other = resolveOtherParticipant(sender, recipient, authentication.getName());
+        com.example.desporto24.service.ChatPoll.reject(request.text());
         if (sessionCallUp != null) sessionCallUp.validate(request.text(), authentication.getName());
         Chat authenticatedMessage = new Chat();
         authenticatedMessage.setUsername1(authentication.getName());

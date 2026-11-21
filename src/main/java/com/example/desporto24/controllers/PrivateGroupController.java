@@ -49,6 +49,7 @@ public class PrivateGroupController {
     }
     @PostMapping("/{id}/messages") public PrivateGroupService.MessageView send(
             @PathVariable Long id,@RequestBody PrivateGroupService.SendRequest input,Authentication auth){
+        if (input != null) com.example.desporto24.service.ChatPoll.reject(input.text());
         if (sessionCallUp != null && input != null) sessionCallUp.validate(input.text(), auth.getName());
         return service.send(auth.getName(),id,input);
     }

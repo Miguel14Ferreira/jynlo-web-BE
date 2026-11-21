@@ -494,3 +494,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-20-sports-team-crest-design.yaml
   - include:
       file: db/changelog/changes/2026-11-21-pre-game-reminder.yaml
+  - include:
+      file: db/changelog/changes/2026-11-21-chat-polls.yaml
