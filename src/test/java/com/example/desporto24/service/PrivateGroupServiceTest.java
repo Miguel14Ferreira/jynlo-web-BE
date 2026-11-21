@@ -207,7 +207,12 @@ class PrivateGroupServiceTest {
    asMember("bea");
    when(messages.findById(7L)).thenReturn(Optional.of(msg(7,"ana")));
    assertThrows(AccessDeniedException.class,()->service.edit("bea",42L,7L,new PrivateGroupService.EditRequest("x")));
-   when(messages.findById(8L)).thenReturn(Optional.of(msg(8,"bea")));
+   PrivateGroupMessage recent=msg(8,"bea");recent.setCreatedAt(Instant.now().minusSeconds(60));
+   when(messages.findById(8L)).thenReturn(Optional.of(recent));
+   PrivateGroupMessage old=msg(10,"bea");
+   when(messages.findById(10L)).thenReturn(Optional.of(old));
+   assertThrows(org.springframework.web.server.ResponseStatusException.class,
+     ()->service.edit("bea",42L,10L,new PrivateGroupService.EditRequest("tarde demais")));
    var view=service.edit("bea",42L,8L,new PrivateGroupService.EditRequest(" Levo duas "));
    assertEquals("Levo duas",view.text());
    assertNotNull(view.editedAt());

@@ -279,6 +279,9 @@ public class PrivateGroupService {
         PrivateGroupMessage m=visibleMessage(id,member,messageId);
         if(!m.getSenderUsername().equalsIgnoreCase(member.getUsername()))
             throw new AccessDeniedException("Só quem enviou pode editar");
+        // Same rule as direct messages: text only, within 15 minutes of sending.
+        if(m.getAttachmentKey()!=null||m.getCreatedAt().isBefore(Instant.now().minusSeconds(15*60)))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Só podes editar texto até 15 minutos após o envio");
         String body=request==null||request.text()==null?"":request.text().trim();
         if(body.isEmpty()||body.length()>2000)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Message must be 1–2000 characters");
