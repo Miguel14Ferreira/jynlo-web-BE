@@ -453,6 +453,30 @@ public class ChatRealtimeGateway extends TextWebSocketHandler {
         } catch (RuntimeException ignored) { }
     }
 
+    public void publishChatPoll(Set<String> usernames, ChatPollChangedEvent poll) {
+        if (usernames == null || usernames.isEmpty() || poll == null) return;
+        try {
+            var details = objectMapper.createObjectNode()
+                    .put("kind", poll.kind())
+                    .put("conversationId", poll.conversationId())
+                    .put("messageId", poll.messageId())
+                    .put("total", poll.total());
+            details.set("counts", objectMapper.valueToTree(poll.counts()));
+            String payload = objectMapper.createObjectNode()
+                    .put("type", "CHAT_POLL_CHANGED")
+                    .set("poll", details)
+                    .toString();
+            for (String username : usernames) {
+                Set<WebSocketSession> sockets = sessionsByUsername.get(username);
+                if (sockets == null) continue;
+                for (WebSocketSession socket : sockets) {
+                    if (!socket.isOpen()) continue;
+                    try { send(socket, payload); } catch (IOException ignored) { }
+                }
+            }
+        } catch (RuntimeException ignored) { }
+    }
+
     /** Server-side call state only: no LiveKit token or secret goes over the socket. */
     public void publishDirectCallEvent(String caller, String peer, String callId,
             String media, String state, String actor, java.time.Instant expiresAt) {

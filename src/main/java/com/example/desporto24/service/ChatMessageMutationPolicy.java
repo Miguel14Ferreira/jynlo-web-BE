@@ -23,7 +23,8 @@ public final class ChatMessageMutationPolicy {
         }
         String normalized = proposed.trim();
         // GIPHY embeds must be created through the existing picker, not forged via edit.
-        if (normalized.startsWith("[JYNLO:GIPHY:1]") || SessionCallUp.isCallUp(normalized)) {
+        if (normalized.startsWith("[JYNLO:GIPHY:1]") || SessionCallUp.isCallUp(normalized)
+                || ChatPoll.isPoll(normalized)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Structured GIF messages cannot be edited");
         }
         return normalized;

@@ -30,6 +30,7 @@ public class SessionChatController {
     @PostMapping("/guest-chat/send")
     public SessionMessageResponse guestSend(
             @PathVariable Long sessionId,@RequestBody GuestChatSend request) {
+        if (request != null) com.example.desporto24.service.ChatPoll.reject(request.body());
         return sessionChatService.guestPost(sessionId,request==null?null:request.receipt(),
                 request==null?null:request.body());
     }
@@ -46,6 +47,7 @@ public class SessionChatController {
             @PathVariable Long sessionId,
             @RequestBody @Valid SessionMessageRequest request,
             Authentication authentication) {
+        com.example.desporto24.service.ChatPoll.validate(request.body());
         return sessionChatService.post(sessionId, request.body(), authentication.getName(), request.replyToMessageId());
     }
     @PutMapping("/{messageId}")
