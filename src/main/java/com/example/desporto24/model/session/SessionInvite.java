@@ -41,4 +41,8 @@ public class SessionInvite {
 
     @Column(name = "responded_at")
     private Instant respondedAt;
+
+    /** Set once when the "you have not answered yet" reminder was sent. */
+    @Column(name = "reminder_sent_at")
+    private Instant reminderSentAt;
 }
