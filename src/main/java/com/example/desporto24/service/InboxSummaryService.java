@@ -61,6 +61,8 @@ public class InboxSummaryService {
     private final ApplicationEventPublisher events;
     private final com.example.desporto24.repository.PrivateGroupMemberRepository groupMembers;
     private final com.example.desporto24.repository.PrivateGroupMessageRepository groupMessages;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ConversationNotificationMuteService mutes;
 
     @Transactional(readOnly = true)
     public List<InboxSummaryResponse> summaries(String username, InboxRequest request) {
@@ -83,6 +85,50 @@ public class InboxSummaryService {
             }
         }
         return result;
+    }
+
+    /** Cap on conversations counted per request (same bound as the clients' summary batches). */
+    static final int MAX_COUNTED_CONVERSATIONS = 300;
+
+    /**
+     * One number for the app's Messages badge: unread messages in every conversation the
+     * account can currently open (direct, community, session, private group), excluding muted
+     * conversations. Same per-conversation rules as {@link #summaries}; inaccessible ones count 0.
+     */
+    @Transactional(readOnly = true)
+    public long unreadTotal(String username) {
+        Profile actor = requireActor(username);
+        java.util.LinkedHashSet<String> refs = new java.util.LinkedHashSet<>();
+        for (String peer : chats.findConversationPeers(actor.getUsername(), PageRequest.of(0, 150))) {
+            try { refs.add("direct:" + canonicalKey("direct", peer)); } catch (ResponseStatusException ignored) { }
+        }
+        members.findByProfileIdOrderByJoinedAtDesc(actor.getId()).forEach(m -> {
+            if (m.getCommunity() != null && m.getCommunity().getId() != null) refs.add("community:" + m.getCommunity().getId());
+        });
+        communities.findByOwnerId(actor.getId()).forEach(c -> refs.add("community:" + c.getId()));
+        java.util.function.Consumer<Session> session = s -> {
+            if (s != null && s.getId() != null && s.getStatus() != com.example.desporto24.enumeration.SessionStatus.CANCELLED
+                    && s.getStatus() != com.example.desporto24.enumeration.SessionStatus.COMPLETED) refs.add("session:" + s.getId());
+        };
+        sessions.findByProfileIdOrderByGameDateAsc(actor.getId()).forEach(session);
+        participants.findByProfileIdAndStateOrderByJoinedAtAsc(actor.getId(), ParticipantState.ACTIVE)
+                .forEach(p -> session.accept(p.getSession()));
+        groupMembers.findByUsernameIgnoreCaseOrderByGroupIdDesc(actor.getUsername())
+                .forEach(g -> refs.add("private:" + g.getGroupId()));
+        long total = 0;
+        int counted = 0;
+        for (String ref : refs) {
+            if (++counted > MAX_COUNTED_CONVERSATIONS) break;
+            String kind = ref.substring(0, ref.indexOf(':'));
+            String key = ref.substring(ref.indexOf(':') + 1);
+            if (mutes != null && mutes.muted(actor.getUsername(), kind, key)) continue;
+            try {
+                total += Math.max(0, summary(actor, kind, key).unreadCount());
+            } catch (AccessDeniedException | ResponseStatusException | IllegalArgumentException e) {
+                // Membership or contact permission changed: this conversation simply does not count.
+            }
+        }
+        return total;
     }
 
     /**
