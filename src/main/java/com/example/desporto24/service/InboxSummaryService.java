@@ -210,7 +210,7 @@ public class InboxSummaryService {
                 id, CommunityTimelineEntry.Kind.CHAT, PageRequest.of(0, 1));
         if (latest.isEmpty()) return empty("community", key);
         var entry = latest.get(0);
-        return new InboxSummaryResponse("community", key, entry.getId(), entry.getBody(),
+        return new InboxSummaryResponse("community", key, entry.getId(), ChatMessagePreview.forText(entry.getBody()),
                 entry.getAuthor().getUsername(), entry.getCreatedAt(),
                 timelines.countUnread(id, CommunityTimelineEntry.Kind.CHAT, actor.getId(), readId));
     }
@@ -229,7 +229,7 @@ public class InboxSummaryService {
         // Recheck after reading messages: cancellation, expiry or removal can
         // revoke access while the preview/unread queries are in progress.
         requireSessionSummaryAccess(actor, session, id);
-        return new InboxSummaryResponse("session", key, entry.getId(), entry.getBody(),
+        return new InboxSummaryResponse("session", key, entry.getId(), ChatMessagePreview.forText(entry.getBody()),
                 entry.getSenderProfile().getUsername(), entry.getCreatedAt(), unread);
     }
 

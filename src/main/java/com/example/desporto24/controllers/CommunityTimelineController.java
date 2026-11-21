@@ -20,6 +20,9 @@ import java.util.List;
 @RequestMapping("/api/communities/{communityId}")
 public class CommunityTimelineController {
     private final CommunityTimelineService service;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.service.SessionCallUp sessionCallUp;
+
 
     @GetMapping("/posts")
     public List<CommunityTimelineEntryResponse> posts(
@@ -81,6 +84,7 @@ public class CommunityTimelineController {
     public CommunityTimelineEntryResponse message(
             @PathVariable Long communityId, @RequestBody @Valid CommunityTimelineEntryRequest request,
             Authentication authentication) {
+        if (sessionCallUp != null) sessionCallUp.validate(request.body(), authentication.getName());
         return service.post(communityId, Kind.CHAT, request.body(), authentication.getName(), request.replyToMessageId());
     }
 
