@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-21-tournament-public-page
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: community_tournament
+                columnName: public_page_enabled
+      changes:
+        - addColumn:
+            tableName: community_tournament
+            columns:
+              - column:
+                  name: public_page_enabled
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false

@@ -30,6 +30,11 @@ public class CommunityTournament {
     @Column(nullable = false, length = 120)
     private String name;
 
+    /** Opt-in by an Owner/Admin: anyone with the link can see the table and results. */
+    @Builder.Default
+    @Column(name = "public_page_enabled", nullable = false)
+    private boolean publicPageEnabled = false;
+
     // A competition has its own sport, independent of the community sport list.
     // Null is retained for old, previously sportless tournaments.
     @Column(name = "sport", length = 100)
