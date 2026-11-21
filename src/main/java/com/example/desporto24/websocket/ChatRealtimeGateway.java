@@ -201,7 +201,7 @@ public class ChatRealtimeGateway extends TextWebSocketHandler {
             String username, String kind, String conversationId, long lastReadMessageId) {
         if (username == null || username.isBlank()
                 || !("direct".equals(kind) || "community".equals(kind)
-                    || "session".equals(kind))
+                    || "session".equals(kind) || "private".equals(kind) || "team".equals(kind))
                 || conversationId == null || conversationId.isBlank()
                 || lastReadMessageId <= 0) return;
         Set<WebSocketSession> sockets = sessionsByUsername.get(username);

@@ -44,6 +44,10 @@ public class ChatReactionService {
     private final SessionParticipantRepository participants;
     private final CommunityChatRecipientResolver communityRecipients;
     private final ApplicationEventPublisher events;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.PrivateGroupMessageRepository privateGroupMessages;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.PrivateGroupMemberRepository privateGroupMembers;
 
     @Transactional(readOnly = true)
     public List<ChatReactionSummary> summaries(String username, String kind,
@@ -160,6 +164,20 @@ public class ChatReactionService {
                     }
                 }
             }
+            case "private" -> {
+                // Membership was checked by requireActor; only messages of this group
+                // sent since the member joined, and not deleted.
+                if (privateGroupMessages == null || privateGroupMembers == null) throw badRequest();
+                long id = Long.parseLong(conversationId);
+                var member = privateGroupMembers.findByGroupIdAndUsernameIgnoreCase(id, username).orElse(null);
+                if (member == null) break;
+                for (var msg : privateGroupMessages.findAllById(requested)) {
+                    if (msg.getGroupId() != null && id == msg.getGroupId() && msg.getDeletedAt() == null
+                            && !msg.getCreatedAt().isBefore(member.getJoinedAt())) {
+                        result.add(msg.getId());
+                    }
+                }
+            }
             default -> throw badRequest();
         }
         return result;
@@ -197,6 +215,13 @@ public class ChatReactionService {
             }
             case "community" -> {
                 return communityRecipients.currentRecipients(Long.parseLong(conversationId));
+            }
+            case "private" -> {
+                Set<String> recipients = new LinkedHashSet<>();
+                if (privateGroupMembers != null) privateGroupMembers
+                        .findByGroupIdOrderByJoinedAtAsc(Long.parseLong(conversationId))
+                        .forEach(m -> recipients.add(m.getUsername()));
+                return recipients;
             }
             default -> throw badRequest();
         }
