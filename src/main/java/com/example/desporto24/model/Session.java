@@ -65,6 +65,11 @@ public class Session {
     @Column(name = "play_format", length = 16)
     private com.example.desporto24.enumeration.SessionPlayFormat playFormat;
 
+    /** Level the session is aimed at; null = all levels welcome. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "skill_level", length = 16)
+    private com.example.desporto24.enumeration.SessionSkillLevel skillLevel;
+
     @Column(name = "max_participants")
     private Integer maxParticipants;
     

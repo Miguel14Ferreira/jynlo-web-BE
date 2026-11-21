@@ -60,10 +60,12 @@ public class SessionController {
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) String sort,
+            @RequestParam(required = false) String skillLevel,
             Authentication authentication) {
         SessionSearchCriteria criteria = new SessionSearchCriteria(
                 sport, city, from, to, latitude, longitude, radiusKm,
-                availability, privateGame, freeOnly, minPrice, maxPrice, sort, query
+                availability, privateGame, freeOnly, minPrice, maxPrice, sort, query,
+                com.example.desporto24.enumeration.SessionSkillLevel.parseOrNull(skillLevel)
         );
 
         if (authentication == null
@@ -73,6 +75,16 @@ public class SessionController {
         }
 
         return sessionService.discover(criteria, authentication.getName());
+    }
+
+    /** Former signature (before the level filter), kept for direct Java callers. */
+    public List<SessionSummaryResponse> discover(
+            String sport, String city, String query, Instant from, Instant to,
+            Double latitude, Double longitude, Double radiusKm, String availability,
+            Boolean privateGame, Boolean freeOnly, BigDecimal minPrice, BigDecimal maxPrice,
+            String sort, Authentication authentication) {
+        return discover(sport, city, query, from, to, latitude, longitude, radiusKm, availability,
+                privateGame, freeOnly, minPrice, maxPrice, sort, null, authentication);
     }
 
     @GetMapping("/mine")
@@ -185,6 +197,18 @@ public class SessionController {
             @RequestParam int maxParticipants,
             Authentication authentication) {
         return sessionService.updateCapacity(id, maxParticipants, authentication.getName());
+    }
+
+    /** Organizer-only: the level the session is aimed at (null = all levels). */
+    public record SkillLevelRequest(com.example.desporto24.enumeration.SessionSkillLevel skillLevel) {}
+
+    @PatchMapping("/{id}/skill-level")
+    public SessionDetailResponse updateSkillLevel(
+            @PathVariable Long id,
+            @RequestBody SkillLevelRequest request,
+            Authentication authentication) {
+        return sessionService.updateSkillLevel(id, request == null ? null : request.skillLevel(),
+                authentication.getName());
     }
 
     @PatchMapping("/{id}/meeting-point")

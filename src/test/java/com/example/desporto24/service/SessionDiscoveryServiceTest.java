@@ -495,6 +495,40 @@ class SessionDiscoveryServiceTest {
         return session;
     }
 
+    @Test
+    void levelFilterKeepsMatchingAndAllLevelSessionsOnly() {
+        java.util.function.BiFunction<Long, com.example.desporto24.enumeration.SessionSkillLevel, Session> make = (id, level) -> {
+            Session session = new Session();
+            session.setId(id);
+            session.setAudience(SessionAudience.PUBLIC);
+            session.setSkillLevel(level);
+            return session;
+        };
+        Session beginner = make.apply(1L, com.example.desporto24.enumeration.SessionSkillLevel.BEGINNER);
+        Session intermediate = make.apply(2L, com.example.desporto24.enumeration.SessionSkillLevel.INTERMEDIATE);
+        Session allLevels = make.apply(3L, null);
+        when(sessionRepository.discoverCandidates(
+                anyCollection(), any(Date.class), anyString(), anyString(), anyString(), nullable(Date.class), nullable(Date.class),
+                nullable(Boolean.class), anyBoolean(), nullable(java.math.BigDecimal.class), nullable(java.math.BigDecimal.class)))
+                .thenReturn(List.of(beginner, intermediate, allLevels));
+        for (Session session : List.of(beginner, intermediate, allLevels)) {
+            when(sessionViewMapper.toSummary(eq(session), isNull(), anyMap(), anySet(), anySet()))
+                    .thenReturn(new SessionSummaryResponse(session.getId(), "Padel", "Lisboa",
+                            Instant.parse("2026-12-01T18:00:00Z"), null, 2, 4, java.math.BigDecimal.ZERO,
+                            false, com.example.desporto24.enumeration.SessionStatus.OPEN)
+                            .withSkillLevel(session.getSkillLevel()));
+        }
+
+        List<SessionSummaryResponse> result = service.discover(new SessionSearchCriteria(
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                com.example.desporto24.enumeration.SessionSkillLevel.INTERMEDIATE));
+
+        assertEquals(List.of(2L, 3L), result.stream().map(SessionSummaryResponse::id).sorted().toList());
+        assertEquals(com.example.desporto24.enumeration.SessionSkillLevel.ADVANCED,
+                com.example.desporto24.enumeration.SessionSkillLevel.parseOrNull(" advanced "));
+        assertEquals(null, com.example.desporto24.enumeration.SessionSkillLevel.parseOrNull("pro"));
+    }
+
     private SessionSearchCriteria criteria(
             String sport, String city, Instant from, Instant to,
             Double latitude, Double longitude, Double radiusKm,
