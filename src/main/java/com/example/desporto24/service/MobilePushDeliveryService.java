@@ -40,12 +40,18 @@ public class MobilePushDeliveryService {
 
     public record StoredNotification(String username, Long notificationId,
             String category, Long sessionId, Long communityId, String relatedUsername,
-            boolean permitted, Long privateGroupId) {
+            boolean permitted, Long privateGroupId, Long sportsTeamId) {
+        /** Preserve callers that predate team chat alerts. */
+        public StoredNotification(String username, Long notificationId,
+                String category, Long sessionId, Long communityId, String relatedUsername,
+                boolean permitted, Long privateGroupId) {
+            this(username, notificationId, category, sessionId, communityId, relatedUsername, permitted, privateGroupId, null);
+        }
         /** Preserve callers that predate private group alerts. */
         public StoredNotification(String username, Long notificationId,
                 String category, Long sessionId, Long communityId, String relatedUsername,
                 boolean permitted) {
-            this(username, notificationId, category, sessionId, communityId, relatedUsername, permitted, null);
+            this(username, notificationId, category, sessionId, communityId, relatedUsername, permitted, null, null);
         }
     }
 
@@ -70,7 +76,9 @@ public class MobilePushDeliveryService {
             // be checked against per-conversation mutes: fail closed.
             String kind;
             String key;
-            if (event.privateGroupId()!=null && event.privateGroupId()>0) {
+            if (event.sportsTeamId()!=null && event.sportsTeamId()>0) {
+                kind="team"; key=event.sportsTeamId().toString();
+            } else if (event.privateGroupId()!=null && event.privateGroupId()>0) {
                 kind="private"; key=event.privateGroupId().toString();
             } else if (event.sessionId()!=null && event.sessionId()>0) {
                 kind="session"; key=event.sessionId().toString();

@@ -28,4 +28,22 @@ public interface SportsTeamContentRepository extends JpaRepository<SportsTeamCon
             @org.springframework.data.repository.query.Param("term") String term, Pageable pageable);
 
     boolean existsByTeamId(Long teamId);
+
+    /** Latest visible entry, for the inbox preview of a team chat. */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "author")
+    List<SportsTeamContent> findByTeamIdAndKindAndDeletedAtIsNullOrderByIdDesc(
+            Long teamId, SportsTeamContent.Kind kind, Pageable pageable);
+
+    /** Unread count for one member: visible entries after the read cursor, not written by them. */
+    @org.springframework.data.jpa.repository.Query("""
+        select count(content) from SportsTeamContent content
+        where content.team.id = :teamId and content.kind = :kind
+          and content.deletedAt is null and content.id > :afterId
+          and content.author.id <> :viewerId
+        """)
+    long countUnread(
+            @org.springframework.data.repository.query.Param("teamId") Long teamId,
+            @org.springframework.data.repository.query.Param("kind") SportsTeamContent.Kind kind,
+            @org.springframework.data.repository.query.Param("afterId") long afterId,
+            @org.springframework.data.repository.query.Param("viewerId") Long viewerId);
 }

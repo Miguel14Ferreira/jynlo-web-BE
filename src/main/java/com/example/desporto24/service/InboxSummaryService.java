@@ -63,6 +63,14 @@ public class InboxSummaryService {
     private final com.example.desporto24.repository.PrivateGroupMessageRepository groupMessages;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ConversationNotificationMuteService mutes;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SportsTeamContentService teamContent;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.team.SportsTeamContentRepository teamEntries;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.team.SportsTeamRepository sportsTeams;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.team.SportsTeamMemberRepository sportsTeamMembers;
 
     @Transactional(readOnly = true)
     public List<InboxSummaryResponse> summaries(String username, InboxRequest request) {
@@ -115,6 +123,12 @@ public class InboxSummaryService {
                 .forEach(p -> session.accept(p.getSession()));
         groupMembers.findByUsernameIgnoreCaseOrderByGroupIdDesc(actor.getUsername())
                 .forEach(g -> refs.add("private:" + g.getGroupId()));
+        if (sportsTeams != null && sportsTeamMembers != null && teamContent != null && teamEntries != null) {
+            sportsTeams.findByOwnerIdOrderByIdDesc(actor.getId()).forEach(t -> refs.add("team:" + t.getId()));
+            sportsTeamMembers.findByProfileIdAndStatusOrderByIdDesc(actor.getId(),
+                    com.example.desporto24.model.team.SportsTeamMember.Status.ACTIVE)
+                    .forEach(m -> { if (m.getTeam() != null) refs.add("team:" + m.getTeam().getId()); });
+        }
         long total = 0;
         int counted = 0;
         for (String ref : refs) {
@@ -193,6 +207,9 @@ public class InboxSummaryService {
                     && !groupMembers.existsByGroupIdAndUsernameIgnoreCase(Long.parseLong(key), actor.getUsername())) {
                 // Removed from the group after the preview: never write a cursor.
                 throw new AccessDeniedException("No accessible group");
+            } else if ("team".equals(kind)) {
+                // Removed from the team or chat turned off after the preview: recheck before writing.
+                teamSummary(actor, Long.parseLong(key), key, 0L);
             }
             // Atomic monotonic upsert: concurrent tabs/devices must never move
             // the read cursor backwards, nor create duplicate rows.
@@ -223,6 +240,7 @@ public class InboxSummaryService {
             case "community" -> communitySummary(actor, Long.parseLong(key), key, readId);
             case "session" -> sessionSummary(actor, Long.parseLong(key), key, readId);
             case "private" -> privateGroupSummary(actor, Long.parseLong(key), key, readId);
+            case "team" -> teamSummary(actor, Long.parseLong(key), key, readId);
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid conversation kind");
         };
     }
@@ -299,6 +317,24 @@ public class InboxSummaryService {
                 entry.getSenderUsername(), entry.getCreatedAt(), unread);
     }
 
+    /** Sports team chats: owner and active members, while the team chat is on. */
+    private InboxSummaryResponse teamSummary(Profile actor, Long id, String key, long readId) {
+        if (teamContent == null || teamEntries == null) throw new AccessDeniedException("No accessible team");
+        try {
+            teamContent.requireChatAccess(id, actor);
+        } catch (org.springframework.security.access.AccessDeniedException | ResponseStatusException denied) {
+            throw new AccessDeniedException("No accessible team");
+        }
+        var latest = teamEntries.findByTeamIdAndKindAndDeletedAtIsNullOrderByIdDesc(
+                id, com.example.desporto24.model.team.SportsTeamContent.Kind.CHAT, PageRequest.of(0, 1));
+        if (latest.isEmpty()) return empty("team", key);
+        var entry = latest.get(0);
+        long unread = teamEntries.countUnread(id, com.example.desporto24.model.team.SportsTeamContent.Kind.CHAT,
+                readId, actor.getId());
+        return new InboxSummaryResponse("team", key, entry.getId(), ChatMessagePreview.forText(entry.getBody()),
+                entry.getAuthor() == null ? null : entry.getAuthor().getUsername(), entry.getCreatedAt(), unread);
+    }
+
     private void requireSessionSummaryAccess(Profile actor, Session session, Long id) {
         if (!SessionChatService.isChatOpen(session, java.time.Instant.now())) {
             throw new AccessDeniedException("Session chat is no longer available");
@@ -324,7 +360,8 @@ public class InboxSummaryService {
         if (kind == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid kind");
         String normalized = kind.toLowerCase(Locale.ROOT);
         if (!normalized.equals("direct") && !normalized.equals("community")
-                && !normalized.equals("session") && !normalized.equals("private")) {
+                && !normalized.equals("session") && !normalized.equals("private")
+                && !normalized.equals("team")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid kind");
         }
         return normalized;

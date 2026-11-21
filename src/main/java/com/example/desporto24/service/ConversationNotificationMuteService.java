@@ -25,7 +25,7 @@ public class ConversationNotificationMuteService {
     public static String kind(String raw) {
         if (raw == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid conversation kind");
         String value = raw.toLowerCase(Locale.ROOT);
-        if (!List.of("direct", "community", "session", "private").contains(value))
+        if (!List.of("direct", "community", "session", "private", "team").contains(value))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid conversation kind");
         return value;
     }
