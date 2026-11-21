@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-21-chat-read-cursor-private
+      author: jynlo
+      changes:
+        - sql:
+            dbms: postgresql
+            sql: |-
+              ALTER TABLE desporto24.chat_read_cursor DROP CONSTRAINT IF EXISTS ck_chat_read_cursor_kind;
+              ALTER TABLE desporto24.chat_read_cursor
+              ADD CONSTRAINT ck_chat_read_cursor_kind
+              CHECK (conversation_kind IN ('direct', 'community', 'session', 'private'));
