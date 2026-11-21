@@ -520,3 +520,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-21-team-chat-alerts.yaml
   - include:
       file: db/changelog/changes/2026-11-21-private-group-chat-features.yaml
+  - include:
+      file: db/changelog/changes/2026-11-21-session-invite-reminder.yaml

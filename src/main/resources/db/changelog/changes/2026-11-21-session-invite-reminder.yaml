@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-21-session-invite-reminder
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            columnExists:
+              tableName: session_invite
+              columnName: reminder_sent_at
+      changes:
+        - addColumn:
+            tableName: session_invite
+            columns:
+              - column:
+                  name: reminder_sent_at
+                  type: TIMESTAMP WITH TIME ZONE

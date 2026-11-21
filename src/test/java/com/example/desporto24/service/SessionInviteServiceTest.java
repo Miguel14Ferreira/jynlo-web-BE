@@ -334,7 +334,7 @@ class SessionInviteServiceTest {
                 .thenReturn(java.util.List.of(p0, p1, p2));
         when(profiles.findUserByUsernameIgnoreCase("ana")).thenReturn(Optional.of(ana));
         when(profiles.findUserByUsernameIgnoreCase("rui")).thenReturn(Optional.of(rui));
-        when(participants.existsBySessionIdAndProfileIdAndState(1L, 31L, com.example.desporto24.enumeration.ParticipantState.ACTIVE)).thenReturn(true);
+        lenient().when(participants.existsBySessionIdAndProfileIdAndState(1L, 31L, com.example.desporto24.enumeration.ParticipantState.ACTIVE)).thenReturn(true);
         when(invites.save(any(SessionInvite.class))).thenAnswer(call -> { SessionInvite v = call.getArgument(0); v.setId(5L); return v; });
         var summary = service.inviteFromPrevious(1L, 2L, "organizador");
         assertEquals(1, summary.invited());
