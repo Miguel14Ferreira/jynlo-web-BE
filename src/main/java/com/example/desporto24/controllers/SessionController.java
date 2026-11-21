@@ -77,6 +77,16 @@ public class SessionController {
         return sessionService.discover(criteria, authentication.getName());
     }
 
+    /** Former signature (before the level filter), kept for direct Java callers. */
+    public List<SessionSummaryResponse> discover(
+            String sport, String city, String query, Instant from, Instant to,
+            Double latitude, Double longitude, Double radiusKm, String availability,
+            Boolean privateGame, Boolean freeOnly, BigDecimal minPrice, BigDecimal maxPrice,
+            String sort, Authentication authentication) {
+        return discover(sport, city, query, from, to, latitude, longitude, radiusKm, availability,
+                privateGame, freeOnly, minPrice, maxPrice, sort, null, authentication);
+    }
+
     @GetMapping("/mine")
     public MySessionsResponse mine(Authentication authentication) {
         return sessionService.mine(authentication.getName());
