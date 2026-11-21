@@ -59,6 +59,8 @@ public class InboxSummaryService {
     private final SessionMessageRepository sessionMessages;
     private final ChatReadCursorRepository cursors;
     private final ApplicationEventPublisher events;
+    private final com.example.desporto24.repository.PrivateGroupMemberRepository groupMembers;
+    private final com.example.desporto24.repository.PrivateGroupMessageRepository groupMessages;
 
     @Transactional(readOnly = true)
     public List<InboxSummaryResponse> summaries(String username, InboxRequest request) {
@@ -141,6 +143,10 @@ public class InboxSummaryService {
                 Session current = sessions.findById(sessionId)
                         .orElseThrow(() -> new AccessDeniedException("No accessible session"));
                 requireSessionSummaryAccess(actor, current, sessionId);
+            } else if ("private".equals(kind)
+                    && !groupMembers.existsByGroupIdAndUsernameIgnoreCase(Long.parseLong(key), actor.getUsername())) {
+                // Removed from the group after the preview: never write a cursor.
+                throw new AccessDeniedException("No accessible group");
             }
             // Atomic monotonic upsert: concurrent tabs/devices must never move
             // the read cursor backwards, nor create duplicate rows.
@@ -170,6 +176,7 @@ public class InboxSummaryService {
             case "direct" -> directSummary(actor, key, readId);
             case "community" -> communitySummary(actor, Long.parseLong(key), key, readId);
             case "session" -> sessionSummary(actor, Long.parseLong(key), key, readId);
+            case "private" -> privateGroupSummary(actor, Long.parseLong(key), key, readId);
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid conversation kind");
         };
     }
@@ -233,6 +240,19 @@ public class InboxSummaryService {
                 entry.getSenderProfile().getUsername(), entry.getCreatedAt(), unread);
     }
 
+    /** Private group chats: members only, and only messages sent since they joined. */
+    private InboxSummaryResponse privateGroupSummary(Profile actor, Long id, String key, long readId) {
+        var membership = groupMembers.findByGroupIdAndUsernameIgnoreCase(id, actor.getUsername())
+                .orElseThrow(() -> new AccessDeniedException("No accessible group"));
+        var latest = groupMessages.findByGroupIdAndCreatedAtGreaterThanEqualOrderByIdDesc(
+                id, membership.getJoinedAt(), PageRequest.of(0, 1));
+        if (latest.isEmpty()) return empty("private", key);
+        var entry = latest.get(0);
+        long unread = groupMessages.countUnread(id, membership.getJoinedAt(), readId, actor.getUsername());
+        return new InboxSummaryResponse("private", key, entry.getId(), ChatMessagePreview.forText(entry.getBody()),
+                entry.getSenderUsername(), entry.getCreatedAt(), unread);
+    }
+
     private void requireSessionSummaryAccess(Profile actor, Session session, Long id) {
         if (!SessionChatService.isChatOpen(session, java.time.Instant.now())) {
             throw new AccessDeniedException("Session chat is no longer available");
@@ -258,7 +278,7 @@ public class InboxSummaryService {
         if (kind == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid kind");
         String normalized = kind.toLowerCase(Locale.ROOT);
         if (!normalized.equals("direct") && !normalized.equals("community")
-                && !normalized.equals("session")) {
+                && !normalized.equals("session") && !normalized.equals("private")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid kind");
         }
         return normalized;

@@ -56,6 +56,8 @@ class InboxSummaryServiceTest {
     @Mock SessionMessageRepository sessionMessages;
     @Mock ChatReadCursorRepository cursors;
     @Mock ApplicationEventPublisher events;
+    @Mock com.example.desporto24.repository.PrivateGroupMemberRepository groupMembers;
+    @Mock com.example.desporto24.repository.PrivateGroupMessageRepository groupMessages;
     @InjectMocks InboxSummaryService service;
 
     private Profile profile(long id, String username) {
@@ -466,5 +468,59 @@ class InboxSummaryServiceTest {
         assertThrows(ResponseStatusException.class,
                 () -> service.summaries("ana", request(reference("session", "1 OR 1=1"))));
         verifyNoInteractions(chats, timelines, sessionMessages);
+    }
+
+    private com.example.desporto24.model.PrivateGroupMember groupMember(Instant joined) {
+        var m = new com.example.desporto24.model.PrivateGroupMember();
+        m.setGroupId(5L); m.setUsername("ana"); m.setJoinedAt(joined);
+        return m;
+    }
+
+    @Test
+    void privateGroupSummaryCountsOnlyOthersMessagesSinceJoiningAfterTheCursor() {
+        actor();
+        Instant joined = Instant.parse("2026-11-01T10:00:00Z");
+        when(groupMembers.findByGroupIdAndUsernameIgnoreCase(5L, "ana")).thenReturn(Optional.of(groupMember(joined)));
+        var last = new com.example.desporto24.model.PrivateGroupMessage();
+        last.setId(30L); last.setGroupId(5L); last.setSenderUsername("rui"); last.setBody("Bora?");
+        last.setCreatedAt(Instant.parse("2026-11-21T18:00:00Z"));
+        when(groupMessages.findByGroupIdAndCreatedAtGreaterThanEqualOrderByIdDesc(eq(5L), eq(joined), any(Pageable.class)))
+                .thenReturn(List.of(last));
+        ChatReadCursor cursor = new ChatReadCursor();
+        cursor.setLastReadMessageId(27L);
+        when(cursors.findByProfileIdAndConversationKindAndConversationKey(1L, "private", "5"))
+                .thenReturn(Optional.of(cursor));
+        when(groupMessages.countUnread(5L, joined, 27L, "ana")).thenReturn(2L);
+
+        var values = service.summaries("ana", request(reference("PRIVATE", "5")));
+        assertEquals(1, values.size());
+        assertEquals("private", values.get(0).kind());
+        assertEquals(30L, values.get(0).latestMessageId());
+        assertEquals("rui", values.get(0).latestSender());
+        assertEquals(2, values.get(0).unreadCount());
+    }
+
+    @Test
+    void nonMembersGetNoPrivateGroupSummary() {
+        actor();
+        when(groupMembers.findByGroupIdAndUsernameIgnoreCase(5L, "ana")).thenReturn(Optional.empty());
+        assertTrue(service.summaries("ana", request(reference("private", "5"))).isEmpty());
+        verifyNoInteractions(groupMessages);
+    }
+
+    @Test
+    void readingAPrivateGroupAdvancesTheCursorOnlyForCurrentMembers() {
+        actor();
+        Instant joined = Instant.parse("2026-11-01T10:00:00Z");
+        when(groupMembers.findByGroupIdAndUsernameIgnoreCase(5L, "ana")).thenReturn(Optional.of(groupMember(joined)));
+        var last = new com.example.desporto24.model.PrivateGroupMessage();
+        last.setId(30L); last.setGroupId(5L); last.setSenderUsername("rui"); last.setBody("Bora?");
+        last.setCreatedAt(Instant.parse("2026-11-21T18:00:00Z"));
+        when(groupMessages.findByGroupIdAndCreatedAtGreaterThanEqualOrderByIdDesc(eq(5L), eq(joined), any(Pageable.class)))
+                .thenReturn(List.of(last));
+        when(groupMembers.existsByGroupIdAndUsernameIgnoreCase(5L, "ana")).thenReturn(true);
+
+        service.markRead("ana", new com.example.desporto24.model.dto.chat.InboxReadRequest("private", "5", 30L));
+        verify(cursors).advance(1L, "private", "5", 30L);
     }
 }
