@@ -48,6 +48,16 @@ public class CommunityTournamentTeamStandingsService {
         if (!members.existsByCommunityIdAndProfileId(communityId, actor.getId())) {
             throw new AccessDeniedException("Não pertences a esta comunidade");
         }
+        return compute(communityId, tournamentId);
+    }
+
+    /** The same table without a membership check: only for tournaments with a public page. */
+    @Transactional(readOnly = true)
+    public CommunityTournamentTeamStandingsResponse publicStandings(Long communityId, Long tournamentId) {
+        return compute(communityId, tournamentId);
+    }
+
+    private CommunityTournamentTeamStandingsResponse compute(Long communityId, Long tournamentId) {
         var tournament = tournaments.findById(tournamentId)
                 .orElseThrow(this::notFound);
         if (!tournament.getCommunity().getId().equals(communityId)) throw notFound();
