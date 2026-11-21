@@ -37,8 +37,13 @@ public class SessionPaymentService {
 
     public record Mine(Instant claimedAt, Instant confirmedAt) {}
     public record Player(String username, String profilePicUrl, Instant claimedAt, Instant confirmedAt) {}
-    public record Payments(BigDecimal priceAmount, boolean organiser, String mbwayPhone,
-                           Mine me, int confirmedCount, int playerCount, List<Player> players) {}
+    public record Payments(BigDecimal priceAmount, boolean organiser, String method, String mbwayPhone,
+                           Mine me, int confirmedCount, int playerCount, List<Player> players,
+                           Instant lastReminderAt) {}
+
+    public static final String MBWAY = "MBWAY";
+    public static final String IN_PERSON = "IN_PERSON";
+    static final java.time.Duration REMINDER_GAP = java.time.Duration.ofHours(12);
 
     private final SessionRepository sessions;
     private final ProfileRepository profiles;
@@ -46,29 +51,80 @@ public class SessionPaymentService {
     private final SessionPaymentSetupRepository setups;
     private final SessionParticipantPaymentRepository payments;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.NotificationsRepository notifications;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificationPreferencesService preferences;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher pushEvents;
+
     @Transactional(readOnly = true)
     public Payments get(Long sessionId, String username) {
         Access access = access(sessionId, username);
         return view(access);
     }
 
-    /** Organiser only. A blank number removes MB WAY from the session. */
+    /**
+     * Organiser only: how players pay. MBWAY needs the organiser's number;
+     * IN_PERSON means on the day (cash or MB WAY there). Null method clears it.
+     */
     @Transactional
-    public Payments setMbway(Long sessionId, String username, String phone) {
+    public Payments setMethod(Long sessionId, String username, String method, String phone) {
         Access access = access(sessionId, username);
-        if (!access.organiser()) throw forbidden("Só o organizador pode indicar o número MB WAY");
-        if (phone == null || phone.isBlank()) {
-            setups.deleteById(sessionId);
-        } else {
-            SessionPaymentSetup setup = setups.findById(sessionId).orElseGet(() -> {
-                SessionPaymentSetup fresh = new SessionPaymentSetup();
-                fresh.setSessionId(sessionId);
-                return fresh;
-            });
-            setup.setMbwayPhone(normalisePhone(phone));
-            setup.setUpdatedAt(Instant.now());
-            setups.save(setup);
+        if (!access.organiser()) throw forbidden("Só o organizador pode escolher como se paga");
+        if (method == null || method.isBlank()) {
+            if (setups.existsById(sessionId)) setups.deleteById(sessionId);
+            return view(access);
         }
+        if (!MBWAY.equals(method) && !IN_PERSON.equals(method)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Forma de pagamento inválida");
+        }
+        SessionPaymentSetup setup = setups.findById(sessionId).orElseGet(() -> {
+            SessionPaymentSetup fresh = new SessionPaymentSetup();
+            fresh.setSessionId(sessionId);
+            return fresh;
+        });
+        setup.setMethod(method);
+        setup.setMbwayPhone(MBWAY.equals(method) ? normalisePhone(phone == null ? "" : phone) : null);
+        setup.setUpdatedAt(Instant.now());
+        setups.save(setup);
+        return view(access);
+    }
+
+    /**
+     * Organiser only: in-app (and push) reminder to every player not yet confirmed.
+     * At most once every 12 hours per session, so it never turns into spam.
+     */
+    @Transactional
+    public Payments remindUnpaid(Long sessionId, String username) {
+        Access access = access(sessionId, username);
+        if (!access.organiser()) throw forbidden("Só o organizador pode lembrar os pagamentos");
+        SessionPaymentSetup setup = setups.findById(sessionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Escolhe primeiro como se paga"));
+        Instant now = Instant.now();
+        if (setup.getLastReminderAt() != null && setup.getLastReminderAt().plus(REMINDER_GAP).isAfter(now)) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Já enviaste um lembrete há menos de 12 horas");
+        }
+        List<SessionParticipant> players = active(sessionId).stream()
+                .filter(p -> p.getProfile() != null && !isOrganiser(access.session(), p.getProfile()))
+                .toList();
+        Map<Long, SessionParticipantPayment> rows = payments
+                .findAllById(players.stream().map(SessionParticipant::getId).toList())
+                .stream().collect(Collectors.toMap(SessionParticipantPayment::getParticipantId, Function.identity()));
+        String amount = amountLabel(access.session().getPriceAmount());
+        String how = MBWAY.equals(setup.getMethod()) && setup.getMbwayPhone() != null
+                ? " por MB WAY para " + setup.getMbwayPhone()
+                : " ao organizador";
+        for (SessionParticipant player : players) {
+            SessionParticipantPayment row = rows.get(player.getId());
+            if (row != null && row.getConfirmedAt() != null) continue;
+            notify(player.getProfile(), access.session(), "Falta pagar o jogo de " + sport(access.session()),
+                    "Paga " + amount + how + ". Quando pagares, marca \"Já paguei\" na sessão.");
+        }
+        setup.setLastReminderAt(now);
+        setups.save(setup);
         return view(access);
     }
 
@@ -145,7 +201,8 @@ public class SessionPaymentService {
                 .stream().collect(Collectors.toMap(SessionParticipantPayment::getParticipantId, Function.identity()));
         int confirmed = (int) players.stream()
                 .filter(p -> rows.containsKey(p.getId()) && rows.get(p.getId()).getConfirmedAt() != null).count();
-        String phone = setups.findById(sessionId).map(SessionPaymentSetup::getMbwayPhone).orElse(null);
+        var setup = setups.findById(sessionId).orElse(null);
+        String phone = setup == null ? null : setup.getMbwayPhone();
         Mine mine = null;
         if (access.mine() != null) {
             SessionParticipantPayment row = rows.get(access.mine().getId());
@@ -156,8 +213,45 @@ public class SessionPaymentService {
             return new Player(p.getProfile().getUsername(), p.getProfile().getProfilePicUrl(),
                     row == null ? null : row.getClaimedAt(), row == null ? null : row.getConfirmedAt());
         }).toList();
-        return new Payments(access.session().getPriceAmount(), access.organiser(), phone, mine,
-                confirmed, players.size(), list);
+        return new Payments(access.session().getPriceAmount(), access.organiser(),
+                setup == null ? null : setup.getMethod(), phone, mine, confirmed, players.size(), list,
+                access.organiser() && setup != null ? setup.getLastReminderAt() : null);
+    }
+
+    private void notify(Profile recipient, Session session, String subject, String message) {
+        if (notifications == null || recipient == null || recipient.getUsername() == null) return;
+        var notification = new com.example.desporto24.register.Notifications.Notifications();
+        notification.setUsername(recipient.getUsername());
+        notification.setSubject(subject);
+        notification.setMessage(message);
+        notification.setGreeting("");
+        notification.setSignature("");
+        notification.setCreatedAt(Instant.now().toString());
+        notification.setFriendRequest(false);
+        notification.setUpdateProfile(false);
+        notification.setSessionInvite(false);
+        notification.setNormalMessage(false);
+        notification.setToken(null);
+        notification.setType(com.example.desporto24.enumeration.NotificationType.PAYMENT_REMINDER);
+        notification.setSessionId(session.getId());
+        notification.setRead(false);
+        if (preferences != null && !preferences.allowsInApp(recipient.getUsername(), notification)) return;
+        var saved = notifications.save(notification);
+        if (pushEvents != null && saved != null && saved.getId() != null) {
+            pushEvents.publishEvent(new MobilePushDeliveryService.StoredNotification(
+                    saved.getUsername(), saved.getId(), NotificationPreferencesService.category(saved),
+                    saved.getSessionId(), null, null, true));
+        }
+    }
+
+    private static String amountLabel(BigDecimal amount) {
+        if (amount == null) return "a tua parte";
+        return amount.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString().replace('.', ',') + " €";
+    }
+
+    private static String sport(Session session) {
+        String sport = session.getSport();
+        return sport == null || sport.isBlank() ? "jogo" : sport.strip();
     }
 
     private List<SessionParticipant> active(Long sessionId) {

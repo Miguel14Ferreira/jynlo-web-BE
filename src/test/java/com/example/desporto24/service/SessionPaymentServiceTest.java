@@ -76,13 +76,40 @@ class SessionPaymentServiceTest {
 
     @Test
     void organiserSetsMbwayAndOnlyPlayersSeeIt() {
-        var view = service.setMbway(7L, "ana", "+351 912 345 678");
+        var view = service.setMethod(7L, "ana", "MBWAY", "+351 912 345 678");
         assertEquals("912345678", view.mbwayPhone());
+        assertEquals("MBWAY", view.method());
         assertEquals(2, view.playerCount(), "organiser is not counted as a payer");
         assertEquals("912345678", service.get(7L, "rui").mbwayPhone());
         assertTrue(service.get(7L, "rui").players().isEmpty(), "players do not see each other's status");
         assertThrows(ResponseStatusException.class, () -> service.get(7L, "intruso"));
-        assertThrows(ResponseStatusException.class, () -> service.setMbway(7L, "rui", "912345678"));
+        assertThrows(ResponseStatusException.class, () -> service.setMethod(7L, "rui", "MBWAY", "912345678"));
+
+        var inPerson = service.setMethod(7L, "ana", "IN_PERSON", "912345678");
+        assertEquals("IN_PERSON", inPerson.method());
+        assertNull(inPerson.mbwayPhone(), "no number is kept for payment on the day");
+        assertThrows(ResponseStatusException.class, () -> service.setMethod(7L, "ana", "BITCOIN", null));
+        assertThrows(ResponseStatusException.class, () -> service.setMethod(7L, "ana", "MBWAY", null));
+    }
+
+    @Test
+    void reminderGoesOnlyToUnconfirmedPlayersAndNotTwiceIn12Hours() {
+        var notifications = mock(com.example.desporto24.repository.NotificationsRepository.class);
+        when(notifications.save(any())).thenAnswer(i -> i.getArgument(0));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "notifications", notifications);
+        assertThrows(ResponseStatusException.class, () -> service.remindUnpaid(7L, "ana"), "needs a payment method first");
+        service.setMethod(7L, "ana", "MBWAY", "912345678");
+        service.confirm(7L, "ana", "rui", true);
+
+        service.remindUnpaid(7L, "ana");
+        var captor = org.mockito.ArgumentCaptor.forClass(com.example.desporto24.register.Notifications.Notifications.class);
+        verify(notifications, times(1)).save(captor.capture());
+        assertEquals("bea", captor.getValue().getUsername());
+        assertTrue(captor.getValue().getMessage().contains("4,00 € por MB WAY para 912345678"), captor.getValue().getMessage());
+        assertEquals(com.example.desporto24.enumeration.NotificationType.PAYMENT_REMINDER, captor.getValue().getType());
+
+        assertThrows(ResponseStatusException.class, () -> service.remindUnpaid(7L, "ana"));
+        assertThrows(ResponseStatusException.class, () -> service.remindUnpaid(7L, "rui"));
     }
 
     @Test

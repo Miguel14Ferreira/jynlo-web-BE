@@ -30,5 +30,7 @@ public enum NotificationType {
     /** A tournament result involving the recipient was recorded or corrected. */
     TOURNAMENT_RESULT,
     /** The leader of a league the recipient plays in changed. */
-    TOURNAMENT_LEADER
+    TOURNAMENT_LEADER,
+    /** The organiser asked players who have not paid yet to pay. */
+    PAYMENT_REMINDER
 }

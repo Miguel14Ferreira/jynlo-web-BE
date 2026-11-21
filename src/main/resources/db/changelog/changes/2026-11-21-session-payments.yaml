@@ -22,10 +22,16 @@ databaseChangeLog:
                     references: session(id)
                     deleteCascade: true
               - column:
-                  name: mbway_phone
+                  name: method
                   type: VARCHAR(16)
                   constraints:
                     nullable: false
+              - column:
+                  name: mbway_phone
+                  type: VARCHAR(16)
+              - column:
+                  name: last_reminder_at
+                  type: TIMESTAMP WITH TIME ZONE
               - column:
                   name: updated_at
                   type: TIMESTAMP WITH TIME ZONE
@@ -59,3 +65,13 @@ databaseChangeLog:
               - column:
                   name: confirmed_at
                   type: TIMESTAMP WITH TIME ZONE
+  - changeSet:
+      id: 2026-11-21-payment-reminder-notification-type
+      author: jynlo
+      changes:
+        - sql:
+            dbms: postgresql
+            sql: |-
+              ALTER TABLE desporto24.notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+              ALTER TABLE desporto24.notifications ADD CONSTRAINT notifications_type_check
+              CHECK (type IS NULL OR type IN ('WAITLIST_PROMOTED', 'SESSION_REMOVED', 'SESSION_CANCELLED', 'SESSION_MEETING_POINT_UPDATED', 'SESSION_DETAILS_UPDATED', 'SESSION_POST_GAME_REVIEW', 'ATTENDANCE_DISPUTE_ACCEPTED', 'ATTENDANCE_DISPUTE_REJECTED', 'COMMUNITY_INVITE', 'COMMUNITY_JOIN_REQUEST', 'COMMUNITY_JOIN_ACCEPTED', 'COMMUNITY_JOIN_REJECTED', 'SESSION_INVITE', 'CHAT_MESSAGE', 'ADMIN_MESSAGE', 'VENUE_EDIT_DECISION', 'SOCIAL_NEW_FOLLOWER', 'SOCIAL_POST_LIKED', 'SOCIAL_POST_COMMENTED', 'TEAM_MEMBER_INVITE', 'TEAM_ADMIN_TRANSFER', 'TEAM_ADMIN_ASSIGNED', 'SOCIAL_STORY_LIKED', 'SOCIAL_STORY_REPLIED', 'SESSION_REMINDER', 'TOURNAMENT_RESULT', 'TOURNAMENT_LEADER', 'PAYMENT_REMINDER'));

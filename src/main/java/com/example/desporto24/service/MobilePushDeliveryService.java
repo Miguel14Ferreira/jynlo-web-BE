@@ -132,6 +132,7 @@ public class MobilePushDeliveryService {
     static String[] text(String category) {
         if (category == null) return new String[]{"Jynlo", "Tens uma nova notificação."};
         return switch (category) {
+            case "PAYMENT_REMINDER" -> new String[]{"Pagamento em falta", "O organizador lembra que falta pagares um jogo."};
             case "TOURNAMENT_RESULT" -> new String[]{"Resultado do torneio", "Foi registado um resultado de um jogo teu."};
             case "TOURNAMENT_LEADER" -> new String[]{"Mudança na classificação", "Há um novo líder num torneio em que jogas."};
             case "SESSION_REMINDER" -> new String[]{"Lembrete de jogo", "Tens um jogo em breve. Abre a Jynlo para veres os detalhes."};

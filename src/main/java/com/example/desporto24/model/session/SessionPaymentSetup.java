@@ -15,8 +15,15 @@ public class SessionPaymentSetup {
     @Column(name = "session_id")
     private Long sessionId;
 
-    @Column(name = "mbway_phone", nullable = false, length = 16)
+    /** MBWAY (to the organiser's number) or IN_PERSON (cash or MB WAY on the day). */
+    @Column(name = "method", nullable = false, length = 16)
+    private String method;
+
+    @Column(name = "mbway_phone", length = 16)
     private String mbwayPhone;
+
+    @Column(name = "last_reminder_at")
+    private Instant lastReminderAt;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;

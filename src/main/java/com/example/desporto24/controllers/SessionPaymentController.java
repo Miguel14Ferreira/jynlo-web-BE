@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 public class SessionPaymentController {
     private final SessionPaymentService service;
 
-    public record MbwayRequest(String phone) {}
+    public record MethodRequest(String method, String phone) {}
     public record PaidRequest(Boolean paid) {}
 
     @GetMapping
@@ -20,10 +20,16 @@ public class SessionPaymentController {
         return service.get(id, auth.getName());
     }
 
-    @PutMapping("/mbway")
-    public SessionPaymentService.Payments mbway(@PathVariable Long id, @RequestBody MbwayRequest request,
-                                                Authentication auth) {
-        return service.setMbway(id, auth.getName(), request == null ? null : request.phone());
+    @PutMapping("/method")
+    public SessionPaymentService.Payments method(@PathVariable Long id, @RequestBody MethodRequest request,
+                                                 Authentication auth) {
+        return service.setMethod(id, auth.getName(),
+                request == null ? null : request.method(), request == null ? null : request.phone());
+    }
+
+    @PostMapping("/remind")
+    public SessionPaymentService.Payments remind(@PathVariable Long id, Authentication auth) {
+        return service.remindUnpaid(id, auth.getName());
     }
 
     @PutMapping("/me")
