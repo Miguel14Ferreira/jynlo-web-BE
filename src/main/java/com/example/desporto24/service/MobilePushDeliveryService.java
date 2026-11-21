@@ -144,6 +144,7 @@ public class MobilePushDeliveryService {
             case "PAYMENT_REMINDER" -> new String[]{"Pagamento em falta", "O organizador lembra que falta pagares um jogo."};
             case "TOURNAMENT_RESULT" -> new String[]{"Resultado do torneio", "Foi registado um resultado de um jogo teu."};
             case "TOURNAMENT_LEADER" -> new String[]{"Mudança na classificação", "Há um novo líder num torneio em que jogas."};
+            case "NEARBY_SESSION" -> new String[]{"Novo jogo perto de ti", "Há um novo jogo perto de ti. Abre a Jynlo para veres se te interessa."};
             case "SESSION_REMINDER" -> new String[]{"Lembrete de jogo", "Tens um jogo em breve. Abre a Jynlo para veres os detalhes."};
             case "SESSION_CANCELLED" -> new String[]{"Sessão cancelada", "Uma sessão em que estavas inscrito já não se vai realizar. Abre a Jynlo para saberes porquê."};
             case "SESSION_REMOVED" -> new String[]{"Sessão", "Deixaste de estar inscrito numa sessão."};

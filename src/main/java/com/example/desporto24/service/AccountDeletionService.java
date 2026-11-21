@@ -81,6 +81,8 @@ public class AccountDeletionService {
     @Autowired(required = false)
     private com.example.desporto24.repository.social.SocialPostCommentLikeRepository commentLikes;
     @Autowired(required = false)
+    private com.example.desporto24.service.nearby.NearbyAlertStore nearbyAlerts;
+    @Autowired(required = false)
     private com.example.desporto24.repository.PrivateGroupRepository privateGroups;
     @Autowired(required = false)
     private com.example.desporto24.repository.PrivateGroupMemberRepository privateGroupMembers;
@@ -165,6 +167,10 @@ public class AccountDeletionService {
         socialPostRepository.deleteAll(ownPosts);
 
         deletePrivateGroupDataAndDevices(originalUsername);
+        if (nearbyAlerts != null && profile.getId() != null) {
+            // The chosen place for "new game near you" alerts is location data.
+            nearbyAlerts.deleteFor(profile.getId());
+        }
         anonymize(profile, anonymousUsername, anonymousUserId);
         profileRepository.saveAndFlush(profile);
 
