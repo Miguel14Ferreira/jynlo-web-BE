@@ -2,8 +2,11 @@ package com.example.desporto24.controllers;
 
 import com.example.desporto24.enumeration.SessionStatus;
 import com.example.desporto24.exception.SessionNotFound;
+import com.example.desporto24.model.community.Community;
 import com.example.desporto24.model.dto.session.SessionPublicPreviewResponse;
+import com.example.desporto24.repository.community.CommunityRepository;
 import com.example.desporto24.service.interfaces.SessionService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
@@ -18,9 +21,10 @@ import java.time.Duration;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 /**
- * Link-preview page for a session.
+ * Link-preview pages for sessions, communities and profiles.
  *
  * WhatsApp, Instagram, Facebook and similar crawlers do not run JavaScript, so
  * they cannot read the Open Graph tags that the single-page app sets after it
@@ -36,14 +40,24 @@ import java.util.Locale;
 @RequestMapping("/api/share")
 public class SessionShareController {
 
+    /** Test hook: the repository is optional so older constructor-based tests keep working. */
+    void setCommunities(CommunityRepository communities) {
+        this.communities = communities;
+    }
+
     private static final ZoneId LISBON = ZoneId.of("Europe/Lisbon");
     private static final DateTimeFormatter WHEN =
             DateTimeFormatter.ofPattern("EEE, d 'de' MMM 'às' HH:mm", Locale.forLanguageTag("pt-PT"));
     private static final String GENERIC_TITLE = "Jynlo — Join the game.";
     private static final String GENERIC_DESCRIPTION = "Jynlo — encontra onde, quando e com quem jogar.";
 
+    private static final Pattern USERNAME = Pattern.compile("[A-Za-z0-9._-]{1,40}");
+    private static final int DESCRIPTION_LIMIT = 180;
+
     private final SessionService sessionService;
     private final String siteUrl;
+    @Autowired(required = false)
+    private CommunityRepository communities;
 
     public SessionShareController(
             SessionService sessionService,
@@ -60,10 +74,69 @@ public class SessionShareController {
         } catch (SessionNotFound notPreviewable) {
             card = new Card(GENERIC_TITLE, GENERIC_DESCRIPTION);
         }
+        return html(siteUrl + "/sessions/" + id, card, null);
+    }
+
+    /**
+     * Communities are discoverable by anyone (public and private alike), so the
+     * card only uses the same safe presentation: name, sport, description, photo.
+     * Never members, chats or games.
+     */
+    @GetMapping(value = "/communities/{id}", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> community(@PathVariable Long id) {
+        Community community = communities == null ? null : communities.findWithSportsById(id).orElse(null);
+        Card card = community == null ? new Card(GENERIC_TITLE, GENERIC_DESCRIPTION) : cardFor(community);
+        String image = community == null ? null : mediaUrl(community.getPhotoUrl());
+        return html(siteUrl + "/menu/communities/" + id, card, image);
+    }
+
+    /**
+     * A profile card shows only the username, which is already in the link.
+     * It never says whether the account exists, and never shows the name,
+     * photo or city: those stay behind sign-in and the profile's privacy.
+     */
+    @GetMapping(value = "/profiles/{username}", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> profile(@PathVariable String username) {
+        String handle = username == null ? "" : username.trim();
+        if (!USERNAME.matcher(handle).matches()) {
+            return html(siteUrl + "/", new Card(GENERIC_TITLE, GENERIC_DESCRIPTION), null);
+        }
+        Card card = new Card("@" + handle + " na Jynlo",
+                "Vê o perfil de @" + handle + " e combina um jogo na Jynlo.");
+        return html(siteUrl + "/menu/perfis/" + handle, card, null);
+    }
+
+    private ResponseEntity<String> html(String url, Card card, String image) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
                 .header("X-Robots-Tag", "noindex")
-                .body(page(siteUrl + "/sessions/" + id, card));
+                .body(page(url, card, image));
+    }
+
+    private static Card cardFor(Community community) {
+        String name = clean(community.getName());
+        String sport = clean(community.getSport());
+        String title = (name == null ? "Comunidade" : name) + " · comunidade na Jynlo";
+        String description = clean(community.getDescription());
+        if (description == null) {
+            description = (sport == null ? "Uma comunidade" : "Comunidade de " + sport)
+                    + " na Jynlo. Junta-te e combina jogos.";
+        } else {
+            description = description.replaceAll("\\s+", " ");
+            if (description.length() > DESCRIPTION_LIMIT) {
+                description = description.substring(0, DESCRIPTION_LIMIT - 1).trim() + "…";
+            }
+        }
+        return new Card(title, description);
+    }
+
+    /** Only our own media or an https address; anything else falls back to the default image. */
+    private String mediaUrl(String photoUrl) {
+        String url = clean(photoUrl);
+        if (url == null) return null;
+        if (url.startsWith("/media/")) return siteUrl + url;
+        if (url.startsWith("https://")) return url;
+        return null;
     }
 
     private static Card cardFor(SessionPublicPreviewResponse preview) {
@@ -94,11 +167,15 @@ public class SessionShareController {
         return "Junta-te a este jogo na Jynlo.";
     }
 
-    private String page(String url, Card card) {
+    private String page(String url, Card card, String customImage) {
         String title = escape(card.title());
         String description = escape(card.description());
         String canonical = escape(url);
-        String image = escape(siteUrl + "/assets/og-default.png");
+        String image = escape(customImage == null ? siteUrl + "/assets/og-default.png" : customImage);
+        // The default image's size is known; a community photo's is not, so it is not declared.
+        String imageMeta = customImage == null
+                ? "<meta property=\"og:image:type\" content=\"image/png\">\n<meta property=\"og:image:width\" content=\"1200\">\n<meta property=\"og:image:height\" content=\"630\">"
+                : "";
         return """
                 <!doctype html>
                 <html lang="pt-PT">
@@ -115,9 +192,7 @@ public class SessionShareController {
                 <meta property="og:description" content="%2$s">
                 <meta property="og:url" content="%3$s">
                 <meta property="og:image" content="%4$s">
-                <meta property="og:image:type" content="image/png">
-                <meta property="og:image:width" content="1200">
-                <meta property="og:image:height" content="630">
+                %5$s
                 <meta name="twitter:card" content="summary_large_image">
                 <meta name="twitter:title" content="%1$s">
                 <meta name="twitter:description" content="%2$s">
@@ -127,7 +202,7 @@ public class SessionShareController {
                 <p><a href="%3$s">Abrir na Jynlo</a></p>
                 </body>
                 </html>
-                """.formatted(title, description, canonical, image);
+                """.formatted(title, description, canonical, image, imageMeta);
     }
 
     /**
