@@ -41,6 +41,9 @@ public class SessionPaymentService {
                            Mine me, int confirmedCount, int playerCount, List<Player> players,
                            Instant lastReminderAt) {}
 
+    /** Who still owes the previous game, shown before the next list opens. */
+    public record PreviousUnpaid(Long sessionId, Instant gameDate, String sport, List<String> unpaid) {}
+
     public static final String MBWAY = "MBWAY";
     public static final String IN_PERSON = "IN_PERSON";
     static final java.time.Duration REMINDER_GAP = java.time.Duration.ofHours(12);
@@ -162,6 +165,51 @@ public class SessionPaymentService {
         row.setConfirmedAt(paid ? (row.getConfirmedAt() == null ? Instant.now() : row.getConfirmedAt()) : null);
         save(row);
         return view(access);
+    }
+
+    /**
+     * Organiser only. The previous game is the one before this in the same
+     * recurring series or, without a series, the organiser's previous game in
+     * the same community. Only paid games count; empty when nothing is owed.
+     */
+    @Transactional(readOnly = true)
+    public PreviousUnpaid previousUnpaid(Long sessionId, String username) {
+        Access access = access(sessionId, username);
+        if (!access.organiser()) throw forbidden("Só o organizador vê os pagamentos em falta");
+        Session current = access.session();
+        Session previous = previousGame(current);
+        if (previous == null || previous.getPriceAmount() == null
+                || previous.getPriceAmount().signum() <= 0) {
+            return new PreviousUnpaid(null, null, null, List.of());
+        }
+        List<SessionParticipant> players = active(previous.getId()).stream()
+                .filter(p -> p.getProfile() != null && !isOrganiser(previous, p.getProfile()))
+                .toList();
+        Map<Long, SessionParticipantPayment> rows = payments
+                .findAllById(players.stream().map(SessionParticipant::getId).toList())
+                .stream().collect(Collectors.toMap(SessionParticipantPayment::getParticipantId, Function.identity()));
+        List<String> unpaid = players.stream()
+                .filter(p -> rows.get(p.getId()) == null || rows.get(p.getId()).getConfirmedAt() == null)
+                .map(p -> p.getProfile().getUsername())
+                .toList();
+        return new PreviousUnpaid(previous.getId(),
+                previous.getGameDate() == null ? null : previous.getGameDate().toInstant(),
+                previous.getSport(), unpaid);
+    }
+
+    private Session previousGame(Session current) {
+        if (current.getGameDate() == null) return null;
+        String series = current.getRecurrenceSeriesId();
+        if (series != null && !series.isBlank()) {
+            Session previous = null;
+            for (Session game : sessions.findByRecurrenceSeriesIdOrderByGameDateAsc(series)) {
+                if (game.getGameDate() != null && game.getGameDate().before(current.getGameDate())) previous = game;
+            }
+            if (previous != null) return previous;
+        }
+        if (current.getCommunity() == null || current.getProfile() == null) return null;
+        return sessions.findFirstByCommunity_IdAndProfile_IdAndGameDateBeforeOrderByGameDateDesc(
+                current.getCommunity().getId(), current.getProfile().getId(), current.getGameDate()).orElse(null);
     }
 
     /** Portuguese mobile numbers only: 9 digits starting with 91, 92, 93 or 96 (with or without +351). */

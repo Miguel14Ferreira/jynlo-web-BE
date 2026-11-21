@@ -141,4 +141,35 @@ class SessionPaymentServiceTest {
         service.claim(7L, "rui", false);
         assertTrue(store.isEmpty(), "undoing both removes the row");
     }
+
+    @Test
+    void previousGameOfTheSeriesListsWhoStillOwes() {
+        Session current = sessions.findById(7L).orElseThrow();
+        current.setRecurrenceSeriesId("serie");
+        current.setGameDate(new Date(System.currentTimeMillis() + 7 * 86_400_000L));
+        Session previous = new Session();
+        previous.setId(6L);
+        previous.setProfile(current.getProfile());
+        previous.setSport("Futsal");
+        previous.setPriceAmount(new BigDecimal("4.00"));
+        previous.setGameDate(new Date(System.currentTimeMillis() - 86_400_000L));
+        when(sessions.findByRecurrenceSeriesIdOrderByGameDateAsc("serie")).thenReturn(List.of(previous, current));
+        Profile ana = current.getProfile();
+        Profile rui = profiles.findUserByUsername("rui").orElseThrow();
+        Profile bea = profiles.findUserByUsername("bea").orElseThrow();
+        when(participants.findBySessionIdAndStateOrderByJoinedAtAsc(6L, ParticipantState.ACTIVE))
+                .thenReturn(List.of(participant(60, ana), participant(61, rui), participant(62, bea)));
+        SessionParticipantPayment paid = new SessionParticipantPayment();
+        paid.setParticipantId(61L);
+        paid.setConfirmedAt(java.time.Instant.now());
+        store.put(61L, paid);
+
+        var result = service.previousUnpaid(7L, "ana");
+        assertEquals(6L, result.sessionId());
+        assertEquals(List.of("bea"), result.unpaid());
+        assertThrows(ResponseStatusException.class, () -> service.previousUnpaid(7L, "rui"));
+
+        previous.setPriceAmount(BigDecimal.ZERO);
+        assertTrue(service.previousUnpaid(7L, "ana").unpaid().isEmpty(), "free games owe nothing");
+    }
 }
