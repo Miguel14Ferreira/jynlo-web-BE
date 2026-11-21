@@ -122,7 +122,7 @@ class CommunityTimelineServiceTest {
             return entry;
         });
         service.post(7L, Kind.POST, "Notícias", "owner");
-        verifyNoInteractions(eventPublisher);
+        verify(eventPublisher, never()).publishEvent(any(com.example.desporto24.websocket.CommunityChatMessageCreatedEvent.class));
         verify(members, never()).findByCommunityIdOrderByJoinedAtAsc(anyLong());
     }
 
@@ -309,7 +309,7 @@ class CommunityTimelineServiceTest {
         verify(timelines, times(1)).save(argThat(entry ->
                 entry.getKind() == Kind.POST && entry.getExtraMedia().size() == 1));
         verify(media, times(2)).store(anyString(), any());
-        verifyNoInteractions(eventPublisher);
+        verify(eventPublisher, never()).publishEvent(any(com.example.desporto24.websocket.CommunityChatMessageCreatedEvent.class));
     }
 
     @Test

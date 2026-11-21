@@ -43,10 +43,11 @@ class SocialMultipartBindingTest {
                 .contentType(MediaType.MULTIPART_FORM_DATA))
             .andExpect(status().isOk());
 
-        verify(stories).create(eq("miguel"), isNull(), eq("Momento"),
+        // Current signature: team author after the community, text colours/font at the end.
+        verify(stories).create(eq("miguel"), isNull(), isNull(), eq("Momento"),
                 any(MockMultipartFile.class), isNull(), eq("bottom"), eq("medium"),
                 eq("pill"), isNull(), eq(false), eq("Benfica"), isNull(),
-                eq(45.0), eq(55.0), eq(12.0), eq(1.1));
+                eq(45.0), eq(55.0), eq(12.0), eq(1.1), isNull(), isNull(), isNull());
     }
 
     @Test

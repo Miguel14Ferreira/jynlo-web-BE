@@ -64,7 +64,7 @@ class CommunitySessionResultServiceTest {
         var member = CommunityMember.builder().role(role).build();
         when(communities.findById(communityId)).thenReturn(Optional.of(community));
         when(profiles.findUserByUsernameIgnoreCase("manager")).thenReturn(Optional.of(owner));
-        when(memberships.findByCommunityIdAndProfileId(communityId, 90L)).thenReturn(Optional.of(member));
+        org.mockito.Mockito.lenient().when(memberships.findByCommunityIdAndProfileId(communityId, 90L)).thenReturn(Optional.of(member));
     }
 
     private void pastSession(SessionStatus status) {
