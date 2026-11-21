@@ -35,6 +35,9 @@ public class CommunityTournamentTeamResultService {
     private final CommunityTournamentTeamKnockoutService knockout;
     private final CommunityTournamentTeamGroupsService groups;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher events;
+
     public CommunityTournamentTeamMatchResponse record(
             Long communityId, Long tournamentId, Long matchId,
             String username, RecordCommunityTournamentMatchResultRequest request) {
@@ -109,6 +112,11 @@ public class CommunityTournamentTeamResultService {
         match.setAwayScore(request.awayScore());
         match.setStatus(TournamentMatchStatus.COMPLETED);
         if (firstCompletion) match.setCompletedAt(Instant.now());
+        if (events != null) {
+            // Delivered after commit; a rolled-back result sends nothing.
+            events.publishEvent(new TournamentResultNotificationService.ResultRecorded(
+                    communityId, tournamentId, match.getId(), true, !firstCompletion, username, null));
+        }
         if (elimination) {
             matches.saveAndFlush(match);
             knockout.advanceAfterResult(tournament);
