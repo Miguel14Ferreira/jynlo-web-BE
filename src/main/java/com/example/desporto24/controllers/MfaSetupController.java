@@ -117,8 +117,8 @@ public class MfaSetupController {
                 : "Autenticação multifator desativada";
 
         String description = enabled
-                ? "A autenticação multifator por Authenticator App foi ativada na tua conta DESPORTO24."
-                : "A autenticação multifator foi desativada na tua conta DESPORTO24.";
+                ? "A autenticação multifator por Authenticator App foi ativada na tua conta Jynlo."
+                : "A autenticação multifator foi desativada na tua conta Jynlo.";
 
         if (profile.getEmail() != null && !profile.getEmail().isBlank()) {
             emailService.send(
@@ -126,8 +126,8 @@ public class MfaSetupController {
                     "<h2>" + title + "</h2>"
                             + "<p>Olá " + profile.getUsername() + ",</p>"
                             + "<p>" + description + "</p>"
-                            + "<p>Se não foste tu, altera imediatamente a tua palavra-passe e contacta a equipa DESPORTO24.</p>"
-                            + "<p>Cumprimentos,<br>DESPORTO24 MANAGEMENT TEAM</p>"
+                            + "<p>Se não foste tu, altera imediatamente a tua palavra-passe e contacta a equipa Jynlo.</p>"
+                            + "<p>Cumprimentos,<br>Equipa Jynlo</p>"
             );
         }
 
@@ -135,7 +135,7 @@ public class MfaSetupController {
                 title,
                 description + " Se não foste tu, bloqueia temporariamente os acessos à tua conta.",
                 "Cumprimentos,",
-                "DESPORTO24 MANAGEMENT TEAM",
+                "Equipa Jynlo",
                 java.time.Instant.now().toString(),
                 false,
                 true,

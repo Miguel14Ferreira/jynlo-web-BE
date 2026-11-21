@@ -24,7 +24,7 @@ public class TotpService {
     private static final BaseEncoding BASE32 = BaseEncoding.base32().omitPadding();
     private static final int PERIOD_SECONDS = 30;
     private static final int DIGITS = 6;
-    private static final String ISSUER = "DESPORTO24";
+    private static final String ISSUER = "Jynlo";
 
     public String generateSecret() {
         byte[] bytes = new byte[20];

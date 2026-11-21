@@ -263,11 +263,11 @@ public class IdeaServiceImpl implements IdeaService {
                 + "<p>A nossa equipa irá analisá-la no painel de gestão.</p>"
                 + "<p>Se precisares de falar connosco diretamente, envia-nos um email para "
                 + "<strong>" + MANAGEMENT_EMAIL + "</strong>.</p>"
-                + "<p>Cumprimentos,<br>DESPORTO24 MANAGEMENT TEAM</p>";
+                + "<p>Cumprimentos,<br>Equipa Jynlo</p>";
     }
 
     private String buildManagementAlertEmail(Ideas idea) {
-        return "<h2>Nova ideia recebida no DESPORTO24</h2>"
+        return "<h2>Nova ideia recebida na Jynlo</h2>"
                 + "<p><strong>ID:</strong> " + idea.getId() + "</p>"
                 + "<p><strong>De:</strong> " + html(idea.getName()) + " &lt;" + html(idea.getEmail()) + "&gt;</p>"
                 + "<p><strong>Categoria:</strong> " + html(idea.getSubject()) + "</p>"
