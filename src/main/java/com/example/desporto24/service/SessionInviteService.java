@@ -32,6 +32,8 @@ import java.util.List;
 public class SessionInviteService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.service.NotificationPreferencesService preferenceService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher pushEvents;
 
     private final SessionRepository sessions;
     private final ProfileRepository profiles;
@@ -94,7 +96,13 @@ public class SessionInviteService {
         notification.setRead(false);
         if (preferenceService == null ||
                 preferenceService.allowsInApp(notification.getUsername(), notification)) {
-            notifications.save(notification);
+            Notifications saved = notifications.save(notification);
+            // Invites also reach the phone (they used to stay in the in-app inbox only).
+            if (pushEvents != null && saved != null && saved.getId() != null) {
+                pushEvents.publishEvent(new MobilePushDeliveryService.StoredNotification(
+                        saved.getUsername(), saved.getId(), NotificationType.SESSION_INVITE.name(),
+                        sessionId, null, actor.getUsername(), true));
+            }
         }
         return inviteId;
     }
