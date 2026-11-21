@@ -15,4 +15,6 @@ public interface PrivateGroupMessageRepository extends JpaRepository<PrivateGrou
                      @org.springframework.data.repository.query.Param("since") Instant since,
                      @org.springframework.data.repository.query.Param("afterId") Long afterId,
                      @org.springframework.data.repository.query.Param("reader") String reader);
+    List<PrivateGroupMessage> findBySenderUsernameIgnoreCase(String senderUsername);
+    List<PrivateGroupMessage> findByGroupId(Long groupId);
 }
