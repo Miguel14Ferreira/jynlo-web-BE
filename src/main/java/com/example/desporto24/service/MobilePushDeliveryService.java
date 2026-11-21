@@ -85,10 +85,8 @@ public class MobilePushDeliveryService {
         try {
             byte[] body = json.writeValueAsBytes(Map.of(
                     "to", token,
-                    "title", "SESSION_CANCELLED".equals(category) ? "Sessão cancelada" : "Jynlo",
-                    "body", "SESSION_CANCELLED".equals(category)
-                            ? "Uma sessão em que estavas inscrito já não se vai realizar. Abre a Jynlo para saberes porquê."
-                            : "Tens uma nova notificação.",
+                    "title", text(category)[0],
+                    "body", text(category)[1],
                     "sound", "default",
                     "channelId", "jynlo-messages",
                     "data", Map.of("kind", "notification", "id", notificationId)
@@ -125,5 +123,36 @@ public class MobilePushDeliveryService {
             // Push delivery must never make a successful notification transaction fail.
             // Do not log tokens, external errors or private message metadata.
         }
+    }
+
+    /**
+     * Lock-screen text per notification type. Deliberately generic: never names,
+     * message bodies, places or times, which stay behind the authenticated inbox.
+     */
+    static String[] text(String category) {
+        if (category == null) return new String[]{"Jynlo", "Tens uma nova notificação."};
+        return switch (category) {
+            case "SESSION_REMINDER" -> new String[]{"Lembrete de jogo", "Tens um jogo em breve. Abre a Jynlo para veres os detalhes."};
+            case "SESSION_CANCELLED" -> new String[]{"Sessão cancelada", "Uma sessão em que estavas inscrito já não se vai realizar. Abre a Jynlo para saberes porquê."};
+            case "SESSION_REMOVED" -> new String[]{"Sessão", "Deixaste de estar inscrito numa sessão."};
+            case "WAITLIST_PROMOTED" -> new String[]{"Tens lugar!", "Saíste da lista de espera: já estás inscrito na sessão."};
+            case "SESSION_MEETING_POINT_UPDATED" -> new String[]{"Ponto de encontro alterado", "O ponto de encontro de uma sessão tua mudou."};
+            case "SESSION_DETAILS_UPDATED" -> new String[]{"Sessão atualizada", "Os detalhes de uma sessão tua mudaram."};
+            case "SESSION_POST_GAME_REVIEW" -> new String[]{"Como correu o jogo?", "Confirma as presenças da última sessão."};
+            case "SESSION_INVITE" -> new String[]{"Convite para jogar", "Convidaram-te para uma sessão."};
+            case "ATTENDANCE_DISPUTE_ACCEPTED", "ATTENDANCE_DISPUTE_REJECTED" -> new String[]{"Presenças", "Há uma decisão sobre a tua contestação de presença."};
+            case "COMMUNITY_INVITE" -> new String[]{"Convite para comunidade", "Convidaram-te para uma comunidade."};
+            case "COMMUNITY_JOIN_REQUEST" -> new String[]{"Pedido de entrada", "Alguém quer entrar numa comunidade tua."};
+            case "COMMUNITY_JOIN_ACCEPTED" -> new String[]{"Bem-vindo!", "O teu pedido de entrada na comunidade foi aceite."};
+            case "COMMUNITY_JOIN_REJECTED" -> new String[]{"Comunidade", "Há uma resposta ao teu pedido de entrada."};
+            case "CHAT_MESSAGE" -> new String[]{"Nova mensagem", "Tens uma nova mensagem na Jynlo."};
+            case "SOCIAL_NEW_FOLLOWER" -> new String[]{"Novo seguidor", "Alguém começou a seguir-te."};
+            case "SOCIAL_POST_LIKED", "SOCIAL_STORY_LIKED" -> new String[]{"Gostaram do teu conteúdo", "Alguém gostou de uma publicação tua."};
+            case "SOCIAL_POST_COMMENTED" -> new String[]{"Novo comentário", "Comentaram uma publicação tua."};
+            case "SOCIAL_STORY_REPLIED" -> new String[]{"Nova resposta", "Responderam a uma story tua."};
+            case "TEAM_MEMBER_INVITE" -> new String[]{"Convite para equipa", "Convidaram-te para uma equipa."};
+            case "TEAM_ADMIN_TRANSFER", "TEAM_ADMIN_ASSIGNED" -> new String[]{"Equipa", "O teu papel numa equipa mudou."};
+            default -> new String[]{"Jynlo", "Tens uma nova notificação."};
+        };
     }
 }

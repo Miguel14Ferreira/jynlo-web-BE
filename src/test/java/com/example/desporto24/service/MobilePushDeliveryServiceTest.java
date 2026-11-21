@@ -110,4 +110,16 @@ class MobilePushDeliveryServiceTest {
         sender.afterCommit(new MobilePushDeliveryService.StoredNotification("player",42L,"OTHER",null,null,null,true));
         verifyNoInteractions(devices);
     }
+
+    @Test
+    void lockScreenTextIsSpecificButNeverPrivate() {
+        org.junit.jupiter.api.Assertions.assertEquals("Lembrete de jogo", MobilePushDeliveryService.text("SESSION_REMINDER")[0]);
+        org.junit.jupiter.api.Assertions.assertEquals("Nova mensagem", MobilePushDeliveryService.text("CHAT_MESSAGE")[0]);
+        org.junit.jupiter.api.Assertions.assertEquals("Jynlo", MobilePushDeliveryService.text(null)[0]);
+        for (var type : com.example.desporto24.enumeration.NotificationType.values()) {
+            String[] text = MobilePushDeliveryService.text(type.name());
+            org.junit.jupiter.api.Assertions.assertEquals(2, text.length);
+            org.junit.jupiter.api.Assertions.assertFalse(text[0].isBlank() || text[1].isBlank());
+        }
+    }
 }
