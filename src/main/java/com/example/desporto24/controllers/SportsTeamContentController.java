@@ -42,6 +42,8 @@ public class SportsTeamContentController {
     @ResponseStatus(HttpStatus.CREATED)
     public SportsTeamContentService.Entry send(@PathVariable Long teamId,
             @RequestBody SportsTeamContentService.Submit request, Authentication auth) {
+        // Team chats are group chats: polls are allowed (and validated), as in sessions and communities.
+        if (request != null) com.example.desporto24.service.ChatPoll.validate(request.body());
         return service.post(teamId, Kind.CHAT, request, auth.getName());
     }
 
@@ -67,6 +69,7 @@ public class SportsTeamContentController {
     @ResponseStatus(HttpStatus.CREATED)
     public SportsTeamContentService.Entry publish(@PathVariable Long teamId,
             @RequestBody SportsTeamContentService.Submit request, Authentication auth) {
+        if (request != null) com.example.desporto24.service.ChatPoll.reject(request.body());
         return service.post(teamId, Kind.FEED, request, auth.getName());
     }
 

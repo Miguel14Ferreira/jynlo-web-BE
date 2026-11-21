@@ -42,6 +42,18 @@ public class ChatPollService {
     private final SessionParticipantRepository participants;
     private final CommunityChatRecipientResolver communityRecipients;
     private final ApplicationEventPublisher events;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.PrivateGroupMessageRepository groupMessages;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.PrivateGroupMemberRepository groupMembers;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.team.SportsTeamContentRepository teamEntries;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.team.SportsTeamRepository sportsTeams;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.team.SportsTeamMemberRepository sportsTeamMembers;
+
+    private static final Set<String> KINDS = Set.of("session", "community", "private", "team");
 
     @Transactional(readOnly = true)
     public List<PollResult> results(String username, String kind, String conversationId, List<Long> ids) {
@@ -49,7 +61,7 @@ public class ChatPollService {
         if (ids == null || ids.isEmpty() || ids.size() > 100 || ids.stream().anyMatch(id -> id == null || id <= 0)) {
             throw badRequest();
         }
-        Map<Long, ChatPoll.Poll> polls = polls(kind, conversationId, new LinkedHashSet<>(ids));
+        Map<Long, ChatPoll.Poll> polls = polls(kind, conversationId, actor.getUsername(), new LinkedHashSet<>(ids));
         return tally(actor.getId(), kind, polls);
     }
 
@@ -57,7 +69,7 @@ public class ChatPollService {
     public PollResult vote(String username, String kind, String conversationId, Long messageId, Integer option) {
         Profile actor = requireActor(username, kind, conversationId);
         if (messageId == null || messageId <= 0) throw badRequest();
-        ChatPoll.Poll poll = polls(kind, conversationId, Set.of(messageId)).get(messageId);
+        ChatPoll.Poll poll = polls(kind, conversationId, actor.getUsername(), Set.of(messageId)).get(messageId);
         if (poll == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Poll not found");
         if (option == null) {
             votes.deleteByProfileIdAndConversationKindAndMessageId(actor.getId(), kind, messageId);
@@ -72,7 +84,7 @@ public class ChatPollService {
     }
 
     private Profile requireActor(String username, String kind, String conversationId) {
-        if (!"session".equals(kind) && !"community".equals(kind)) throw badRequest();
+        if (kind == null || !KINDS.contains(kind)) throw badRequest();
         try {
             Long.parseLong(conversationId);
         } catch (RuntimeException invalid) {
@@ -84,10 +96,26 @@ public class ChatPollService {
     }
 
     /** Live (not deleted) poll messages of this exact conversation, by id. */
-    private Map<Long, ChatPoll.Poll> polls(String kind, String conversationId, Set<Long> requested) {
+    private Map<Long, ChatPoll.Poll> polls(String kind, String conversationId, String username, Set<Long> requested) {
         long id = Long.parseLong(conversationId);
         Map<Long, ChatPoll.Poll> result = new LinkedHashMap<>();
-        if ("session".equals(kind)) {
+        if ("private".equals(kind)) {
+            if (groupMessages == null || groupMembers == null) throw badRequest();
+            var member = groupMembers.findByGroupIdAndUsernameIgnoreCase(id, username).orElse(null);
+            if (member != null) for (var msg : groupMessages.findAllById(requested)) {
+                // Same group, not deleted, and sent after this member joined.
+                if (msg.getGroupId() == null || id != msg.getGroupId() || msg.getDeletedAt() != null
+                        || msg.getCreatedAt().isBefore(member.getJoinedAt())) continue;
+                ChatPoll.parse(msg.getBody()).ifPresent(p -> result.put(msg.getId(), p));
+            }
+        } else if ("team".equals(kind)) {
+            if (teamEntries == null) throw badRequest();
+            for (var msg : teamEntries.findAllById(requested)) {
+                if (msg.getTeam() == null || id != msg.getTeam().getId() || msg.getDeletedAt() != null
+                        || msg.getKind() != com.example.desporto24.model.team.SportsTeamContent.Kind.CHAT) continue;
+                ChatPoll.parse(msg.getBody()).ifPresent(p -> result.put(msg.getId(), p));
+            }
+        } else if ("session".equals(kind)) {
             for (SessionMessage msg : sessionMessages.findAllById(requested)) {
                 if (msg.getSession() == null || id != msg.getSession().getId() || msg.getDeletedAt() != null) continue;
                 ChatPoll.parse(msg.getBody()).ifPresent(p -> result.put(msg.getId(), p));
@@ -130,6 +158,19 @@ public class ChatPollService {
         Long id = Long.parseLong(conversationId);
         if ("community".equals(kind)) return communityRecipients.currentRecipients(id);
         Set<String> recipients = new LinkedHashSet<>();
+        if ("private".equals(kind)) {
+            if (groupMembers != null) groupMembers.findByGroupIdOrderByJoinedAtAsc(id).forEach(m -> recipients.add(m.getUsername()));
+            return recipients;
+        }
+        if ("team".equals(kind)) {
+            if (sportsTeams != null) sportsTeams.findById(id).ifPresent(t -> {
+                if (t.getOwner() != null) recipients.add(t.getOwner().getUsername());
+            });
+            if (sportsTeamMembers != null) sportsTeamMembers.findByTeamIdAndStatusOrderByIdAsc(id,
+                    com.example.desporto24.model.team.SportsTeamMember.Status.ACTIVE)
+                    .forEach(m -> { if (m.getProfile() != null) recipients.add(m.getProfile().getUsername()); });
+            return recipients;
+        }
         sessions.findById(id).map(Session::getProfile).ifPresent(owner -> recipients.add(owner.getUsername()));
         participants.findBySessionIdAndStateOrderByJoinedAtAsc(id, ParticipantState.ACTIVE)
                 .forEach(member -> recipients.add(member.getProfile().getUsername()));

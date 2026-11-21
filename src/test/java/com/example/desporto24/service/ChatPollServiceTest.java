@@ -104,4 +104,26 @@ class ChatPollServiceTest {
         assertThrows(ResponseStatusException.class, () -> service.results("rui", "direct", "ana", List.of(1L)));
         verifyNoInteractions(inbox);
     }
+
+    @Test
+    void privateGroupPollsOnlyCountMessagesTheMemberCanSee() {
+        var groupMessages = mock(com.example.desporto24.repository.PrivateGroupMessageRepository.class);
+        var groupMembers = mock(com.example.desporto24.repository.PrivateGroupMemberRepository.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "groupMessages", groupMessages);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "groupMembers", groupMembers);
+        var member = new com.example.desporto24.model.PrivateGroupMember();
+        member.setGroupId(5L); member.setUsername("rui"); member.setJoinedAt(java.time.Instant.parse("2026-11-01T00:00:00Z"));
+        when(groupMembers.findByGroupIdAndUsernameIgnoreCase(5L, "rui")).thenReturn(java.util.Optional.of(member));
+        var visible = new com.example.desporto24.model.PrivateGroupMessage();
+        visible.setId(10L); visible.setGroupId(5L); visible.setBody("[JYNLO:POLL:1]Dia?\nSábado\nDomingo");
+        visible.setCreatedAt(java.time.Instant.parse("2026-11-20T00:00:00Z"));
+        var before = new com.example.desporto24.model.PrivateGroupMessage();
+        before.setId(11L); before.setGroupId(5L); before.setBody("[JYNLO:POLL:1]Hora?\n18h\n19h");
+        before.setCreatedAt(java.time.Instant.parse("2026-10-20T00:00:00Z"));
+        when(groupMessages.findAllById(any())).thenReturn(List.of(visible, before));
+        var results = service.results("rui", "private", "5", List.of(10L, 11L));
+        assertEquals(1, results.size());
+        assertEquals(10L, results.getFirst().messageId());
+        verify(inbox).requireConversationAccess("rui", "private", "5");
+    }
 }
