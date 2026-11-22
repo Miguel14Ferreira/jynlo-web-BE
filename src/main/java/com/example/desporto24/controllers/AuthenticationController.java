@@ -57,6 +57,9 @@ public class AuthenticationController {
     private final JWTokenProvider jwtTokens;
     private final GoogleAuthenticationService googleAuthenticationService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.service.AppleAuthenticationService appleAuthenticationService;
+
     @Value("${desporto.app.refreshExpirationMs:604800000}")
     private long refreshExpirationMs;
 
@@ -94,6 +97,33 @@ public class AuthenticationController {
     public ResponseEntity<GoogleAuthResponse> googleRegister(
             GoogleRegistrationRequest request) {
         return googleRegister(request, null);
+    }
+
+    /** "Sign in with Apple" (iPhone): same flow and response as Google. */
+    @PostMapping("/apple/login")
+    public ResponseEntity<GoogleAuthResponse> appleLogin(
+            @RequestBody @Valid com.example.desporto24.model.dto.auth.AppleCredentialRequest request) {
+        GoogleAuthResponse result = appleAuthenticationService.authenticate(request.credential(), request.fullName());
+        if (result.onboardingRequired()) {
+            return ResponseEntity.ok(result);
+        }
+        if (result.mfaRequired()) {
+            return ResponseEntity.status(ACCEPTED).body(result);
+        }
+        return withGoogleRefreshCookie(result);
+    }
+
+    public record AppleRegistrationRequest(
+            @Valid GoogleRegistrationRequest registration,
+            @jakarta.validation.constraints.Size(max = 100) String fullName) {}
+
+    @PostMapping("/apple/register")
+    public ResponseEntity<GoogleAuthResponse> appleRegister(
+            @RequestBody @Valid AppleRegistrationRequest request,
+            @RequestParam(required = false) String cohort) {
+        if (request.registration() == null) throw new IllegalArgumentException("Dados de registo em falta");
+        return withGoogleRefreshCookie(
+                appleAuthenticationService.completeRegistration(request.registration(), request.fullName(), cohort));
     }
 
     @PostMapping("/login")
