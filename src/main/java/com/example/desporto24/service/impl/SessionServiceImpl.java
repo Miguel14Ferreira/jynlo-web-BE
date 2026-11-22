@@ -107,6 +107,9 @@ public class SessionServiceImpl implements SessionService {
     private MediaStorage mediaStorage;
 
     @Autowired(required = false)
+    private com.example.desporto24.service.CommunitySessionAnnouncementService communitySessionAnnouncements;
+
+    @Autowired(required = false)
     private com.example.desporto24.service.VenueMapLinkService venueMapLinkService;
 
     /** Invitation verification is deliberately scoped to its named recipient. */
@@ -322,6 +325,16 @@ public class SessionServiceImpl implements SessionService {
             // the first game of a recurring series.
             for (Community community : sharedCommunities) {
                 sessionCommunityShareRepository.save(new SessionCommunityShare(saved, community));
+            }
+        }
+
+        // Tell the members once per creation, even for a recurring series.
+        if (communitySessionAnnouncements != null && firstSaved != null) {
+            List<Community> audience = new java.util.ArrayList<>(sharedCommunities);
+            if (linkedCommunity != null) audience.add(0, linkedCommunity);
+            if (!audience.isEmpty()) {
+                communitySessionAnnouncements.announce(firstSaved, creator, audience,
+                        recurrence != SessionRecurrence.NONE, Instant.now());
             }
         }
 
