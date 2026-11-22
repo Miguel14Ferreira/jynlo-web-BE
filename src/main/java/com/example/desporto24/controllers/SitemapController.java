@@ -33,7 +33,7 @@ public class SitemapController {
     private final String siteUrl;
 
     public SitemapController(VenueRepository venues,
-                             @Value("${desporto.public-site-url:https://d24sports.com}") String siteUrl) {
+                             @Value("${desporto.public-site-url:https://jynlosports.com}") String siteUrl) {
         this.venues = venues;
         this.siteUrl = siteUrl.replaceAll("/+$", "");
     }

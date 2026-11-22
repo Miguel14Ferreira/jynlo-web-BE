@@ -20,5 +20,7 @@ class JynloSportsDomainOriginsTest {
         assertTrue(origins.startsWith("${CORS_ALLOWED_ORIGINS:${UI_APP_URL}},"));
         assertTrue(origins.contains("https://jynlosports.com"));
         assertTrue(origins.contains("https://www.jynlosports.com"));
+        assertTrue(origins.contains("https://d24sports.com"));
+        assertTrue(origins.contains("https://www.d24sports.com"));
     }
 }

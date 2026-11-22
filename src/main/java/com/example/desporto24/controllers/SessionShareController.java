@@ -61,7 +61,7 @@ public class SessionShareController {
 
     public SessionShareController(
             SessionService sessionService,
-            @Value("${desporto.public-site-url:https://d24sports.com}") String siteUrl) {
+            @Value("${desporto.public-site-url:https://jynlosports.com}") String siteUrl) {
         this.sessionService = sessionService;
         this.siteUrl = siteUrl.replaceAll("/+$", "");
     }
