@@ -64,28 +64,41 @@ class ProfilePrivacyServiceTest {
         verify(profiles,never()).save(any());
     }
 
-    @Test void switchingPrivateProfileToPublicRequiresReverseMediaMigration() {
-        ProfileMediaReadinessService readiness=mock(ProfileMediaReadinessService.class);
-        ReflectionTestUtils.setField(service,"mediaReadiness",readiness);
-        when(readiness.count(owner)).thenReturn(
-            new ProfileMediaReadinessService.MediaReadiness(0,2,true));
-        var thrown=assertThrows(ResponseStatusException.class,
-            ()->service.update("owner",false));
-        assertEquals(org.springframework.http.HttpStatus.CONFLICT,thrown.getStatusCode());
-        assertTrue(owner.isPrivateProfile());
-        verify(profiles,never()).save(any());
-        verify(requests,never()).deleteByTargetId(anyLong());
+    @Test void switchingPrivateProfileToPublicMovesMediaBackFirst() {
+        ProfileMediaMigrationService migration=mock(ProfileMediaMigrationService.class);
+        ReflectionTestUtils.setField(service,"mediaMigration",migration);
+        service.update("owner",false);
+        var order=inOrder(migration,profiles);
+        order.verify(migration).makePublic(owner);
+        order.verify(profiles).save(owner);
+        assertFalse(owner.isPrivateProfile());
+        verify(requests).deleteByTargetId(4L);
     }
 
-    @Test void emptyPrivateProfileCanReturnToPublicWithoutMediaRelocation() {
-        ProfileMediaReadinessService readiness=mock(ProfileMediaReadinessService.class);
-        ReflectionTestUtils.setField(service,"mediaReadiness",readiness);
-        when(readiness.count(owner)).thenReturn(
-            new ProfileMediaReadinessService.MediaReadiness(0,0,true));
-        service.update("owner",false);
-        assertFalse(owner.isPrivateProfile());
-        verify(profiles).save(owner);
-        verify(requests).deleteByTargetId(4L);
+    @Test void aFailedMediaMoveLeavesTheProfileUnchanged() {
+        ProfileMediaMigrationService migration=mock(ProfileMediaMigrationService.class);
+        ReflectionTestUtils.setField(service,"mediaMigration",migration);
+        when(migration.makePublic(owner)).thenThrow(new ResponseStatusException(
+            org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,"falhou"));
+        assertThrows(ResponseStatusException.class,()->service.update("owner",false));
+        assertTrue(owner.isPrivateProfile());
+        verify(profiles,never()).save(any());
+    }
+
+    @Test void goingPrivateMovesMediaToProtectedStorageBeforeHidingTheProfile() {
+        owner.setPrivateProfile(false);
+        ProfileMediaMigrationService migration=mock(ProfileMediaMigrationService.class);
+        com.example.desporto24.storage.PrivateProfileMediaStorage storage=mock(com.example.desporto24.storage.PrivateProfileMediaStorage.class);
+        when(storage.isConfigured()).thenReturn(true);
+        ReflectionTestUtils.setField(service,"mediaMigration",migration);
+        ReflectionTestUtils.setField(service,"protectedMedia",storage);
+        ReflectionTestUtils.setField(service,"privateModeEnabled",true);
+        ReflectionTestUtils.setField(service,"privateMediaCutoverVerified",true);
+        service.update("owner",true);
+        var order=inOrder(migration,profiles);
+        order.verify(migration).makePrivate(owner);
+        order.verify(profiles).save(owner);
+        assertTrue(owner.isPrivateProfile());
     }
 
     @Test void aRequestDoesNotAutomaticallyCreateAFollower() {

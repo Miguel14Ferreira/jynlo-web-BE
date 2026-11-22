@@ -35,10 +35,14 @@ public class ProfilePrivacyService {
   @org.springframework.beans.factory.annotation.Autowired(required=false)
   private ProfileMediaReadinessService mediaReadiness;
 
+  @org.springframework.beans.factory.annotation.Autowired(required=false)
+  private ProfileMediaMigrationService mediaMigration;
+
+  /** Existing photos and videos are moved automatically when the setting changes. */
   private boolean privateModeAvailable(Profile profile) {
     return privateModeEnabled && privateMediaCutoverVerified
         && protectedMedia != null && protectedMedia.isConfigured()
-        && mediaReadiness != null && mediaReadiness.count(profile).databaseReferencesReady();
+        && mediaMigration != null;
   }
 
   private Profile profile(String username) {
@@ -66,19 +70,21 @@ public class ProfilePrivacyService {
     if (privateProfile && !privateModeAvailable(actor))
       throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
         "A proteção de multimédia privado ainda está a ser preparada");
-    if (!privateProfile && actor.isPrivateProfile()) {
-      // Returning to public must not leave photos/videos behind a bearer-only
-      // route. A separately verified reverse migration is required first.
-      if (mediaReadiness == null)
+    if (privateProfile) {
+      // Move existing photos/videos to protected storage first (verified copies,
+      // one DB switch); only then hide the profile.
+      mediaMigration.makePrivate(actor);
+    } else if (actor.isPrivateProfile()) {
+      // Returning to public must not leave photos/videos behind a bearer-only route.
+      if (mediaMigration == null)
         throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
             "A publicação pública de multimédia ainda está a ser preparada");
-      var media=mediaReadiness.count(actor);
-      if (media.protectedReferences() > 0)
-        throw new ResponseStatusException(HttpStatus.CONFLICT,
-            "É necessário preparar as fotografias e vídeos antes de tornar o perfil público");
+      mediaMigration.makePublic(actor);
     }
     actor.setPrivateProfile(privateProfile);
     profiles.save(actor);
+    // Anything uploaded while the move was running is moved too.
+    if (privateProfile) mediaMigration.makePrivate(actor);
     if (!privateProfile) requests.deleteByTargetId(actor.getId());
     return new PrivacyStatus(actor.isPrivateProfile(),true,privateModeAvailable(actor));
   }
