@@ -72,7 +72,7 @@ public class VenueReverseGeocodeService {
         HttpRequest request = HttpRequest.newBuilder(URI.create(ENDPOINT + query))
                 .timeout(Duration.ofSeconds(14))
                 .header("Accept", "application/json")
-                .header("User-Agent", "Jynlo/1.0 (https://d24sports.com)")
+                .header("User-Agent", "Jynlo/1.0 (https://jynlosports.com)")
                 .GET().build();
         try {
             // My Geocode often returns only municipality-level "Sintra" for
@@ -85,7 +85,7 @@ public class VenueReverseGeocodeService {
                         URI.create(STREET_ENDPOINT + streetQuery))
                         .timeout(Duration.ofSeconds(7))
                         .header("Accept", "application/json")
-                        .header("User-Agent", "Jynlo/1.0 (https://d24sports.com)")
+                        .header("User-Agent", "Jynlo/1.0 (https://jynlosports.com)")
                         .GET().build();
                 HttpResponse<String> streetResponse =
                         client.send(streetRequest, HttpResponse.BodyHandlers.ofString());
