@@ -44,6 +44,11 @@ public class PrivateProfileMediaController {
         return profiles.findUserByUsernameIgnoreCase(authentication.getName())
                 .orElseThrow(PrivateProfileMediaController::unavailable);
     }
+    /** The author is a lazy reference outside a transaction: load it by id (reading the id never needs the session). */
+    private Profile author(Profile reference) {
+        if (reference == null || reference.getId() == null) throw unavailable();
+        return profiles.findById(reference.getId()).orElseThrow(PrivateProfileMediaController::unavailable);
+    }
     private static ResponseStatusException unavailable() {
         return new ResponseStatusException(HttpStatus.NOT_FOUND, "Media unavailable");
     }
@@ -67,7 +72,8 @@ public class PrivateProfileMediaController {
         Profile actor = viewer(authentication);
         SocialPost post = posts.findById(id).orElseThrow(PrivateProfileMediaController::unavailable);
         if (post.getActivityType() != null) throw unavailable();
-        privacy.requireContentAccess(actor, post.getAuthor());
+        Profile author = author(post.getAuthor());
+        privacy.requireContentAccess(actor, author);
         String key;
         if ("image".equals(slot)) key = post.getImageStorageKey();
         else if ("video".equals(slot)) key = post.getVideoStorageKey();
@@ -76,7 +82,7 @@ public class PrivateProfileMediaController {
             if (post.getExtraMedia() == null || index >= post.getExtraMedia().size()) throw unavailable();
             key = post.getExtraMedia().get(index).getStorageKey();
         } else throw unavailable();
-        requireKey(key, "posts", post.getAuthor().getId());
+        requireKey(key, "posts", author.getId());
         return deliver(key);
     }
 
@@ -86,11 +92,12 @@ public class PrivateProfileMediaController {
         Profile actor = viewer(authentication);
         SocialStory story = stories.findById(id).orElseThrow(PrivateProfileMediaController::unavailable);
         // Expired stories and private communities are never accessible by this personal route.
-        if (story.getCommunity() != null || !story.getExpiresAt().isAfter(Instant.now()))
+        if (story.getCommunity() != null || story.getTeam() != null || !story.getExpiresAt().isAfter(Instant.now()))
             throw unavailable();
-        privacy.requireContentAccess(actor, story.getAuthor());
+        Profile author = author(story.getAuthor());
+        privacy.requireContentAccess(actor, author);
         String key = story.getMediaStorageKey();
-        requireKey(key, "stories", story.getAuthor().getId());
+        requireKey(key, "stories", author.getId());
         return deliver(key);
     }
 

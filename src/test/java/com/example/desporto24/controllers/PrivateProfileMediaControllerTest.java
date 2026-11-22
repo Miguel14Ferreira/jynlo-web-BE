@@ -34,6 +34,7 @@ class PrivateProfileMediaControllerTest {
         Profile v = new Profile();
         v.setId(2L); v.setUsername("viewer");
         when(profiles.findUserByUsernameIgnoreCase("viewer")).thenReturn(Optional.of(v));
+        when(profiles.findById(1L)).thenReturn(Optional.of(p));
         return p;
     }
     @Test void publicStorageKeysAreNeverServedByThePrivateRoute() {
@@ -85,6 +86,17 @@ class PrivateProfileMediaControllerTest {
         var response = controller.post(7L,"image",viewer);
         assertTrue(response.getHeaders().getCacheControl().contains("no-store"));
         assertEquals("image/jpeg",response.getHeaders().getContentType().toString());
+        verify(privacy).requireContentAccess(any(),eq(owner));
+    }
+    @Test void storyAuthorIsLoadedByIdSoALazyReferenceNeverBreaksTheRequest() {
+        Profile owner = author();
+        Profile reference = new Profile(); reference.setId(1L); // only the id is known, as with a lazy proxy
+        SocialStory story = SocialStory.builder().id(8L).author(reference)
+                .expiresAt(Instant.now().plusSeconds(600))
+                .mediaStorageKey("private-profile-media/stories/1/photo.jpg").build();
+        when(stories.findById(8L)).thenReturn(Optional.of(story));
+        var response = controller.story(8L,viewer);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(privacy).requireContentAccess(any(),eq(owner));
     }
 }
