@@ -35,6 +35,10 @@ public class CommunitySessionService {
     private final com.example.desporto24.repository.session.SessionCommunityShareRepository sessionCommunityShareRepository;
     private final SessionViewMapper sessionViewMapper;
 
+    /** Optional so existing tests can build the service; used to show invite-only games to their players. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.session.SessionParticipantRepository participantRepository;
+
     public List<SessionSummaryResponse> sessions(Long communityId, String username) {
         Profile viewer = profileRepository.findUserByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new UserNotFoundException(NO_USER_FOUND_BY_USERNAME));
@@ -63,6 +67,18 @@ public class CommunitySessionService {
                         && !Boolean.TRUE.equals(session.getPrivateGame())
                         || member && session.getAudience() == SessionAudience.COMMUNITY_ONLY)
                 .forEach(session -> visible.putIfAbsent(session.getId() != null ? session.getId() : session, session));
+        // Invite-only games stay hidden from the community list, except for
+        // their organiser and the people already in them.
+        java.util.Set<Long> privateIds = visible.values().stream()
+                .filter(session -> Boolean.TRUE.equals(session.getPrivateGame()) && session.getId() != null)
+                .map(Session::getId).collect(java.util.stream.Collectors.toSet());
+        java.util.Set<Long> joinedPrivate = privateIds.isEmpty() || participantRepository == null
+                ? java.util.Set.of()
+                : participantRepository.findSessionIdsByProfileAndState(privateIds, viewer.getId(),
+                        com.example.desporto24.enumeration.ParticipantState.ACTIVE);
+        visible.values().removeIf(session -> Boolean.TRUE.equals(session.getPrivateGame())
+                && !(session.getProfile() != null && viewer.getId().equals(session.getProfile().getId()))
+                && !joinedPrivate.contains(session.getId()));
         return visible.values().stream()
                 .sorted(java.util.Comparator.comparing(Session::getGameDate,
                         java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))

@@ -96,8 +96,10 @@ class CommunityImportHttpErrorTest {
     void unrelatedCommunityErrorsKeepExistingGlobalHandler() throws Exception {
         when(groups.get(eq(7L), eq("organizer")))
                 .thenThrow(new IllegalArgumentException("Unrelated community error"));
+        // Business rule messages now reach the person as a 400, not a generic 500.
         mvc.perform(get("/api/communities/7").principal(auth))
-                .andExpect(status().isInternalServerError())
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Unrelated community error"))
                 .andExpect(jsonPath("$.code").doesNotExist());
     }
 }
