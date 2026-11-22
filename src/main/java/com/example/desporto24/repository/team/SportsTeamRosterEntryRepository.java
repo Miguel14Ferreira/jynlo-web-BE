@@ -11,4 +11,6 @@ public interface SportsTeamRosterEntryRepository extends JpaRepository<SportsTea
     List<SportsTeamRosterEntry> findByTeamIdOrderByShirtNumberAscNameAsc(Long teamId);
     Optional<SportsTeamRosterEntry> findByIdAndTeamId(Long id, Long teamId);
     long countByTeamId(Long teamId);
+    Optional<SportsTeamRosterEntry> findByClaimTokenHash(String claimTokenHash);
+    Optional<SportsTeamRosterEntry> findFirstByTeamIdAndProfileId(Long teamId, Long profileId);
 }
