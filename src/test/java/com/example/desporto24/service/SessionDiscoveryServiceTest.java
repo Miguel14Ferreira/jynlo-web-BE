@@ -259,8 +259,8 @@ class SessionDiscoveryServiceTest {
 
     @Test
     void multipleOriginAndRadiusProbesCannotPinpointPrivateSessionWithinCoarseCell() {
-        Session first = session(50L, "Futebol", "Lisboa", 38.721, -9.280, 0, true, 10, 2);
-        Session second = session(51L, "Futebol", "Lisboa", 38.749, -9.230, 0, true, 10, 2);
+        Session first = session(50L, "Futebol", "Lisboa", 38.721, -9.280, 0, false, 10, 2);
+        Session second = session(51L, "Futebol", "Lisboa", 38.749, -9.230, 0, false, 10, 2);
         stubCandidates(first, second);
         SessionDistanceCalculator realDistance = new SessionDistanceCalculator();
 
@@ -304,7 +304,7 @@ class SessionDiscoveryServiceTest {
     @Test
     void radiusIsNotAppliedWhenCoordinatesAreMissing() {
         Session first = session(1L, "Futebol", "Queluz", 38.75, -9.25, 0, false, 10, 1);
-        Session second = session(2L, "Padel", "Sintra", 38.80, -9.40, 10, true, 4, 4);
+        Session second = session(2L, "Padel", "Sintra", 38.80, -9.40, 10, false, 4, 4);
 
         stubCandidates(first, second);
         stubSummary(first, null, 1);
@@ -444,14 +444,15 @@ class SessionDiscoveryServiceTest {
         Session membersGame = session(93L, "Padel", "Lisboa", 38.73654, -9.25672, 0, false, 4, 2);
         membersGame.setAudience(SessionAudience.COMMUNITY_ONLY);
         stubCandidates(privateGame, membersGame);
-        stubSummary(privateGame, null, 4);
         stubSummary(membersGame, null, 2);
 
         var result = service.discover(criteria(
                 null, null, null, null, null, null, null,
                 null, null, null, "date"));
 
-        assertEquals(2, result.size());
+        // Private games are invite-only: never listed to people outside the game.
+        assertEquals(1, result.size());
+        assertEquals(93L, result.getFirst().id());
         assertTrue(result.stream().allMatch(row -> row.latitude() == null && row.longitude() == null));
     }
 

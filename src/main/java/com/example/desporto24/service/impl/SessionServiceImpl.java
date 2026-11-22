@@ -256,7 +256,10 @@ public class SessionServiceImpl implements SessionService {
         if (!request.gameDate().isAfter(Instant.now())) {
             throw new IllegalArgumentException("Session date must be in the future");
         }
-        if (request.privateGame() && (request.password() == null || request.password().isBlank())) {
+        // Private games are invite-only: the organizer shares the invitation link or
+        // invites people directly. A password is only kept for older clients.
+        if (request.privateGame() && request.password() != null && !request.password().isBlank()
+                && request.password().strip().length() < 4) {
             throw new IllegalArgumentException("Private sessions require a password");
         }
 
@@ -401,7 +404,8 @@ public class SessionServiceImpl implements SessionService {
                 request.externalConfirmedParticipants() == null ? 0 : request.externalConfirmedParticipants());
         session.setPriceAmount(request.priceAmount() == null ? BigDecimal.ZERO : request.priceAmount());
         session.setPrivateGame(request.privateGame());
-        session.setPasswordHash(request.privateGame() ? passwordHashService.encode(request.password()) : null);
+        session.setPasswordHash(request.privateGame() && request.password() != null && !request.password().isBlank()
+                ? passwordHashService.encode(request.password()) : null);
         session.setLatitude(
                 linkedVenue != null && linkedVenue.getLatitude() != null
                         ? linkedVenue.getLatitude()
@@ -648,6 +652,10 @@ public class SessionServiceImpl implements SessionService {
                 : waitlistRepository.findSessionIdsByProfile(sessionIds, viewer.getId());
 
         List<SessionSummaryResponse> matching = filteredCandidates.stream()
+                // Private games never appear in Explorar except to their organizer and players.
+                .filter(s -> !Boolean.TRUE.equals(s.getPrivateGame())
+                        || (viewer != null && ((s.getProfile() != null && viewer.getId().equals(s.getProfile().getId()))
+                            || joinedSessionIds.contains(s.getId()))))
                 .map(s -> toDiscoveryView(
                         s, criteria, hasCoordinates, participantCounts, joinedSessionIds, waitlistedSessionIds))
                 .filter(v -> !hasCoordinates
@@ -836,11 +844,13 @@ public class SessionServiceImpl implements SessionService {
             );
         }
 
-        if (Boolean.TRUE.equals(session.getPrivateGame()) && !directInvitation) {
+        if (Boolean.TRUE.equals(session.getPrivateGame()) && !directInvitation && guestToken == null) {
+            // Invite-only: a direct invitation or the organizer's link (checked above).
+            // Older password games still accept their password.
             String supplied = request == null ? null : request.password();
-            if (supplied == null
-                    || session.getPasswordHash() == null
-                    || !passwordEncoder.matches(supplied, session.getPasswordHash())) {
+            if (session.getPasswordHash() == null)
+                throw new AccessDeniedException("Este jogo é só por convite. Pede o link ao organizador.");
+            if (supplied == null || !passwordEncoder.matches(supplied, session.getPasswordHash())) {
                 throw new BadCredentialsException("Invalid session password");
             }
         }
@@ -1247,9 +1257,9 @@ public class SessionServiceImpl implements SessionService {
      * All normal exclusion, reliability, capacity and waitlist checks still run.
      */
     private void requireValidGuestToken(Session session, String token) {
+        // Private (invite-only) games are exactly what the invitation link is for.
         if ((session.getAudience() != SessionAudience.PUBLIC
                     && session.getAudience() != SessionAudience.COMMUNITY_ONLY)
-                || Boolean.TRUE.equals(session.getPrivateGame())
                 || Boolean.FALSE.equals(session.getEnabled())
                 || session.getGuestLinkHash() == null
                 || token == null || !token.matches("[A-Za-z0-9_-]{43}")) {

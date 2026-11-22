@@ -128,7 +128,10 @@ class SessionGuestRequestServiceTest {
         when(players.findById(15L)).thenReturn(Optional.of(person));
         assertEquals("APPROVED",service.request(7L,
                 new SessionGuestRequestService.GuestRequestInput(secret,15L,null,"")).status());
+        // Private games are invite-only: the organizer's link is exactly how people get in.
         session.setPrivateGame(true);
+        assertEquals(7L,service.preview(7L,secret).id());
+        session.setEnabled(false);
         assertThrows(ResponseStatusException.class,()->service.preview(7L,secret));
     }
     @Test void confirmedMemberSeesApprovedGuestsButNotPrivateNotesOrCancelledNames() {
