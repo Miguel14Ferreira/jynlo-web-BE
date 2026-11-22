@@ -336,6 +336,8 @@ public class SessionPaymentService {
     private static Payee payee(Session session) {
         Profile organiser = session.getProfile();
         if (organiser == null) return null;
+        // A private profile keeps its name and photo private: players see the username only.
+        if (organiser.isPrivateProfile()) return new Payee(organiser.getUsername(), null, null);
         String name = organiser.getFullName() != null && !organiser.getFullName().isBlank()
                 ? organiser.getFullName() : organiser.getNickname();
         return new Payee(organiser.getUsername(), name, organiser.getProfilePicUrl());

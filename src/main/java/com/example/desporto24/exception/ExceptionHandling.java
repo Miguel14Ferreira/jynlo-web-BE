@@ -174,6 +174,47 @@ public class ExceptionHandling {
                 message == null || message.isBlank() ? status.getReasonPhrase() : message);
     }
 
+    /**
+     * Services report invalid input with IllegalArgumentException and a broken
+     * rule ("Já existe uma época ativa…") with IllegalStateException. Show the
+     * person that reason (400/409) instead of a generic HTTP 500; technical
+     * messages are never exposed.
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<HttpResponse> illegalArgument(IllegalArgumentException exception) {
+        log.warn("Rejected request: {}", exception.toString());
+        return createHttpResponse(BAD_REQUEST, userFacing(exception.getMessage(), "Pedido inválido"));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<HttpResponse> illegalState(IllegalStateException exception) {
+        log.warn("Conflicting request: {}", exception.toString());
+        return createHttpResponse(HttpStatus.CONFLICT,
+                userFacing(exception.getMessage(), "Não foi possível concluir esta ação"));
+    }
+
+    @ExceptionHandler(SessionNotFound.class)
+    public ResponseEntity<HttpResponse> sessionNotFound(SessionNotFound exception) {
+        return createHttpResponse(HttpStatus.NOT_FOUND, "Sessão não encontrada");
+    }
+
+    /** The browser/app closed the connection: nothing to answer and nothing to fix. */
+    @ExceptionHandler({org.springframework.web.context.request.async.AsyncRequestNotUsableException.class,
+            org.apache.catalina.connector.ClientAbortException.class})
+    public void clientGone(Exception exception) {
+        log.debug("Client closed the connection: {}", exception.toString());
+    }
+
+    /** A message written for people: a sentence, no class names, stack details or ids. */
+    static String userFacing(String message, String fallback) {
+        if (message == null) return fallback;
+        String text = message.strip();
+        if (text.length() < 4 || text.length() > 240 || !text.contains(" ")) return fallback;
+        if (text.matches("(?s).*(Exception|\\.java|\\bnull\\b|could not|Could not|SQL|JDBC|org\\.|java\\.|com\\.|\\[|\\{).*"))
+            return fallback;
+        return text;
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<HttpResponse> internalServerErrorException(Exception exception){
         log.error("Unhandled request exception", exception);

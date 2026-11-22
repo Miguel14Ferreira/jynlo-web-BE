@@ -340,7 +340,9 @@ public class SessionServiceImpl implements SessionService {
         }
 
         // Tell the members once per creation, even for a recurring series.
-        if (communitySessionAnnouncements != null && firstSaved != null) {
+        // Invite-only games are never announced: only people with the link or a direct invite see them.
+        if (communitySessionAnnouncements != null && firstSaved != null
+                && !Boolean.TRUE.equals(firstSaved.getPrivateGame())) {
             List<Community> audience = new java.util.ArrayList<>(sharedCommunities);
             if (linkedCommunity != null) audience.add(0, linkedCommunity);
             if (!audience.isEmpty()) {

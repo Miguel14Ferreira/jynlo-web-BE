@@ -275,7 +275,9 @@ public class SportsTeamRosterImportService {
 
     static boolean sameName(String lineKey, Profile profile) {
         if (lineKey.isBlank()) return false;
-        for (String candidate : new String[]{profile.getFullName(), profile.getNickname(), profile.getUsername()}) {
+        // A private profile's real name is not used, so a suggestion never reveals it.
+        String fullName = profile.isPrivateProfile() ? null : profile.getFullName();
+        for (String candidate : new String[]{fullName, profile.getNickname(), profile.getUsername()}) {
             if (candidate == null || candidate.isBlank()) continue;
             String k = key(candidate);
             if (k.equals(lineKey)) return true;
