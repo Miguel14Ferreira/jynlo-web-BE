@@ -193,6 +193,17 @@ public class RefreshTokenRotationService {
         sessions.revokeOtherOwnedFamilies(profile.getId(), keepFamily, now);
     }
 
+    /**
+     * Native apps hold no refresh family of their own (bearer only), so "end the
+     * other sessions" from the app ends every browser session of the account.
+     */
+    @Transactional
+    public void revokeAllDevices(String username) {
+        Profile identity = profiles.findUserByUsername(username).orElseThrow(this::denied);
+        Profile profile = profiles.findForRoleChange(identity.getId()).orElseThrow(this::denied);
+        sessions.revokeAllOwnedFamilies(profile.getId(), Instant.now());
+    }
+
     @Transactional(readOnly = true)
     public boolean accessFamilyActive(Long profileId, String familyId) {
         if (familyId == null || familyId.isBlank()) return false;

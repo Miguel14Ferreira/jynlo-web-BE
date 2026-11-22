@@ -45,6 +45,11 @@ public interface RefreshTokenSessionRepository extends JpaRepository<RefreshToke
      */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update RefreshTokenSession t set t.revokedAt = :at " +
+            "where t.profileId = :profileId and t.familyId is not null and t.revokedAt is null")
+    int revokeAllOwnedFamilies(@Param("profileId") Long profileId, @Param("at") Instant at);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update RefreshTokenSession t set t.revokedAt = :at " +
             "where t.profileId = :profileId and t.familyId is not null " +
             "and t.familyId <> :keepFamily and t.revokedAt is null")
     int revokeOtherOwnedFamilies(@Param("profileId") Long profileId,
