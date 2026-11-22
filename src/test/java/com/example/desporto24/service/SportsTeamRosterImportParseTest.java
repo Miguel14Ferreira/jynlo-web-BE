@@ -50,4 +50,21 @@ class SportsTeamRosterImportParseTest {
             assertTrue(error.getReason().contains("coluna do nome"));
         }
     }
+
+    @Test
+    void suggestsOnlyClearNameMatches() {
+        var rui = new com.example.desporto24.model.Profile();
+        rui.setUsername("ruicosta"); rui.setFullName("Rui Miguel Costa");
+        assertTrue(SportsTeamRosterImportService.sameName("rui costa", rui));
+        assertFalse(SportsTeamRosterImportService.sameName("rui silva", rui));
+        assertFalse(SportsTeamRosterImportService.sameName("rui", rui));
+        assertTrue(SportsTeamRosterImportService.sameName("ruicosta", rui));
+    }
+
+    @Test
+    void claimTokensAreStoredOnlyAsHashes() {
+        String hash = SportsTeamRosterImportService.sha256("123e4567-e89b-12d3-a456-426614174000");
+        assertEquals(64, hash.length());
+        assertNotEquals("123e4567-e89b-12d3-a456-426614174000", hash);
+    }
 }

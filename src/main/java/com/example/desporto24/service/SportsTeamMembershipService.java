@@ -25,7 +25,24 @@ public class SportsTeamMembershipService {
     private org.springframework.context.ApplicationEventPublisher realtimeEvents;
 
     public record RosterPlayer(Long profileId, String username, String role, String profilePicUrl,
-                               String fullName, String bio) {}
+                               String fullName, String bio, Integer shirtNumber, String position) {
+        public RosterPlayer(Long profileId, String username, String role, String profilePicUrl,
+                            String fullName, String bio) {
+            this(profileId, username, role, profilePicUrl, fullName, bio, null, null);
+        }
+    }
+
+    /** Number and position from the squad line linked to this player, if any. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.team.SportsTeamRosterEntryRepository rosterEntries;
+
+    private RosterPlayer withSquadLine(Long teamId, RosterPlayer player) {
+        if (rosterEntries == null || player.profileId() == null) return player;
+        return rosterEntries.findFirstByTeamIdAndProfileId(teamId, player.profileId())
+                .map(e -> new RosterPlayer(player.profileId(), player.username(), player.role(),
+                        player.profilePicUrl(), player.fullName(), player.bio(), e.getShirtNumber(), e.getPosition()))
+                .orElse(player);
+    }
     private String publicRosterName(Profile profile) {
         if (profile.isPrivateProfile()) return null;
         String name = profile.getFullName();
@@ -116,7 +133,7 @@ public class SportsTeamMembershipService {
                         m.getProfile().getId(), m.getProfile().getUsername(),
                         "PLAYER", publicRosterPhoto(m.getProfile()),
                         publicRosterName(m.getProfile()), publicRosterBio(m.getProfile()))));
-        return result;
+        return result.stream().map(player -> withSquadLine(id, player)).toList();
     }
 
     @Transactional(readOnly = true)

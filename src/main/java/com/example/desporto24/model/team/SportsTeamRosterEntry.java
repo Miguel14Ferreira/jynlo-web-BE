@@ -38,4 +38,11 @@ public class SportsTeamRosterEntry {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    /** SHA-256 of the personal invite link for this squad line; the link itself is never stored. */
+    @Column(name = "claim_token_hash", length = 64)
+    private String claimTokenHash;
+
+    @Column(name = "claim_token_created_at")
+    private Instant claimTokenCreatedAt;
 }

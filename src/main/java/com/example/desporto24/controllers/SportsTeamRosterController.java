@@ -38,6 +38,49 @@ public class SportsTeamRosterController {
         return service.confirm(teamId, auth.getName(), file);
     }
 
+    public record LinkRequest(@jakarta.validation.constraints.NotNull Long profileId) {}
+
+    @PostMapping("/{entryId}/claim-link")
+    @PreAuthorize("isAuthenticated()")
+    public SportsTeamRosterImportService.ClaimLink claimLink(@PathVariable Long teamId,
+            @PathVariable Long entryId, Authentication auth) {
+        return service.createClaimLink(teamId, entryId, auth.getName());
+    }
+
+    @PostMapping("/{entryId}/link")
+    @PreAuthorize("isAuthenticated()")
+    public SportsTeamRosterImportService.Entry link(@PathVariable Long teamId, @PathVariable Long entryId,
+            @jakarta.validation.Valid @RequestBody LinkRequest request, Authentication auth) {
+        return service.link(teamId, entryId, request.profileId(), auth.getName());
+    }
+
+    @DeleteMapping("/{entryId}/link")
+    @PreAuthorize("isAuthenticated()")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unlink(@PathVariable Long teamId, @PathVariable Long entryId, Authentication auth) {
+        service.unlink(teamId, entryId, auth.getName());
+    }
+
+    @PutMapping("/{entryId}")
+    @PreAuthorize("isAuthenticated()")
+    public SportsTeamRosterImportService.Entry update(@PathVariable Long teamId, @PathVariable Long entryId,
+            @RequestBody SportsTeamRosterImportService.LineUpdate request, Authentication auth) {
+        return service.update(teamId, entryId, request, auth.getName());
+    }
+
+    @PutMapping("/members/{profileId}")
+    @PreAuthorize("isAuthenticated()")
+    public SportsTeamRosterImportService.Entry memberLine(@PathVariable Long teamId, @PathVariable Long profileId,
+            @RequestBody SportsTeamRosterImportService.LineUpdate request, Authentication auth) {
+        return service.setMemberLine(teamId, profileId, request, auth.getName());
+    }
+
+    @GetMapping("/suggestions")
+    @PreAuthorize("isAuthenticated()")
+    public List<SportsTeamRosterImportService.Suggestion> suggestions(@PathVariable Long teamId, Authentication auth) {
+        return service.suggestions(teamId, auth.getName());
+    }
+
     @DeleteMapping("/{entryId}")
     @PreAuthorize("isAuthenticated()")
     @ResponseStatus(HttpStatus.NO_CONTENT)

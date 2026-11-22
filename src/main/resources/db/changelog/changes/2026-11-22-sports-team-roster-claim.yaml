@@ -1,0 +1,25 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-22-sports-team-roster-claim
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                schemaName: desporto24
+                tableName: sports_team_roster_entry
+                columnName: claim_token_hash
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: sports_team_roster_entry
+            columns:
+              - column: {name: claim_token_hash, type: varchar(64)}
+              - column: {name: claim_token_created_at, type: timestamp with time zone}
+        - createIndex:
+            schemaName: desporto24
+            tableName: sports_team_roster_entry
+            indexName: uk_sports_team_roster_claim_token
+            unique: true
+            columns:
+              - column: {name: claim_token_hash}
