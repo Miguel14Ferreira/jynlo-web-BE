@@ -28,7 +28,7 @@ public class VenueEditDecisionNotificationService {
     private final EmailService emailService;
     private final ApplicationEventPublisher events;
 
-    @Value("${ui.app.url:https://d24sports.com}")
+    @Value("${ui.app.url:https://jynlosports.com}")
     private String appUrl;
 
     public void decision(long suggestionId, long venueId, String venueName,
