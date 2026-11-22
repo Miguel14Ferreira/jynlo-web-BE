@@ -256,8 +256,9 @@ public class SocialStoryService {
                 throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Equipas indisponíveis");
             team = teams.findById(teamId).orElseThrow(() ->
                     new ResponseStatusException(HttpStatus.NOT_FOUND, "Equipa não encontrada"));
-            if (!team.getOwner().getId().equals(actor.getId()))
-                throw new AccessDeniedException("Apenas o responsável pode publicar como equipa");
+            if (!team.getOwner().getId().equals(actor.getId())
+                    && !(team.isMembersCanPost() && activeTeamMember(team, actor)))
+                throw new AccessDeniedException("Só o responsável pode publicar Stories nesta equipa");
         }
         String safeTextColor = allowedStoryOption(textColor,
                 Set.of("white", "black", "yellow", "mint", "pink", "blue"), "white");
@@ -306,8 +307,9 @@ public class SocialStoryService {
         if (communityId != null) {
             group = communities.findById(communityId).orElseThrow(() ->
                     new ResponseStatusException(HttpStatus.NOT_FOUND, "Community not found"));
-            if (!canManage(group, actor)) {
-                throw new AccessDeniedException("Only community admins can publish group stories");
+            boolean memberMayPost = group.isMembersCanPost() && isMemberOrOwner(group, actor);
+            if (!canManage(group, actor) && !memberMayPost) {
+                throw new AccessDeniedException("Só os organizadores podem publicar Stories nesta comunidade");
             }
             // Media storage serves public URLs; do not leak PRIVATE community stories.
             // Private group stories require an authenticated media delivery mechanism.
@@ -511,6 +513,13 @@ public class SocialStoryService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Story expired");
         }
         return story;
+    }
+
+    private boolean activeTeamMember(SportsTeam team, Profile actor) {
+        if (teamMembers == null) return false;
+        return teamMembers.findByTeamIdAndProfileId(team.getId(), actor.getId())
+                .filter(member -> member.getStatus() == com.example.desporto24.model.team.SportsTeamMember.Status.ACTIVE)
+                .isPresent();
     }
 
     private boolean isMemberOrOwner(Community group, Profile actor) {

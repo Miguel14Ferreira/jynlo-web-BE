@@ -362,4 +362,17 @@ class SportsTeamContentServiceTest {
             service.delete(42L, SportsTeamContent.Kind.CHAT, 4L, "player"));
         verifyNoInteractions(entries);
     }
+
+    @Test
+    void ownerCanKeepTheFeedWhileTheChatStaysOpenToMembers() {
+        team.setMembersCanPost(false);
+        when(members.findByTeamIdAndProfileId(42L,2L)).thenReturn(Optional.of(
+            SportsTeamMember.builder().team(team).profile(player)
+                .status(SportsTeamMember.Status.ACTIVE).build()));
+        AccessDeniedException denied = assertThrows(AccessDeniedException.class, () ->
+            service.post(42L, SportsTeamContent.Kind.FEED,
+                new SportsTeamContentService.Submit("Golo!"), "player"));
+        assertTrue(denied.getMessage().contains("responsável"));
+        verify(entries, never()).save(any());
+    }
 }

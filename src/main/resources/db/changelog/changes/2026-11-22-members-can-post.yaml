@@ -1,0 +1,26 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-22-members-can-post
+      author: jynlo
+      changes:
+        # Keep today's behaviour: every member may post until organizers change it.
+        - addColumn:
+            schemaName: desporto24
+            tableName: community
+            columns:
+              - column:
+                  name: members_can_post
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+        - addColumn:
+            schemaName: desporto24
+            tableName: sports_team
+            columns:
+              - column:
+                  name: members_can_post
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false

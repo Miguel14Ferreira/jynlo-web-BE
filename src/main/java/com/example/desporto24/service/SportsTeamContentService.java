@@ -84,6 +84,13 @@ public class SportsTeamContentService {
         if (!active) throw new AccessDeniedException("Apenas membros confirmados podem aceder à equipa");
     }
 
+    /** The owner may keep the team feed for themselves; the chat stays open to all members. */
+    private void requireFeedPoster(SportsTeam team, SportsTeamContent.Kind kind, Profile actor) {
+        if (kind != SportsTeamContent.Kind.FEED || team.isMembersCanPost()) return;
+        if (!team.getOwner().getId().equals(actor.getId()))
+            throw new AccessDeniedException("Só o responsável pode publicar no feed desta equipa");
+    }
+
     private void requireFeature(SportsTeam team, SportsTeamContent.Kind kind) {
         boolean enabled = kind == SportsTeamContent.Kind.CHAT
                 ? team.isChatEnabled() : team.isFeedEnabled();
@@ -173,6 +180,7 @@ public class SportsTeamContentService {
         var sender = actor(username);
         requireActiveMember(team, sender);
         requireFeature(team, kind);
+        requireFeedPoster(team, kind, sender);
         String body = request == null || request.body() == null ? "" : request.body().trim();
         if (body.isEmpty() || body.length() > 2000)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mensagem inválida");
@@ -208,6 +216,7 @@ public class SportsTeamContentService {
         var sender = actor(username);
         requireActiveMember(team, sender);
         requireFeature(team, kind);
+        requireFeedPoster(team, kind, sender);
         if (privateFiles == null || !privateFiles.isConfigured())
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "Armazenamento privado indisponível");

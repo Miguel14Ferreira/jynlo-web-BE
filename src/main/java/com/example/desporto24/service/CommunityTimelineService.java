@@ -90,6 +90,7 @@ public class CommunityTimelineService {
     public CommunityTimelineEntryResponse post(Long communityId, CommunityTimelineEntry.Kind kind,
                                                 String body, String username, Long replyToMessageId) {
         Access access = requireMember(communityId, username);
+        if (kind == CommunityTimelineEntry.Kind.POST) requirePoster(access);
         String normalized = body == null ? "" : body.trim();
         int max = kind == CommunityTimelineEntry.Kind.POST ? 1000 : 2000;
         if (normalized.isBlank() || normalized.length() > max) {
@@ -264,6 +265,7 @@ public class CommunityTimelineService {
     public CommunityTimelineEntryResponse postWithMedia(
             Long communityId, String body, MultipartFile image, MultipartFile video, String username) {
         Access access = requireMember(communityId, username);
+        requirePoster(access);
         boolean hasImage = image != null && !image.isEmpty();
         boolean hasVideo = video != null && !video.isEmpty();
         if (hasImage && hasVideo) {
@@ -313,6 +315,7 @@ public class CommunityTimelineService {
     public CommunityTimelineEntryResponse postWithAlbum(Long communityId, String body,
             java.util.List<MultipartFile> files, String username) {
         Access access = requireMember(communityId, username);
+        requirePoster(access);
         if (files == null || files.isEmpty() || files.size() > 6) {
             throw new IllegalArgumentException("Escolhe entre 1 e 6 fotografias ou vídeos");
         }
@@ -533,4 +536,16 @@ public class CommunityTimelineService {
     }
 
     private record Access(Community community, Profile actor) {}
+
+    /** When organizers keep the feed for themselves, only the owner and admins publish posts. */
+    private void requirePoster(Access access) {
+        Community community = access.community();
+        if (community.isMembersCanPost()) return;
+        if (community.getOwner().getId().equals(access.actor().getId())) return;
+        boolean organizer = memberRepository.findByCommunityIdAndProfileId(community.getId(), access.actor().getId())
+                .map(member -> member.getRole() == com.example.desporto24.enumeration.CommunityRole.ADMIN
+                        || member.getRole() == com.example.desporto24.enumeration.CommunityRole.OWNER)
+                .orElse(false);
+        if (!organizer) throw new AccessDeniedException("Só os organizadores podem publicar nesta comunidade");
+    }
 }

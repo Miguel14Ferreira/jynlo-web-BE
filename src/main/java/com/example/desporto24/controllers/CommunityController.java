@@ -164,6 +164,17 @@ public class CommunityController {
                 id, authentication.getName(), request.membersCanCreateSessions()));
     }
 
+    public record CommunityPostingPolicyRequest(boolean membersCanPost) {}
+
+    @PutMapping("/{id}/posting-policy")
+    public ResponseEntity<CommunityResponse> updatePostingPolicy(
+            @PathVariable Long id,
+            @RequestBody @Valid CommunityPostingPolicyRequest request,
+            Authentication authentication) {
+        return ResponseEntity.ok(service.updatePostingPolicy(
+                id, authentication.getName(), request.membersCanPost()));
+    }
+
     public record CommunityDefaultVenueRequest(Long venueId) {}
 
     @PutMapping("/{id}/default-venue")

@@ -44,7 +44,17 @@ public class SportsTeamService {
                            boolean chatEnabled, String logoUrl,
                            String kitPrimary, String kitSecondary, String kitPattern,
                            String kitGarment, String kitAccent, String kitPlayerName, String kitPlayerNumber,
-                           List<KitVariant> kitVariants, String crestDesign) {
+                           List<KitVariant> kitVariants, String crestDesign, boolean membersCanPost) {
+        public TeamView(Long id, String slug, String name, String sport, String location,
+                        String description, Long ownerProfileId, boolean feedEnabled,
+                        boolean chatEnabled, String logoUrl,
+                        String kitPrimary, String kitSecondary, String kitPattern,
+                        String kitGarment, String kitAccent, String kitPlayerName, String kitPlayerNumber,
+                        List<KitVariant> kitVariants, String crestDesign) {
+            this(id, slug, name, sport, location, description, ownerProfileId, feedEnabled,
+                    chatEnabled, logoUrl, kitPrimary, kitSecondary, kitPattern, kitGarment, kitAccent,
+                    kitPlayerName, kitPlayerNumber, kitVariants, crestDesign, true);
+        }
         public TeamView(Long id, String slug, String name, String sport, String location,
                         String description, Long ownerProfileId, boolean feedEnabled,
                         boolean chatEnabled, String logoUrl,
@@ -72,7 +82,9 @@ public class SportsTeamService {
         }
     }
     public record CreateTeam(String name, String sport, String location, String description) {}
-    public record TeamFeatures(Boolean feedEnabled, Boolean chatEnabled) {}
+    public record TeamFeatures(Boolean feedEnabled, Boolean chatEnabled, Boolean membersCanPost) {
+        public TeamFeatures(Boolean feedEnabled, Boolean chatEnabled) { this(feedEnabled, chatEnabled, null); }
+    }
     public record KitVariant(String type, String primary, String secondary, String pattern,
                              String garment, String accent, String playerName, String playerNumber) {}
     public record KitSettings(String primary, String secondary, String pattern,
@@ -94,7 +106,7 @@ public class SportsTeamService {
                 team.getKitPrimary(),team.getKitSecondary(),
                 team.getKitPattern() == null ? "PLAIN" : team.getKitPattern(),
                 team.getKitGarment(), team.getKitAccent(), team.getKitPlayerName(), team.getKitPlayerNumber(),
-                readVariants(team),team.getCrestDesign());
+                readVariants(team),team.getCrestDesign(),team.isMembersCanPost());
     }
 
     @Transactional(readOnly = true)
@@ -171,6 +183,7 @@ public class SportsTeamService {
                 && team.isChatEnabled() != request.chatEnabled();
         if (request.feedEnabled() != null) team.setFeedEnabled(request.feedEnabled());
         if (request.chatEnabled() != null) team.setChatEnabled(request.chatEnabled());
+        if (request.membersCanPost() != null) team.setMembersCanPost(request.membersCanPost());
         TeamView saved = view(teams.saveAndFlush(team));
         // Content-free invalidations are delivered after commit. In particular,
         // disabling a feature must invalidate already-open private conversations.

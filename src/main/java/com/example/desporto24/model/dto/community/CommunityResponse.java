@@ -33,8 +33,27 @@ public record CommunityResponse(
         Double habitualLongitude,
         String habitualCity,
         String habitualAddress,
-        boolean membersCanCreateSessions
+        boolean membersCanCreateSessions,
+        boolean membersCanPost
 ) {
+    public CommunityResponse(Long id, String name, String description, String sport,
+                             String photoUrl, CommunityVisibility visibility,
+                             boolean rankingsEnabled, String ownerUsername,
+                             CommunityRole myRole, int memberCount, Instant createdAt,
+                             List<CommunityMemberResponse> members, List<String> sports,
+                             boolean individualTournamentsEnabled, boolean teamTournamentsEnabled,
+                             Double photoZoom, Double photoFocusX, Double photoFocusY,
+                             String photoFitMode, Long defaultVenueId, String defaultVenueName,
+                             String habitualLocationSource, Double habitualLatitude,
+                             Double habitualLongitude, String habitualCity, String habitualAddress,
+                             boolean membersCanCreateSessions) {
+        this(id, name, description, sport, photoUrl, visibility, rankingsEnabled,
+                ownerUsername, myRole, memberCount, createdAt, members, sports,
+                individualTournamentsEnabled, teamTournamentsEnabled, photoZoom,
+                photoFocusX, photoFocusY, photoFitMode, defaultVenueId,
+                defaultVenueName, habitualLocationSource, habitualLatitude,
+                habitualLongitude, habitualCity, habitualAddress, membersCanCreateSessions, true);
+    }
     // Preserve the former canonical response constructor for existing tests and consumers.
     public CommunityResponse(Long id, String name, String description, String sport,
                              String photoUrl, CommunityVisibility visibility,
