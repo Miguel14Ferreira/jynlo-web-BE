@@ -36,6 +36,8 @@ import java.util.*;
 @RequiredArgsConstructor
 public class SportsTeamRosterImportService {
     static final int MAX_PLAYERS = 200;
+    /** Spreadsheet invitations per team per 24 hours; above it players are added without an account. */
+    static final int MAX_FILE_INVITES_PER_DAY = 60;
 
     private static final Set<String> NAME = Set.of("nome", "name", "jogador", "jogadora", "player", "atleta",
             "nome completo", "full name");
@@ -349,6 +351,11 @@ public class SportsTeamRosterImportService {
         }
         List<PreviewRow> rows = new ArrayList<>();
         int invites = 0, fresh = 0;
+        long recentInvites = members.countByTeamIdAndInvitedAtAfter(team.getId(),
+                Instant.now().minus(java.time.Duration.ofHours(24)));
+        int inviteBudget = (int) Math.max(0, MAX_FILE_INVITES_PER_DAY - recentInvites);
+        boolean overBudget = false;
+        List<String> warnings = new ArrayList<>(parsed.warnings());
         for (ParsedRow r : parsed.rows()) {
             String k = key(r.name());
             RowStatus status;
@@ -366,6 +373,12 @@ public class SportsTeamRosterImportService {
                             || members.findByTeamIdAndProfileId(team.getId(), profile.get().getId())
                             .map(m -> m.getStatus() != SportsTeamMember.Status.DECLINED).orElse(false);
                     status = inTeam ? RowStatus.ALREADY_IN_TEAM : RowStatus.INVITE;
+                    if (status == RowStatus.INVITE && invites >= inviteBudget) {
+                        // Over the daily limit: keep the player, send the personal link later.
+                        status = RowStatus.NEW;
+                        matchedUsername = null;
+                        overBudget = true;
+                    }
                 }
             } else {
                 status = RowStatus.NEW;
@@ -378,7 +391,9 @@ public class SportsTeamRosterImportService {
         }
         int skipped = (int) rows.stream().filter(row -> row.status() == RowStatus.DUPLICATE
                 || row.status() == RowStatus.ALREADY_IN_TEAM).count();
-        return new Preview(rows, invites, fresh, skipped, parsed.warnings());
+        if (overBudget) warnings.add("Limite de " + MAX_FILE_INVITES_PER_DAY
+                + " convites por dia atingido: os restantes jogadores ficam sem conta e podes enviar-lhes o link pessoal.");
+        return new Preview(rows, invites, fresh, skipped, warnings);
     }
 
     Parsed read(MultipartFile file) {
