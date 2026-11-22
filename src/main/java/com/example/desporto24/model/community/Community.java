@@ -102,6 +102,11 @@ public class Community {
     @Column(name = "public_ranking_enabled", nullable = false)
     private boolean publicRankingEnabled = false;
 
+    /** Opt-in by Owner/Admin: an extra "Geral" table across all sports of a shared season. */
+    @Builder.Default
+    @Column(name = "overall_standings_enabled", nullable = false)
+    private boolean overallStandingsEnabled = false;
+
     // Optional community modules. All groups always retain sessions and their history.
     @Builder.Default
     @Column(name = "individual_tournaments_enabled", nullable = false)

@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-22-community-overall-standings
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: community
+                columnName: overall_standings_enabled
+      changes:
+        - addColumn:
+            tableName: community
+            columns:
+              - column:
+                  name: overall_standings_enabled
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false

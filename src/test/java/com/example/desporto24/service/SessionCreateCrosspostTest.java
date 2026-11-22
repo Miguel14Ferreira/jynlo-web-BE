@@ -175,7 +175,7 @@ class SessionCreateCrosspostTest {
         verify(communities, never()).save(any());
         verify(sessions, never()).save(any());
 
-        when(seasonsDb.findByCommunityIdAndActiveTrue(11L)).thenReturn(Optional.empty());
+        when(seasonsDb.findByCommunityIdAndActiveTrueOrderByCreatedAtDesc(11L)).thenReturn(List.of());
         when(seasonsDb.save(any(CommunitySeason.class))).thenAnswer(inv -> {
             CommunitySeason created = inv.getArgument(0);
             created.setId(99L);
@@ -208,7 +208,7 @@ class SessionCreateCrosspostTest {
         when(communities.findAllById(List.of(11L))).thenReturn(List.of(group));
         when(members.findByCommunityIdAndProfileId(11L, 7L)).thenReturn(
                 Optional.of(CommunityMember.builder().role(CommunityRole.MEMBER).build()));
-        when(seasonsDb.findByCommunityIdAndActiveTrue(11L)).thenReturn(Optional.empty());
+        when(seasonsDb.findByCommunityIdAndActiveTrueOrderByCreatedAtDesc(11L)).thenReturn(List.of());
         when(seasonsDb.save(any(CommunitySeason.class))).thenAnswer(inv -> {
             CommunitySeason created = inv.getArgument(0);
             created.setId(99L);
@@ -255,7 +255,7 @@ class SessionCreateCrosspostTest {
                 Optional.of(CommunityMember.builder().role(CommunityRole.MEMBER).build()));
         CommunitySeason active = CommunitySeason.builder().id(99L)
                 .community(group).active(true).build();
-        when(seasonsDb.findByCommunityIdAndActiveTrue(11L)).thenReturn(Optional.of(active));
+        when(seasonsDb.findByCommunityIdAndActiveTrueOrderByCreatedAtDesc(11L)).thenReturn(List.of(active));
         when(sessions.save(any(Session.class))).thenAnswer(inv -> {
             Session session = inv.getArgument(0);
             session.setId(42L);
@@ -284,7 +284,7 @@ class SessionCreateCrosspostTest {
                 .community(group).name("Época 2027").active(true).build();
         Session historical=new Session();
         historical.setSeasonCompetition(oldSeason);
-        when(seasonsDb.findByCommunityIdAndActiveTrue(11L)).thenReturn(Optional.of(activeSeason));
+        when(seasonsDb.findByCommunityIdAndActiveTrueOrderByCreatedAtDesc(11L)).thenReturn(List.of(activeSeason));
         when(sessions.save(any(Session.class))).thenAnswer(inv -> {
             Session created=inv.getArgument(0);
             created.setId(43L);

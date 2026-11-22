@@ -135,6 +135,18 @@ public class CommunityCompetitionService {
         List<CommunityRoundResponse> roundResponses = rounds.stream()
                 .map(round -> roundResponse(round, confirmedAliases)).toList();
         List<CommunityRoundEntry> standingEntries = standingEntries(communityId, seasonId);
+        String selectedSport = selectedSeason == null ? null : selectedSeason.getSport();
+        List<CommunityRacketStandingGroupResponse> racketStandings =
+                CommunityRacketStandings.calculate(roundResponses, racketRules);
+        List<CommunityRaceStandingGroupResponse> raceStandings =
+                CommunityRaceStandings.calculate(roundResponses, raceRules);
+        List<CommunitySportStandingGroupResponse> sportStandings =
+                standingsBySport(community, confirmedAliases, standingEntries, sportPointsRules, selectedSport);
+        List<CommunityOverallStandingResponse> overallStandings =
+                community.isOverallStandingsEnabled()
+                        && (selectedSport == null || selectedSport.isBlank())
+                        ? CommunityOverallStandings.calculate(sportStandings, racketStandings, raceStandings)
+                        : List.of();
         return new CommunityCompetitionOverviewResponse(
                 settings(community),
                 seasonRepository.findByCommunityIdOrderByCreatedAtDesc(communityId)
@@ -154,10 +166,10 @@ public class CommunityCompetitionService {
                         ? standings(community, confirmedAliases, standingEntries,
                                 selectedSeason == null ? null : selectedSeason.getSport())
                         : List.of(),
-                CommunityRacketStandings.calculate(roundResponses, racketRules),
-                CommunityRaceStandings.calculate(roundResponses, raceRules),
-                standingsBySport(community, confirmedAliases, standingEntries, sportPointsRules,
-                        selectedSeason == null ? null : selectedSeason.getSport())
+                racketStandings,
+                raceStandings,
+                sportStandings,
+                overallStandings
         );
     }
 
@@ -2263,6 +2275,9 @@ public class CommunityCompetitionService {
         if (request.lossPoints() != null) {
             community.setLossPoints(request.lossPoints());
         }
+        if (request.overallStandingsEnabled() != null) {
+            community.setOverallStandingsEnabled(request.overallStandingsEnabled());
+        }
 
         return settings(communityRepository.save(community));
     }
@@ -2861,7 +2876,8 @@ public class CommunityCompetitionService {
                 community.isRankingsEnabled(),
                 pointsOrDefault(community.getWinPoints(), 3),
                 pointsOrDefault(community.getDrawPoints(), 1),
-                pointsOrDefault(community.getLossPoints(), 0)
+                pointsOrDefault(community.getLossPoints(), 0),
+                community.isOverallStandingsEnabled()
         );
     }
 

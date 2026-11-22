@@ -4,6 +4,11 @@ public record CommunityCompetitionSettingsResponse(
         boolean rankingsEnabled,
         int winPoints,
         int drawPoints,
-        int lossPoints
+        int lossPoints,
+        boolean overallStandingsEnabled
 ) {
+    public CommunityCompetitionSettingsResponse(boolean rankingsEnabled, int winPoints,
+            int drawPoints, int lossPoints) {
+        this(rankingsEnabled, winPoints, drawPoints, lossPoints, false);
+    }
 }

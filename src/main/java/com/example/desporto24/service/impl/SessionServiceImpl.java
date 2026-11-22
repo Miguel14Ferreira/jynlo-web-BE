@@ -210,17 +210,25 @@ public class SessionServiceImpl implements SessionService {
                 destination.setRankingsEnabled(true);
                 communityRepository.save(destination);
             }
-            var existingSeason = communitySeasonRepository
-                    .findByCommunityIdAndActiveTrue(standingsCommunityId);
+            // Communities can run one season per sport: count the game in the
+            // season for its sport, or in the shared season, never fail on several.
+            String seasonSport = request.sport() == null ? null : request.sport().trim();
+            var activeSeasons = communitySeasonRepository
+                    .findByCommunityIdAndActiveTrueOrderByCreatedAtDesc(standingsCommunityId);
+            var existingSeason = com.example.desporto24.service.CommunitySessionSeasonSelector
+                    .pick(activeSeasons, seasonSport);
             if (existingSeason.isPresent()) {
                 seasonCompetition = existingSeason.get();
             } else {
                 java.time.ZonedDateTime localDate = request.gameDate()
                         .atZone(java.time.ZoneId.of("Europe/Lisbon"));
+                boolean tagged = com.example.desporto24.service.CommunitySessionSeasonSelector
+                        .needsSportSeason(activeSeasons) && seasonSport != null && !seasonSport.isBlank();
                 seasonCompetition = communitySeasonRepository.save(
                         com.example.desporto24.model.community.CommunitySeason.builder()
                                 .community(destination)
-                                .name("Época " + localDate.getYear())
+                                .name("Época " + localDate.getYear() + (tagged ? " · " + seasonSport : ""))
+                                .sport(tagged ? seasonSport : null)
                                 .startsAt(Instant.now())
                                 .createdAt(Instant.now())
                                 .active(true)
