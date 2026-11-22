@@ -11,8 +11,23 @@ public record CommunityCompetitionOverviewResponse(
         List<CommunityStandingResponse> standings,
         List<CommunityRacketStandingGroupResponse> racketStandings,
         List<CommunityRaceStandingGroupResponse> raceStandings,
-        List<CommunitySportStandingGroupResponse> sportStandings
+        List<CommunitySportStandingGroupResponse> sportStandings,
+        List<CommunityOverallStandingResponse> overallStandings
 ) {
+    public CommunityCompetitionOverviewResponse(
+            CommunityCompetitionSettingsResponse settings,
+            List<CommunitySeasonResponse> seasons,
+            Long selectedSeasonId,
+            Long activeSeasonId,
+            List<CommunityRoundResponse> rounds,
+            List<CommunityStandingResponse> standings,
+            List<CommunityRacketStandingGroupResponse> racketStandings,
+            List<CommunityRaceStandingGroupResponse> raceStandings,
+            List<CommunitySportStandingGroupResponse> sportStandings) {
+        this(settings, seasons, selectedSeasonId, activeSeasonId, rounds, standings,
+                racketStandings, raceStandings, sportStandings, List.of());
+    }
+
     /** Keep existing callers and API contracts compatible. */
     public CommunityCompetitionOverviewResponse(
             CommunityCompetitionSettingsResponse settings,
