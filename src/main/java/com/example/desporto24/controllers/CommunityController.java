@@ -42,6 +42,9 @@ public class CommunityController {
     private final CommunitySessionService communitySessionService;
     private final CommunitySessionResultService communitySessionResultService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.service.CommunityImportAutoService communityImportAutoService;
+
     @PostMapping
     public ResponseEntity<CommunityResponse> create(
             @RequestBody @Valid CreateCommunityRequest request,
@@ -719,6 +722,29 @@ public class CommunityController {
         return ResponseEntity.ok(
                 withImportHttpError(() -> communityImportService.preview(id, authentication.getName(), file))
         );
+    }
+
+    /** Phone import: recognised columns only (e.g. the Jynlo template), straight to a plan. */
+    @PostMapping(value = "/{id}/competition/import/auto/plan", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<com.example.desporto24.service.CommunityImportAutoService.AutoPlan> autoImportPlan(
+            @PathVariable Long id,
+            @RequestPart("file") MultipartFile file,
+            @RequestParam Long seasonId,
+            @RequestParam(required = false) Integer defaultYear,
+            Authentication authentication) {
+        return ResponseEntity.ok(withImportHttpError(() -> communityImportAutoService.plan(
+                id, authentication.getName(), file, seasonId, defaultYear)));
+    }
+
+    @PostMapping(value = "/{id}/competition/import/auto/confirm", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CommunityImportRoundsResultResponse> autoImportConfirm(
+            @PathVariable Long id,
+            @RequestPart("file") MultipartFile file,
+            @RequestParam Long seasonId,
+            @RequestParam(required = false) Integer defaultYear,
+            Authentication authentication) {
+        return ResponseEntity.ok(withImportHttpError(() -> communityImportAutoService.confirm(
+                id, authentication.getName(), file, seasonId, defaultYear)));
     }
 
     @PostMapping(value = "/{id}/competition/import/validate", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
