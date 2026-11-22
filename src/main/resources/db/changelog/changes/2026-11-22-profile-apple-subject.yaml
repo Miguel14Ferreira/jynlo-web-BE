@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-22-profile-apple-subject
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: profile
+                columnName: apple_subject
+      changes:
+        - addColumn:
+            tableName: profile
+            columns:
+              - column:
+                  name: apple_subject
+                  type: varchar(255)
+        - addUniqueConstraint:
+            tableName: profile
+            columnNames: apple_subject
+            constraintName: uk_profile_apple_subject

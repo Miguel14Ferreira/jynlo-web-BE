@@ -43,6 +43,7 @@ public final class SecurityConstant {
     public static final String[] PUBLIC_URLS = {
             "/api/auth/login",
             "/api/auth/google/**",
+            "/api/auth/apple/**",
             "/api/auth/refresh",
             "/api/auth/register",
             "/api/auth/register/mobile",

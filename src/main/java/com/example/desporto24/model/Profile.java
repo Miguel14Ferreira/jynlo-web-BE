@@ -60,6 +60,10 @@ public class Profile implements Serializable {
     @Column(name = "google_subject", unique = true)
     private String googleSubject;
 
+    /** Stable "Sign in with Apple" user id (the token's sub claim). */
+    @Column(name = "apple_subject", unique = true)
+    private String appleSubject;
+
     @Column(name = "community_creation_limit")
     private Integer communityCreationLimit;
 
