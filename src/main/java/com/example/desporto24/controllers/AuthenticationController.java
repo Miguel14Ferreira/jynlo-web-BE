@@ -191,6 +191,11 @@ public class AuthenticationController {
             @RequestHeader(value = HttpHeaders.ORIGIN, required = false) String origin,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
         requireSignedIn(authentication);
+        if (origin == null && accessFamily(authorization) == null) {
+            // Native app: bearer-only (no cookie, so no CSRF) and no family to keep.
+            refreshTokenRotationService.revokeAllDevices(authentication.getName());
+            return ResponseEntity.noContent().build();
+        }
         refreshOriginValidator.requireAllowedOrigin(origin);
         refreshTokenRotationService.revokeOtherDevices(
                 authentication.getName(), accessFamily(authorization));
@@ -204,7 +209,10 @@ public class AuthenticationController {
             @RequestHeader(value = HttpHeaders.ORIGIN, required = false) String origin,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
         requireSignedIn(authentication);
-        refreshOriginValidator.requireAllowedOrigin(origin);
+        // Browsers always send Origin on DELETE; only native bearer clients omit it.
+        if (origin != null || accessFamily(authorization) != null) {
+            refreshOriginValidator.requireAllowedOrigin(origin);
+        }
         refreshTokenRotationService.revokeDevice(authentication.getName(), familyId);
         if (familyId.equals(accessFamily(authorization))) {
             return ResponseEntity.noContent()

@@ -31,6 +31,8 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.any;
 import org.springframework.web.server.ResponseStatusException;
 import static org.springframework.http.HttpStatus.ACCEPTED;
 import static org.springframework.http.HttpStatus.OK;
@@ -265,6 +267,45 @@ class AuthenticationControllerTest {
         assertNull(result.getHeaders().getFirst(HttpHeaders.SET_COOKIE));
         verify(refreshOriginValidator).requireAllowedOrigin("https://d24sports.com");
         verify(refreshTokenRotationService).revokeOtherDevices("miguel", "bound-current");
+    }
+
+    @Test
+    void nativeAppWithoutFamilyEndsEveryBrowserSession() {
+        when(authentication.getName()).thenReturn("miguel");
+        when(authentication.isAuthenticated()).thenReturn(true);
+        when(jwtTokens.getAccessTokenFamilyId("app")).thenReturn(null);
+
+        var result = controller.revokeOtherDeviceSessions(authentication, null, "Bearer app");
+
+        assertEquals(204, result.getStatusCode().value());
+        verify(refreshTokenRotationService).revokeAllDevices("miguel");
+        verifyNoInteractions(refreshOriginValidator);
+    }
+
+    @Test
+    void nativeAppCanEndOneBrowserSessionWithoutOrigin() {
+        when(authentication.getName()).thenReturn("miguel");
+        when(authentication.isAuthenticated()).thenReturn(true);
+        when(jwtTokens.getAccessTokenFamilyId("app")).thenReturn(null);
+
+        var result = controller.revokeDeviceSession("other-family", authentication, null, "Bearer app");
+
+        assertEquals(204, result.getStatusCode().value());
+        verify(refreshTokenRotationService).revokeDevice("miguel", "other-family");
+        verifyNoInteractions(refreshOriginValidator);
+    }
+
+    @Test
+    void browserTokenWithoutOriginIsStillChecked() {
+        when(authentication.getName()).thenReturn("miguel");
+        when(authentication.isAuthenticated()).thenReturn(true);
+        when(jwtTokens.getAccessTokenFamilyId("access")).thenReturn("bound-current");
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN))
+                .when(refreshOriginValidator).requireAllowedOrigin(null);
+
+        assertThrows(ResponseStatusException.class,
+                () -> controller.revokeOtherDeviceSessions(authentication, null, "Bearer access"));
+        verify(refreshTokenRotationService, never()).revokeAllDevices(any());
     }
 
     @Test
