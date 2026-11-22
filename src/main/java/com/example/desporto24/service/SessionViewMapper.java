@@ -27,6 +27,10 @@ public class SessionViewMapper {
     private final SessionWaitlistRepository waitlistRepository;
     private final VenueService venueService;
 
+    /** Optional so tests can build the mapper without payments. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.session.SessionPaymentSetupRepository paymentSetups;
+
     public SessionSummaryResponse toSummary(Session session, Double distanceKm) {
         return toSummary(session, distanceKm, null);
     }
@@ -183,7 +187,17 @@ public class SessionViewMapper {
                 canSeeExactAddress && (session.getGoogleMapsUrl() == null
                         || Boolean.TRUE.equals(session.getGoogleMapsPinVerified()))
                         ? session.getLongitude() : null,
-                session.getSkillLevel()
+                session.getSkillLevel(),
+                paymentMethod(session)
         );
+    }
+
+    /** Only the method (MB WAY or in person): the number stays with enrolled players. */
+    private String paymentMethod(Session session) {
+        if (paymentSetups == null || session.getId() == null || session.getPriceAmount() == null
+                || session.getPriceAmount().signum() <= 0) return null;
+        return paymentSetups.findById(session.getId())
+                .map(com.example.desporto24.model.session.SessionPaymentSetup::getMethod)
+                .orElse(null);
     }
 }

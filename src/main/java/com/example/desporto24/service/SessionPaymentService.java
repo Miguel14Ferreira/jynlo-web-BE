@@ -39,7 +39,16 @@ public class SessionPaymentService {
     public record Player(String username, String profilePicUrl, Instant claimedAt, Instant confirmedAt) {}
     public record Payments(BigDecimal priceAmount, boolean organiser, String method, String mbwayPhone,
                            Mine me, int confirmedCount, int playerCount, List<Player> players,
-                           Instant lastReminderAt) {}
+                           Instant lastReminderAt, Payee payee) {
+        public Payments(BigDecimal priceAmount, boolean organiser, String method, String mbwayPhone,
+                        Mine me, int confirmedCount, int playerCount, List<Player> players,
+                        Instant lastReminderAt) {
+            this(priceAmount, organiser, method, mbwayPhone, me, confirmedCount, playerCount,
+                    players, lastReminderAt, null);
+        }
+    }
+    /** Who receives the money, so players know who the MB WAY number belongs to. */
+    public record Payee(String username, String fullName, String profilePicUrl) {}
 
     /** Who still owes the previous game, shown before the next list opens. */
     public record PreviousUnpaid(Long sessionId, Instant gameDate, String sport, List<String> unpaid) {}
@@ -263,7 +272,8 @@ public class SessionPaymentService {
         }).toList();
         return new Payments(access.session().getPriceAmount(), access.organiser(),
                 setup == null ? null : setup.getMethod(), phone, mine, confirmed, players.size(), list,
-                access.organiser() && setup != null ? setup.getLastReminderAt() : null);
+                access.organiser() && setup != null ? setup.getLastReminderAt() : null,
+                payee(access.session()));
     }
 
     private void notify(Profile recipient, Session session, String subject, String message) {
@@ -321,5 +331,13 @@ public class SessionPaymentService {
 
     private static ResponseStatusException forbidden(String message) {
         return new ResponseStatusException(HttpStatus.FORBIDDEN, message);
+    }
+
+    private static Payee payee(Session session) {
+        Profile organiser = session.getProfile();
+        if (organiser == null) return null;
+        String name = organiser.getFullName() != null && !organiser.getFullName().isBlank()
+                ? organiser.getFullName() : organiser.getNickname();
+        return new Payee(organiser.getUsername(), name, organiser.getProfilePicUrl());
     }
 }
