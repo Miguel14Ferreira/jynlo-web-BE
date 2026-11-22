@@ -90,7 +90,7 @@ class ProfileMediaMigrationServiceTest {
         SocialPost post = post();
         when(posts.findByAuthorId(42L)).thenReturn(List.of(post));
         when(stories.findByAuthorId(42L)).thenReturn(List.of());
-        when(privateStorage.open(anyString())).thenReturn(new ByteArrayInputStream(new byte[]{9}));
+        doReturn(new ByteArrayInputStream(new byte[]{9})).when(privateStorage).open(anyString());
 
         assertThrows(ResponseStatusException.class, () -> service.makePrivate(owner));
 
