@@ -78,7 +78,7 @@ public class ProfileMediaReadinessService {
         for (SocialStory story : stories.findByAuthorId(profile.getId())) {
             // A community Story has its own access rules and storage lifecycle.
             // It must not block switching the personal profile to private.
-            if (story.getCommunity() != null) continue;
+            if (story.getCommunity() != null || story.getTeam() != null) continue;
             String route="/api/profile-media/stories/" + story.getId();
             if (protectedReference(story.getMediaStorageKey(),story.getMediaUrl(),route, "stories", profile.getId())) protectedRefs++;
             else publicRefs++;

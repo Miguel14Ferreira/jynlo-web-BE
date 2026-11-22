@@ -14,6 +14,7 @@ import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.net.URI;
@@ -63,6 +64,28 @@ public class S3MediaStorage implements MediaStorage {
             return URI.create(stripTrailingSlash(publicBaseUrl) + "/" + objectKey);
         }
 
+        return URI.create("s3://" + s3.getBucket() + "/" + objectKey);
+    }
+
+    @Override
+    public java.io.InputStream open(String key) {
+        MediaStorageProperties.S3 s3 = properties.getS3();
+        return client().getObject(GetObjectRequest.builder()
+                .bucket(required(s3.getBucket(), "desporto.media.s3.bucket"))
+                .key(key).build());
+    }
+
+    @Override
+    public URI putValidated(String objectKey, byte[] data, String mimeType) {
+        MediaStorageProperties.S3 s3 = properties.getS3();
+        client().putObject(PutObjectRequest.builder()
+                        .bucket(required(s3.getBucket(), "desporto.media.s3.bucket"))
+                        .key(objectKey).contentType(mimeType).build(),
+                RequestBody.fromBytes(data));
+        String publicBaseUrl = properties.getPublicBaseUrl();
+        if (publicBaseUrl != null && !publicBaseUrl.isBlank()) {
+            return URI.create(stripTrailingSlash(publicBaseUrl) + "/" + objectKey);
+        }
         return URI.create("s3://" + s3.getBucket() + "/" + objectKey);
     }
 

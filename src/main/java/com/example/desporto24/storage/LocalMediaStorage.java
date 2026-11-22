@@ -33,6 +33,34 @@ public class LocalMediaStorage implements MediaStorage {
         return storeValidated(key, MediaStorageSupport.validateCommunityPhoto(file));
     }
 
+    @Override
+    public java.io.InputStream open(String key) {
+        Path root = Path.of(properties.getLocalRoot()).toAbsolutePath().normalize();
+        Path target = root.resolve(key).normalize();
+        if (!target.startsWith(root)) throw new IllegalArgumentException("Invalid media key");
+        try {
+            return Files.newInputStream(target);
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not read media file", e);
+        }
+    }
+
+    @Override
+    public URI putValidated(String objectKey, byte[] data, String mimeType) {
+        Path root = Path.of(properties.getLocalRoot()).toAbsolutePath().normalize();
+        Path target = root.resolve(objectKey).normalize();
+        if (!target.startsWith(root)) throw new IllegalArgumentException("Invalid media key");
+        try {
+            Files.createDirectories(target.getParent());
+            Files.write(target, data);
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not store media file", e);
+        }
+        String base = properties.getPublicBaseUrl();
+        if (base == null || base.isBlank()) return URI.create("/media/" + objectKey);
+        return URI.create(stripTrailingSlash(base) + "/" + objectKey);
+    }
+
     private URI storeValidated(String key, MediaStorageSupport.ValidatedMedia media) {
         String objectKey = key + media.extension();
         Path root = Path.of(properties.getLocalRoot()).toAbsolutePath().normalize();
