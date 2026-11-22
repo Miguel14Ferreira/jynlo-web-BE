@@ -124,15 +124,13 @@ class SessionGuestMemberJoinTest {
     }
 
     @Test
-    void signedInvitationNeverBypassesPrivateGameOrOrganizerExclusions() throws Exception {
+    void signedInvitationNeverBypassesOrganizerExclusions() throws Exception {
         Session session=session();
         Profile user=new Profile();user.setId(44L);
         when(sessions.findByIdForUpdate(77L)).thenReturn(Optional.of(session));
         when(profiles.findUserByUsername("outsider")).thenReturn(Optional.of(user));
+        // Private games are invite-only now: the link is a valid way in, exclusions still apply.
         session.setPrivateGame(true);
-        assertThrows(ResponseStatusException.class,
-                ()->service.joinWithGuestToken(77L,TOKEN,"outsider"));
-        session.setPrivateGame(false);
         when(exclusions.existsByOrganizerIdAndExcludedId(1L,44L)).thenReturn(true);
         assertThrows(AccessDeniedException.class,
                 ()->service.joinWithGuestToken(77L,TOKEN,"outsider"));

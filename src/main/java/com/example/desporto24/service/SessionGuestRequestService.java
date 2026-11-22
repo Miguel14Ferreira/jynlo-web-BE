@@ -671,7 +671,6 @@ public class SessionGuestRequestService {
     private void requireGuestEligible(Session session){
         if((session.getAudience()!=SessionAudience.PUBLIC
                 && session.getAudience()!=SessionAudience.COMMUNITY_ONLY)
-                || Boolean.TRUE.equals(session.getPrivateGame())
                 || Boolean.FALSE.equals(session.getEnabled())
                 || session.getGameDate()==null
                 || !session.getGameDate().toInstant().isAfter(Instant.now())
