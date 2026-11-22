@@ -27,4 +27,8 @@ public class MobilePushDevice {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /** App language on this device ("pt" or "en"), used for the lock-screen text. */
+    @Column(name = "language", length = 5)
+    private String language;
 }

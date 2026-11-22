@@ -94,16 +94,17 @@ public class MobilePushDeliveryService {
                 devices.findTop20ByUsernameOrderByUpdatedAtDesc(account);
         for (var device : recipients) {
             if (!account.equals(device.getUsername())) continue;
-            deliver(device.getDeviceId(),device.getPushToken(), event.notificationId(), event.category());
+            deliver(device.getDeviceId(),device.getPushToken(), event.notificationId(), event.category(), device.getLanguage());
         }
     }
 
-    private void deliver(String deviceId,String token, Long notificationId, String category) {
+    private void deliver(String deviceId,String token, Long notificationId, String category, String language) {
+        String[] text = text(category, language);
         try {
             byte[] body = json.writeValueAsBytes(Map.of(
                     "to", token,
-                    "title", text(category)[0],
-                    "body", text(category)[1],
+                    "title", text[0],
+                    "body", text[1],
                     "sound", "default",
                     "channelId", "jynlo-messages",
                     "data", Map.of("kind", "notification", "id", notificationId)
@@ -146,6 +147,45 @@ public class MobilePushDeliveryService {
      * Lock-screen text per notification type. Deliberately generic: never names,
      * message bodies, places or times, which stay behind the authenticated inbox.
      */
+    static String[] text(String category, String language) {
+        return "en".equals(language) ? textEn(category) : text(category);
+    }
+
+    /** English lock-screen text, same privacy rules as the Portuguese one. */
+    static String[] textEn(String category) {
+        if (category == null) return new String[]{"Jynlo", "You have a new notification."};
+        return switch (category) {
+            case "PAYMENT_REMINDER" -> new String[]{"Payment due", "The organiser reminds you that a game is still unpaid."};
+            case "TOURNAMENT_RESULT" -> new String[]{"Tournament result", "A result was recorded for one of your games."};
+            case "TOURNAMENT_LEADER" -> new String[]{"Standings changed", "There is a new leader in a tournament you play in."};
+            case "AVAILABILITY_REQUEST" -> new String[]{"Who can play?", "Someone wants to set up a game. Open Jynlo and say when you can."};
+            case "AVAILABILITY_REMINDER" -> new String[]{"You haven't answered yet", "They are waiting for your availability for a game."};
+            case "COMMUNITY_SESSION_CREATED" -> new String[]{"New community game", "There is a new game in one of your communities. Open Jynlo to sign up."};
+            case "NEARBY_SESSION" -> new String[]{"New game near you", "There is a new game near you. Open Jynlo to see if it suits you."};
+            case "SESSION_REMINDER" -> new String[]{"Game reminder", "You have a game soon. Open Jynlo to see the details."};
+            case "SESSION_CANCELLED" -> new String[]{"Game cancelled", "A game you joined will no longer take place. Open Jynlo to see why."};
+            case "SESSION_REMOVED" -> new String[]{"Game", "You are no longer signed up for a game."};
+            case "WAITLIST_PROMOTED" -> new String[]{"You're in!", "You left the waiting list: you are now signed up for the game."};
+            case "SESSION_MEETING_POINT_UPDATED" -> new String[]{"Meeting point changed", "The meeting point of one of your games changed."};
+            case "SESSION_DETAILS_UPDATED" -> new String[]{"Game updated", "The details of one of your games changed."};
+            case "SESSION_POST_GAME_REVIEW" -> new String[]{"How did the game go?", "Confirm attendance for your last game."};
+            case "SESSION_INVITE" -> new String[]{"Invitation to play", "You were invited to a game."};
+            case "ATTENDANCE_DISPUTE_ACCEPTED", "ATTENDANCE_DISPUTE_REJECTED" -> new String[]{"Attendance", "There is a decision on your attendance dispute."};
+            case "COMMUNITY_INVITE" -> new String[]{"Community invitation", "You were invited to a community."};
+            case "COMMUNITY_JOIN_REQUEST" -> new String[]{"Join request", "Someone wants to join one of your communities."};
+            case "COMMUNITY_JOIN_ACCEPTED" -> new String[]{"Welcome!", "Your request to join the community was accepted."};
+            case "COMMUNITY_JOIN_REJECTED" -> new String[]{"Community", "There is an answer to your join request."};
+            case "CHAT_MESSAGE" -> new String[]{"New message", "You have a new message on Jynlo."};
+            case "SOCIAL_NEW_FOLLOWER" -> new String[]{"New follower", "Someone started following you."};
+            case "SOCIAL_POST_LIKED", "SOCIAL_STORY_LIKED" -> new String[]{"Someone liked your content", "Someone liked one of your posts."};
+            case "SOCIAL_POST_COMMENTED" -> new String[]{"New comment", "Someone commented on one of your posts."};
+            case "SOCIAL_STORY_REPLIED" -> new String[]{"New reply", "Someone replied to one of your stories."};
+            case "TEAM_MEMBER_INVITE" -> new String[]{"Team invitation", "You were invited to a team."};
+            case "TEAM_ADMIN_TRANSFER", "TEAM_ADMIN_ASSIGNED" -> new String[]{"Team", "Your role in a team changed."};
+            default -> new String[]{"Jynlo", "You have a new notification."};
+        };
+    }
+
     static String[] text(String category) {
         if (category == null) return new String[]{"Jynlo", "Tens uma nova notificação."};
         return switch (category) {

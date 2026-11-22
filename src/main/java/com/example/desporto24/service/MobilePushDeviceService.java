@@ -18,7 +18,14 @@ import java.util.UUID;
 public class MobilePushDeviceService {
     private final MobilePushDeviceRepository repository;
 
-    public record Registration(String deviceId, String expoPushToken, String platform) {}
+    public record Registration(String deviceId, String expoPushToken, String platform, String language) {
+        public Registration(String deviceId, String expoPushToken, String platform) { this(deviceId, expoPushToken, platform, null); }
+    }
+
+    /** Only the languages the app ships; anything else falls back to Portuguese. */
+    static String language(String raw) {
+        return raw != null && raw.trim().toLowerCase(Locale.ROOT).startsWith("en") ? "en" : "pt";
+    }
     public record RegistrationStatus(boolean registered) {}
 
     private static String username(String actor) {
@@ -66,6 +73,7 @@ public class MobilePushDeviceService {
         device.setUsername(owner);
         device.setPushToken(pushToken);
         device.setPlatform(platform);
+        device.setLanguage(language(registration.language()));
         device.setUpdatedAt(Instant.now());
         repository.save(device);
         return new RegistrationStatus(true);

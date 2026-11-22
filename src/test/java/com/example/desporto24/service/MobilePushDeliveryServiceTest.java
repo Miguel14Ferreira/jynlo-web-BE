@@ -135,4 +135,21 @@ class MobilePushDeliveryServiceTest {
             org.junit.jupiter.api.Assertions.assertFalse(text[0].isBlank() || text[1].isBlank());
         }
     }
+
+    @Test
+    void lockScreenTextFollowsTheDeviceLanguage() {
+        org.junit.jupiter.api.Assertions.assertEquals("Game reminder", MobilePushDeliveryService.text("SESSION_REMINDER", "en")[0]);
+        org.junit.jupiter.api.Assertions.assertEquals("Lembrete de jogo", MobilePushDeliveryService.text("SESSION_REMINDER", "pt")[0]);
+        org.junit.jupiter.api.Assertions.assertEquals("Lembrete de jogo", MobilePushDeliveryService.text("SESSION_REMINDER", null)[0]);
+        for (var type : com.example.desporto24.enumeration.NotificationType.values()) {
+            String[] en = MobilePushDeliveryService.text(type.name(), "en");
+            org.junit.jupiter.api.Assertions.assertFalse(en[0].isBlank() || en[1].isBlank());
+            boolean ptGeneric = "Tens uma nova notificação.".equals(MobilePushDeliveryService.text(type.name())[1]);
+            org.junit.jupiter.api.Assertions.assertEquals(ptGeneric, "You have a new notification.".equals(en[1]),
+                    () -> "English and Portuguese push texts differ in coverage for " + type);
+        }
+        org.junit.jupiter.api.Assertions.assertEquals("en", MobilePushDeviceService.language("en-GB"));
+        org.junit.jupiter.api.Assertions.assertEquals("pt", MobilePushDeviceService.language("fr"));
+        org.junit.jupiter.api.Assertions.assertEquals("pt", MobilePushDeviceService.language(null));
+    }
 }

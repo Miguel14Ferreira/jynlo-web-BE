@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-22-push-device-language
+      author: jynlo
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: mobile_push_device
+            columns:
+              - column:
+                  name: language
+                  type: VARCHAR(5)
