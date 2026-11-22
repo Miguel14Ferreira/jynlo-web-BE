@@ -38,5 +38,7 @@ public enum NotificationType {
     /** A member of a group or community asked who can play at some proposed times. */
     AVAILABILITY_REQUEST,
     /** Reminder, 24h later, to members who have not answered an availability request. */
-    AVAILABILITY_REMINDER
+    AVAILABILITY_REMINDER,
+    /** A member of one of the recipient's communities created a game for that community. */
+    COMMUNITY_SESSION_CREATED
 }

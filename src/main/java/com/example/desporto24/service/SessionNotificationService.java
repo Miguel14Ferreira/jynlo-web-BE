@@ -161,6 +161,13 @@ public class SessionNotificationService {
         save(profile, session, NotificationType.SESSION_REMINDER, subject, message);
     }
 
+    /** In-app (and mobile push, when enabled) "new game in your community" alert for one member. */
+    @Transactional
+    public void notifyCommunitySession(Session session, Profile profile, String subject, String message) {
+        if (profile == null || profile.getUsername() == null || profile.getUsername().isBlank()) return;
+        save(profile, session, NotificationType.COMMUNITY_SESSION_CREATED, subject, message);
+    }
+
     /** In-app (and mobile push, when enabled) "new game near you" alert for one recipient. */
     @Transactional
     public void notifyNearbySession(Session session, Profile profile, String subject, String message) {
