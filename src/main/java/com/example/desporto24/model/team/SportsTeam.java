@@ -70,6 +70,11 @@ public class SportsTeam {
     @Column(name = "chat_enabled", nullable = false)
     private boolean chatEnabled;
 
+    /** The team owner decides whether every member may publish in the feed and as Stories. */
+    @Builder.Default
+    @Column(name = "members_can_post", nullable = false)
+    private boolean membersCanPost = true;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 }

@@ -89,6 +89,11 @@ public class Community {
     @Column(name = "members_can_create_sessions", nullable = false)
     private boolean membersCanCreateSessions = true;
 
+    /** Organizers decide whether every member may publish posts and Stories for the community. */
+    @Builder.Default
+    @Column(name = "members_can_post", nullable = false)
+    private boolean membersCanPost = true;
+
     @Column(name = "rankings_enabled", nullable = false)
     private boolean rankingsEnabled;
 

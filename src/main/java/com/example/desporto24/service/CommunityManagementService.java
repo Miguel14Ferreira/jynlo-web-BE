@@ -123,6 +123,14 @@ public class CommunityManagementService {
         return toResponse(communityRepository.save(community), actor);
     }
 
+    /** Organizers choose whether all members, or only organizers, publish posts and Stories. */
+    public CommunityResponse updatePostingPolicy(Long communityId, String username, boolean membersCanPost) {
+        Profile actor = profile(username);
+        Community community = requireAdmin(communityId, actor).getCommunity();
+        community.setMembersCanPost(membersCanPost);
+        return toResponse(communityRepository.save(community), actor);
+    }
+
     public CommunityResponse updateFeatures(Long communityId, String username,
             UpdateCommunityFeaturesRequest request) {
         Profile actor = profile(username);
@@ -788,7 +796,8 @@ public class CommunityManagementService {
                 community.getHabitualLocationSource(),
                 community.getHabitualLatitude(), community.getHabitualLongitude(),
                 community.getHabitualCity(), community.getHabitualAddress(),
-                community.isMembersCanCreateSessions()
+                community.isMembersCanCreateSessions(),
+                community.isMembersCanPost()
         );
     }
 

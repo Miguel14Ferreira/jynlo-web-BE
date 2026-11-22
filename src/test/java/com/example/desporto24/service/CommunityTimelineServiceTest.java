@@ -635,4 +635,24 @@ class CommunityTimelineServiceTest {
                 .id(id).community(group).kind(kind).author(actor)
                 .body("Mensagem").createdAt(Instant.parse("2026-10-20T10:00:00Z")).build();
     }
+
+    @Test
+    void whenOrganizersKeepTheFeedMembersCannotPostButChatStaysOpen() {
+        Community closed = Community.builder().id(8L).owner(owner).name("Liga").membersCanPost(false).build();
+        when(profiles.findUserByUsernameIgnoreCase("member")).thenReturn(Optional.of(member));
+        when(communities.findById(8L)).thenReturn(Optional.of(closed));
+        when(members.existsByCommunityIdAndProfileId(8L, member.getId())).thenReturn(true);
+        CommunityMember plain = new CommunityMember();
+        plain.setRole(CommunityRole.MEMBER);
+        when(members.findByCommunityIdAndProfileId(8L, member.getId())).thenReturn(Optional.of(plain));
+
+        AccessDeniedException denied = assertThrows(AccessDeniedException.class,
+                () -> service.post(8L, Kind.POST, "Treino amanhã", "member"));
+        assertTrue(denied.getMessage().contains("organizadores"));
+        verify(timelines, never()).save(any());
+
+        plain.setRole(CommunityRole.ADMIN);
+        when(timelines.save(any())).thenAnswer(inv -> { CommunityTimelineEntry e = inv.getArgument(0); e.setId(12L); return e; });
+        assertEquals("Treino amanhã", service.post(8L, Kind.POST, "Treino amanhã", "member").body());
+    }
 }
