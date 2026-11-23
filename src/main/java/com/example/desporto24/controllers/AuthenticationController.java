@@ -56,7 +56,7 @@ public class AuthenticationController {
     private final RefreshTokenRotationService refreshTokenRotationService;
     private final JWTokenProvider jwtTokens;
     private final GoogleAuthenticationService googleAuthenticationService;
-    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.service.EmailChangeService emailChangeService;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -337,6 +337,7 @@ public class AuthenticationController {
     /** Public: opened from the link sent to the new address. */
     @PostMapping("/email-change/confirm")
     public ResponseEntity<HttpResponse> confirmEmailChange(@RequestBody EmailChangeConfirmBody body) {
+        if (emailChangeService == null) throw new IllegalStateException("Alteração de email indisponível");
         emailChangeService.confirm(body == null ? null : body.token());
         return buildResponse("Email confirmado. Já podes usar o novo endereço.");
     }
