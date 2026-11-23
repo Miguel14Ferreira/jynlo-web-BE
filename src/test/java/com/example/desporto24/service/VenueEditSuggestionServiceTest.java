@@ -435,7 +435,7 @@ class VenueEditSuggestionServiceTest {
                 "O clube reserva os campos pelo Playtomic"), "player");
         assertEquals("https://playtomic.com/clubs/campo-original", receipt.proposed().get("bookingUrl"));
 
-        var edit = VenueEditSuggestion.builder().id(45L).venue(venue).beforeJson("{}")
+        var edit = VenueEditSuggestion.builder().id(45L).venue(venue).beforeJson("{\"bookingUrl\":null,\"freeAccess\":null}")
                 .changesJson("{\"bookingUrl\":\"https://playtomic.com/clubs/campo-original\",\"freeAccess\":\"false\"}")
                 .reason("O clube reserva os campos pelo Playtomic").submittedByUsername("player")
                 .submittedAt(Instant.now()).status(VenueEditSuggestion.Status.PENDING).build();
