@@ -33,7 +33,7 @@ import java.util.Set;
 public class VenueEditSuggestionService {
     private static final Set<String> EDITABLE = Set.of(
             "name", "city", "district", "address", "sports",
-            "openingHours", "website", "contact", "latitude", "longitude");
+            "openingHours", "website", "contact", "latitude", "longitude", "bookingUrl", "freeAccess");
     private static final Set<String> DISTRICTS = Set.of(
             "Aveiro", "Beja", "Braga", "Bragança", "Castelo Branco", "Coimbra",
             "Évora", "Faro", "Guarda", "Leiria", "Lisboa", "Portalegre",
@@ -234,10 +234,11 @@ public class VenueEditSuggestionService {
             case "name" -> 140;
             case "city", "district" -> 120;
             case "openingHours" -> 1000;
+            case "bookingUrl" -> 500;
             default -> 255;
         };
         if (value.length() > limit) throw bad(HttpStatus.BAD_REQUEST, "Valor demasiado longo");
-        if (value.isBlank() && !Set.of("openingHours", "website", "contact").contains(field)) {
+        if (value.isBlank() && !Set.of("openingHours", "website", "contact", "bookingUrl", "freeAccess").contains(field)) {
             throw bad(HttpStatus.BAD_REQUEST, "Este campo não pode ficar vazio");
         }
         if ("latitude".equals(field) || "longitude".equals(field)) {
@@ -266,7 +267,10 @@ public class VenueEditSuggestionService {
                         .anyMatch(s -> s.isBlank() || !SportsCatalog.ALLOWED.contains(s))) {
             throw bad(HttpStatus.BAD_REQUEST, "Escolhe modalidades do catálogo Jynlo");
         }
-        if ("website".equals(field) && !value.isEmpty()) {
+        if ("freeAccess".equals(field) && !value.isEmpty() && !Set.of("true", "false").contains(value)) {
+            throw bad(HttpStatus.BAD_REQUEST, "Indica se o acesso é livre");
+        }
+        if (("website".equals(field) || "bookingUrl".equals(field)) && !value.isEmpty()) {
             try {
                 URI url = URI.create(value);
                 if (!"https".equalsIgnoreCase(url.getScheme()) || url.getHost() == null
@@ -313,6 +317,8 @@ public class VenueEditSuggestionService {
             case "openingHours" -> venue.getOpeningHours();
             case "website" -> venue.getWebsite();
             case "contact" -> venue.getContact();
+            case "bookingUrl" -> venue.getBookingUrl();
+            case "freeAccess" -> venue.getFreeAccess() == null ? null : venue.getFreeAccess().toString();
             case "latitude" -> venue.getLatitude() == null ? null : Double.toString(venue.getLatitude());
             case "longitude" -> venue.getLongitude() == null ? null : Double.toString(venue.getLongitude());
             default -> throw bad(HttpStatus.BAD_REQUEST, "Campo não editável");
@@ -330,6 +336,8 @@ public class VenueEditSuggestionService {
             case "openingHours" -> venue.setOpeningHours(value);
             case "website" -> venue.setWebsite(value);
             case "contact" -> venue.setContact(value);
+            case "bookingUrl" -> venue.setBookingUrl(value);
+            case "freeAccess" -> venue.setFreeAccess(value == null ? null : Boolean.valueOf(value));
             case "latitude" -> venue.setLatitude(Double.parseDouble(input));
             case "longitude" -> venue.setLongitude(Double.parseDouble(input));
             default -> throw bad(HttpStatus.BAD_REQUEST, "Campo não editável");

@@ -73,7 +73,8 @@ public class SessionViewMapper {
                 session.getSeasonCompetition() == null ? null
                         : session.getSeasonCompetition().getCommunity().getId(),
                 session.getAirsoftGameType()
-        ).withSkillLevel(session.getSkillLevel());
+        ).withSkillLevel(session.getSkillLevel())
+                .withCourtBooked(Boolean.TRUE.equals(session.getCourtBooked()) ? Boolean.TRUE : null);
     }
 
     public SessionSummaryResponse toSummary(
@@ -102,7 +103,8 @@ public class SessionViewMapper {
                 session.getSeasonCompetition() == null ? null
                         : session.getSeasonCompetition().getCommunity().getId(),
                 session.getAirsoftGameType()
-        ).withSkillLevel(session.getSkillLevel());
+        ).withSkillLevel(session.getSkillLevel())
+                .withCourtBooked(Boolean.TRUE.equals(session.getCourtBooked()) ? Boolean.TRUE : null);
     }
 
     public SessionDetailResponse toDetail(Session session, Profile viewer) {

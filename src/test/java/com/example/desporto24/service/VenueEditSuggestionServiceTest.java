@@ -426,6 +426,35 @@ class VenueEditSuggestionServiceTest {
         verify(venues, never()).save(any());
     }
 
+    @Test
+    void bookingLinkAndFreeAccessCanBeSuggestedAndApproved() {
+        when(venues.findForEditReview(5L)).thenReturn(Optional.of(venue));
+        when(submissions.save(any())).thenAnswer(inv -> { VenueEditSuggestion s = inv.getArgument(0); s.setId(45L); return s; });
+        var receipt = service.submit(5L, new VenueEditSuggestionRequest(
+                Map.of("bookingUrl", "https://playtomic.com/clubs/campo-original", "freeAccess", "false"),
+                "O clube reserva os campos pelo Playtomic"), "player");
+        assertEquals("https://playtomic.com/clubs/campo-original", receipt.proposed().get("bookingUrl"));
+
+        var edit = VenueEditSuggestion.builder().id(45L).venue(venue).beforeJson("{\"bookingUrl\":null,\"freeAccess\":null}")
+                .changesJson("{\"bookingUrl\":\"https://playtomic.com/clubs/campo-original\",\"freeAccess\":\"false\"}")
+                .reason("O clube reserva os campos pelo Playtomic").submittedByUsername("player")
+                .submittedAt(Instant.now()).status(VenueEditSuggestion.Status.PENDING).build();
+        when(submissions.findForReview(45L)).thenReturn(Optional.of(edit));
+        service.approve(45L, "Confirmado na página do clube", "moderator");
+        assertEquals("https://playtomic.com/clubs/campo-original", venue.getBookingUrl());
+        assertEquals(Boolean.FALSE, venue.getFreeAccess());
+    }
+
+    @Test
+    void rejectsInsecureBookingLinksAndInvalidFreeAccess() {
+        when(venues.findForEditReview(5L)).thenReturn(Optional.of(venue));
+        for (var bad : List.of(Map.of("bookingUrl", "http://clube.pt"), Map.of("freeAccess", "talvez"))) {
+            assertEquals(400, assertThrows(ResponseStatusException.class,
+                    () -> service.submit(5L, new VenueEditSuggestionRequest(bad, "Correção ao recinto público"), "player"))
+                    .getStatusCode().value());
+        }
+    }
+
     private VenueEditSuggestion submitted(String oldName, String newName) {
         return VenueEditSuggestion.builder().id(44L).venue(venue)
                 .beforeJson("{\"name\":\"" + oldName + "\"}")

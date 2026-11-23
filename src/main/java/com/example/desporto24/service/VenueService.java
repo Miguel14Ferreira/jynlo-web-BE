@@ -501,7 +501,9 @@ public class VenueService {
                 informationSource(venue),
                 venue.getCreatedBy() == null ? null : venue.getCreatedBy().getUsername(),
                 venue.getCreatedAt(),
-                venue.getDistrict()
+                venue.getDistrict(),
+                venue.getBookingUrl(),
+                venue.getFreeAccess()
         );
     }
 

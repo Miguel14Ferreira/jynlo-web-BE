@@ -70,6 +70,10 @@ public class Session {
     @Column(name = "skill_level", length = 16)
     private com.example.desporto24.enumeration.SessionSkillLevel skillLevel;
 
+    /** Read-only: whether the organiser marked the court as booked (session_court_booking). */
+    @org.hibernate.annotations.Formula("(select b.booked from session_court_booking b where b.session_id = id)")
+    private Boolean courtBooked;
+
     @Column(name = "max_participants")
     private Integer maxParticipants;
     
