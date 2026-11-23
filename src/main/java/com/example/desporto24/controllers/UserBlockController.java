@@ -13,6 +13,11 @@ public class UserBlockController {
 
     private final UserBlockService userBlockService;
 
+    @GetMapping
+    public java.util.List<UserBlockService.BlockedPerson> blocked(Authentication authentication) {
+        return userBlockService.blockedByMe(authentication.getName());
+    }
+
     @PostMapping("/{username}")
     public UserBlockStatusResponse block(
             @PathVariable String username,

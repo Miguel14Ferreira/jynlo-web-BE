@@ -77,6 +77,18 @@ class UserBlockServiceTest {
     }
 
     @Test
+    void listsWhoIBlockedWithoutContactData() {
+        when(profileRepository.findUserByUsernameIgnoreCase("miguel")).thenReturn(Optional.of(miguel));
+        ana.setFullName("Ana Silva");
+        when(userBlockRepository.findByBlockerIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(
+                UserBlock.builder().blocker(miguel).blocked(ana).createdAt(java.time.Instant.now()).build()));
+        var list = service.blockedByMe("miguel");
+        assertEquals(1, list.size());
+        assertEquals("ana", list.get(0).username());
+        assertEquals("Ana Silva", list.get(0).fullName());
+    }
+
+    @Test
     void cannotBlockOwnProfile() {
         when(profileRepository.findUserByUsernameIgnoreCase("miguel"))
                 .thenReturn(Optional.of(miguel));

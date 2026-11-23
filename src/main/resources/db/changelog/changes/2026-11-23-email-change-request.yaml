@@ -1,0 +1,49 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-23-email-change-request
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: email_change_request
+      changes:
+        - createTable:
+            tableName: email_change_request
+            columns:
+              - column:
+                  name: token_hash
+                  type: VARCHAR(64)
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_email_change_request
+                    nullable: false
+              - column:
+                  name: username
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: new_email
+                  type: VARCHAR(254)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: expires_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: used_at
+                  type: TIMESTAMP WITH TIME ZONE
+        - createIndex:
+            tableName: email_change_request
+            indexName: idx_email_change_request_username
+            columns:
+              - column:
+                  name: username

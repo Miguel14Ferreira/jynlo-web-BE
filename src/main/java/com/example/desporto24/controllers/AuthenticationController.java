@@ -56,6 +56,8 @@ public class AuthenticationController {
     private final RefreshTokenRotationService refreshTokenRotationService;
     private final JWTokenProvider jwtTokens;
     private final GoogleAuthenticationService googleAuthenticationService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.example.desporto24.service.EmailChangeService emailChangeService;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.service.AppleAuthenticationService appleAuthenticationService;
@@ -328,6 +330,15 @@ public class AuthenticationController {
 
     public ResponseEntity<HttpResponse> resendRegistrationConfirmation(String username, Long returnSessionId) {
         return resendRegistrationConfirmation(username, returnSessionId, null);
+    }
+
+    public record EmailChangeConfirmBody(String token) {}
+
+    /** Public: opened from the link sent to the new address. */
+    @PostMapping("/email-change/confirm")
+    public ResponseEntity<HttpResponse> confirmEmailChange(@RequestBody EmailChangeConfirmBody body) {
+        emailChangeService.confirm(body == null ? null : body.token());
+        return buildResponse("Email confirmado. Já podes usar o novo endereço.");
     }
 
     @PostMapping("/reset-password/initiate")

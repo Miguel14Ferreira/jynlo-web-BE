@@ -36,6 +36,10 @@ public class ProfileController extends ExceptionHandling {
 
     private final ProfileService profileService;
     private final AccountDeletionService accountDeletionService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.example.desporto24.service.EmailChangeService emailChangeService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.example.desporto24.security.SensitiveActionRateLimiter sensitiveActionRateLimiter;
 
     /**
      * Single authoritative list for native profile sport selection.
@@ -98,6 +102,17 @@ public class ProfileController extends ExceptionHandling {
                 profileService.updateMyProfilePhoto(authentication.getName(), photo),
                 OK
         );
+    }
+
+    public record EmailChangeBody(String newEmail, String currentPassword) {}
+
+    /** Starts an email change: a confirmation link goes to the new address. */
+    @PostMapping("/me/email-change")
+    public ResponseEntity<HttpResponse> requestEmailChange(@RequestBody EmailChangeBody body, Authentication authentication) {
+        sensitiveActionRateLimiter.requireCooldown("email-change", authentication.getName(), java.time.Duration.ofSeconds(30));
+        emailChangeService.request(authentication.getName(), body == null ? null : body.newEmail(),
+                body == null ? null : body.currentPassword());
+        return buildResponse(OK, "Enviámos um link para o novo email. O email só muda quando o confirmares.");
     }
 
     @PutMapping("/me/password")

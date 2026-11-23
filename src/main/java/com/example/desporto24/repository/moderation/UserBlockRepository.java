@@ -33,4 +33,7 @@ public interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
     Set<Long> findBlockedProfileIds(Long profileId);
 
     long deleteByBlockerIdOrBlockedId(Long blockerId, Long blockedId);
+
+    /** People this profile blocked, most recent first (for "Pessoas bloqueadas"). */
+    java.util.List<com.example.desporto24.model.moderation.UserBlock> findByBlockerIdOrderByCreatedAtDesc(Long blockerId);
 }

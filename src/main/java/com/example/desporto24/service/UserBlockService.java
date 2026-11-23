@@ -76,6 +76,18 @@ public class UserBlockService {
         );
     }
 
+    public record BlockedPerson(String username, String fullName, Instant blockedAt) {}
+
+    /** Only usernames and names: no contact data. */
+    @Transactional(readOnly = true)
+    public java.util.List<BlockedPerson> blockedByMe(String actorUsername) {
+        Profile actor = profile(actorUsername);
+        return userBlockRepository.findByBlockerIdOrderByCreatedAtDesc(actor.getId()).stream()
+                .filter(b -> b.getBlocked() != null && b.getBlocked().getUsername() != null)
+                .map(b -> new BlockedPerson(b.getBlocked().getUsername(), b.getBlocked().getFullName(), b.getCreatedAt()))
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public Set<Long> blockedProfileIds(Profile profile) {
         return userBlockRepository.findBlockedProfileIds(profile.getId());

@@ -86,7 +86,7 @@ class ProfileServiceImplSecurityTest {
     }
 
     @Test
-    void emailChangeNotifiesBothAddressesWithBilingualRecoveryEmail() {
+    void emailCannotChangeThroughTheProfileForm() {
         ProfileRepository repository = mock(ProfileRepository.class);
         ProfileMapper mapper = mock(ProfileMapper.class);
         EmailService emailService = mock(EmailService.class);
@@ -137,31 +137,12 @@ class ProfileServiceImplSecurityTest {
         );
 
         org.springframework.test.util.ReflectionTestUtils.setField(service, "uiAppUrl", "https://example.test/");
-        service.updateMyProfile("miguel", request);
-
-        org.mockito.ArgumentCaptor<String> html = org.mockito.ArgumentCaptor.forClass(String.class);
-        verify(emailService).send(eq("miguel@example.com"),
-                eq("Alteração de email | Email address changed — Jynlo"), html.capture());
-        verify(emailService).send(eq("new@example.test"),
-                eq("Alteração de email | Email address changed — Jynlo"), eq(html.getValue()));
-        verifyNoMoreInteractions(emailService);
-        org.mockito.ArgumentCaptor<com.example.desporto24.register.Notifications.Notifications> notice =
-                org.mockito.ArgumentCaptor.forClass(com.example.desporto24.register.Notifications.Notifications.class);
-        verify(notificationsRepository).save(notice.capture());
-        assertEquals("Alteração de email", notice.getValue().getSubject());
-        assertEquals(true, notice.getValue().isUpdateProfile());
-        assertEquals("miguel@example.com", mapped.getOldEmail());
-        org.junit.jupiter.api.Assertions.assertTrue(html.getValue().contains("Alteração de email"));
-        org.junit.jupiter.api.Assertions.assertTrue(html.getValue().contains("Email address changed"));
-        org.junit.jupiter.api.Assertions.assertTrue(html.getValue().contains("Jynlo"));
-        org.junit.jupiter.api.Assertions.assertFalse(html.getValue().contains("Desporto24"));
-        org.junit.jupiter.api.Assertions.assertTrue(html.getValue().contains("Redefinir palavra-passe / Reset password"));
-        org.junit.jupiter.api.Assertions.assertTrue(html.getValue().contains("href=\"https://example.test/login/resetPassword\""));
-        org.junit.jupiter.api.Assertions.assertTrue(html.getValue().contains("If you made this change"));
-        assertNotEquals("923456789", profile.getPhone());
-        assertNotEquals("Rua Nova", profile.getAddress());
-        assertEquals("923456789", AES.decryptString(profile.getPhone(), profile.getUserId()));
-        assertEquals("Rua Nova", AES.decryptString(profile.getAddress(), profile.getUserId()));
+        var error = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> service.updateMyProfile("miguel", request));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("Mudar email"));
+        org.mockito.Mockito.verifyNoInteractions(emailService);
+        org.mockito.Mockito.verify(repository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
+        assertEquals("miguel@example.com", profile.getEmail());
     }
 
     @Test

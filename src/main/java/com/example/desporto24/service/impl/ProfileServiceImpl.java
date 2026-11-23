@@ -180,6 +180,11 @@ public class ProfileServiceImpl implements ProfileService {
         Profile profile = profileRepository.findUserByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException(NO_USER_FOUND_BY_USERNAME));
 
+        // The email changes only through EmailChangeService (current password + link to the new address).
+        if (request.email() != null && !request.email().strip().equalsIgnoreCase(
+                profile.getEmail() == null ? "" : profile.getEmail().strip())) {
+            throw new IllegalArgumentException("Para mudar o email usa a opção Mudar email: confirmamos o novo endereço antes de o alterar");
+        }
         if (request.email() != null && !Objects.equals(profile.getEmail(), request.email())) {
             profileRepository.findUserByEmail(request.email())
                     .filter(existing -> !existing.getId().equals(profile.getId()))
@@ -221,7 +226,6 @@ public class ProfileServiceImpl implements ProfileService {
         profile.setIndicativePhone(request.indicativePhone());
         profile.setPhone(AES.encryptString(request.phone(), profile.getUserId()));
         profile.setGender(request.gender());
-        profile.setEmail(request.email());
         profile.setFavoriteSports(request.favoriteSports());
         profile.setBio(request.bio());
         profile.setSkillLevel(request.skillLevel());
