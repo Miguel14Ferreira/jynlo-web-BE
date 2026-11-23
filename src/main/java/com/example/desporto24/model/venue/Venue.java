@@ -155,6 +155,14 @@ public class Venue {
     @Column(length = 255)
     private String contact;
 
+    /** Where people book this venue (club page, Playtomic, municipal portal…). */
+    @Column(name = "booking_url", length = 500)
+    private String bookingUrl;
+
+    /** Public space with free access (no booking needed); null = unknown. */
+    @Column(name = "free_access")
+    private Boolean freeAccess;
+
     @Column(nullable = false)
     private boolean parking;
 

@@ -102,8 +102,11 @@ public class SessionCourtBookingService {
         Session session = access.session();
         String venueName = session.getVenue() == null ? null : session.getVenue().getName();
         String suggested = null;
-        if (session.getVenue() != null && session.getVenue().getWebsite() != null) {
-            try { suggested = safeUrl(session.getVenue().getWebsite().trim()); } catch (ResponseStatusException ignored) { }
+        if (session.getVenue() != null) {
+            for (String candidate : new String[] {session.getVenue().getBookingUrl(), session.getVenue().getWebsite()}) {
+                if (suggested != null || candidate == null || candidate.isBlank()) continue;
+                try { suggested = safeUrl(candidate.trim()); } catch (ResponseStatusException ignored) { }
+            }
         }
         return new CourtBooking(access.organiser(), row == null ? null : row.getBookingUrl(), suggested, venueName,
                 row != null && row.isBooked(), row == null ? null : row.getBookedAt(),
