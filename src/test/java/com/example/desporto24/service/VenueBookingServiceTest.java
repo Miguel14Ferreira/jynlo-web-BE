@@ -214,4 +214,39 @@ class VenueBookingServiceTest {
         assertThrows(ResponseStatusException.class, () -> service.confirmPaid(78L, "rui", true));
         assertNotNull(service.confirmPaid(78L, "ana", true).paidConfirmedAt());
     }
+
+    @Test
+    void searchListsOnlyFreeSlotsAndFiltersBySportPlaceAndTime() {
+        court.setSport("Padel");
+        when(courts.venuesAcceptingBookings()).thenReturn(List.of(5L));
+        VenueBookingRequest held = new VenueBookingRequest();
+        held.setId(1L);
+        held.setCourtId(9L);
+        held.setStartAt(at(tomorrow, 9));
+        held.setEndAt(at(tomorrow, 10));
+        held.setStatus(VenueBookingRequest.Status.CONFIRMED);
+        when(bookings.holdingInVenue(eq(5L), any(), any(), any())).thenReturn(List.of(held));
+        List<VenueBookingService.VenueAvailability> found = service.search(tomorrow.toString(), "pádel", "lisb", null, null);
+        assertEquals(1, found.size());
+        assertEquals(List.of(at(tomorrow, 10)), found.get(0).courts().get(0).slots().stream()
+                .map(VenueBookingService.Slot::start).toList());
+        assertTrue(service.search(tomorrow.toString(), "ténis", null, null, null).isEmpty());
+        assertTrue(service.search(tomorrow.toString(), null, "Porto", null, null).isEmpty());
+        assertTrue(service.search(tomorrow.toString(), null, null, "11:00", null).isEmpty());
+    }
+
+    @Test
+    void onlyTheRequesterCanLinkABookingToAGame() {
+        VenueBookingRequest b = new VenueBookingRequest();
+        b.setId(40L);
+        b.setVenueId(5L);
+        b.setCourtId(9L);
+        b.setRequesterUsername("rui");
+        b.setStartAt(at(tomorrow, 9));
+        b.setEndAt(at(tomorrow, 10));
+        b.setStatus(VenueBookingRequest.Status.PENDING);
+        when(bookings.findById(40L)).thenReturn(Optional.of(b));
+        assertThrows(ResponseStatusException.class, () -> service.linkSession(40L, "maria", 3L));
+        verify(bookings, never()).save(any());
+    }
 }

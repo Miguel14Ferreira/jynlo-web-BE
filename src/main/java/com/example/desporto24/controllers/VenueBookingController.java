@@ -20,6 +20,7 @@ public class VenueBookingController {
     public record DecisionBody(String note) {}
     public record PaymentSetupBody(String method, String phone) {}
     public record PaidBody(Boolean paid) {}
+    public record LinkSessionBody(Long sessionId) {}
 
     // Public reads (listed in SecurityConstant.PUBLIC_GET_URLS).
     @GetMapping("/venues/{id}/booking-offer")
@@ -30,6 +31,15 @@ public class VenueBookingController {
     @GetMapping("/venues/{id}/booking-slots")
     public DaySlots slots(@PathVariable Long id, @RequestParam(required = false) String date) {
         return service.slots(id, date);
+    }
+
+    @GetMapping("/venue-bookings/search")
+    public List<VenueBookingService.VenueAvailability> search(@RequestParam(required = false) String date,
+                                                             @RequestParam(required = false) String sport,
+                                                             @RequestParam(required = false) String place,
+                                                             @RequestParam(required = false) String from,
+                                                             @RequestParam(required = false) String to) {
+        return service.search(date, sport, place, from, to);
     }
 
     @GetMapping("/venue-bookings/accepting")
@@ -98,6 +108,11 @@ public class VenueBookingController {
     @GetMapping("/venue-bookings/managed")
     public List<ManagedVenue> managed(Authentication auth) {
         return service.managedVenues(auth.getName());
+    }
+
+    @PostMapping("/venue-bookings/{id}/session")
+    public BookingView linkSession(@PathVariable Long id, @RequestBody LinkSessionBody body, Authentication auth) {
+        return service.linkSession(id, auth.getName(), body == null ? null : body.sessionId());
     }
 
     @PostMapping("/venue-bookings/{id}/cancel")

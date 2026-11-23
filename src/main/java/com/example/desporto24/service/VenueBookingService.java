@@ -76,6 +76,8 @@ public class VenueBookingService {
                               Integer priceCents, String playerNote, String ownerNote, Long sessionId,
                               Instant createdAt, Instant decidedAt, String paymentMethod, String mbwayPhone,
                               Instant paidClaimedAt, Instant paidConfirmedAt) {}
+    public record VenueAvailability(Long venueId, String name, String city, String district, Double latitude,
+                                    Double longitude, String paymentMethod, List<CourtSlots> courts) {}
     public record ManagedVenue(Long venueId, String name, String city, long pendingRequests, boolean acceptsBookings) {}
 
     public record CourtInput(Long id, String name, String sport, Integer priceCents, Integer slotMinutes, Boolean active) {}
@@ -363,6 +365,72 @@ public class VenueBookingService {
             }
         }
         return new DaySlots(venueId, day.toString(), result);
+    }
+
+    /**
+     * Free slots across every venue that takes Jynlo bookings, for one day, optionally narrowed to a
+     * sport, a city/district and a time window. Only free slots are returned, earliest venues first.
+     */
+    @Transactional(readOnly = true)
+    public List<VenueAvailability> search(String date, String sport, String place, String from, String to) {
+        LocalDate day = date(date);
+        String sportKey = fold(sport);
+        String placeKey = fold(place);
+        LocalTime fromTime = from == null || from.isBlank() ? null : time(from);
+        LocalTime toTime = to == null || to.isBlank() ? null : time(to);
+        List<VenueAvailability> result = new ArrayList<>();
+        for (Long venueId : courts.venuesAcceptingBookings()) {
+            Venue venue = venues.findById(venueId).orElse(null);
+            if (venue == null || !accepts(venueId)) continue;
+            if (!placeKey.isEmpty() && !fold(venue.getCity()).contains(placeKey)
+                    && !fold(venue.getDistrict()).contains(placeKey) && !fold(venue.getName()).contains(placeKey)) continue;
+            List<CourtSlots> open = new ArrayList<>();
+            for (CourtSlots court : slots(venueId, day.toString()).courts()) {
+                if (!sportKey.isEmpty()) {
+                    String courtSport = court.sport() == null ? venue.getSports() : court.sport();
+                    if (!fold(courtSport).contains(sportKey)) continue;
+                }
+                List<Slot> free = court.slots().stream().filter(Slot::free).filter(s -> {
+                    LocalTime t = s.start().atZone(ZONE).toLocalTime();
+                    return (fromTime == null || !t.isBefore(fromTime)) && (toTime == null || t.isBefore(toTime));
+                }).toList();
+                if (!free.isEmpty()) {
+                    open.add(new CourtSlots(court.courtId(), court.name(), court.sport(), court.priceCents(),
+                            court.slotMinutes(), free));
+                }
+            }
+            if (open.isEmpty()) continue;
+            String method = paymentSetups.findById(venueId).map(VenuePaymentSetup::getMethod).orElse(null);
+            result.add(new VenueAvailability(venueId, venue.getName(), venue.getCity(), venue.getDistrict(),
+                    venue.getLatitude(), venue.getLongitude(), method, open));
+        }
+        result.sort(Comparator.comparing((VenueAvailability v) -> v.courts().stream()
+                .map(c -> c.slots().get(0).start()).min(Comparator.naturalOrder()).orElse(Instant.MAX))
+                .thenComparing(VenueAvailability::name, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
+        return result;
+    }
+
+    /** Links one of my bookings to a game I organise, so the game shows the court as booked once confirmed. */
+    @Transactional
+    public BookingView linkSession(Long bookingId, String username, Long sessionId) {
+        VenueBookingRequest b = booking(bookingId);
+        if (username == null || !b.getRequesterUsername().equalsIgnoreCase(username)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Esta reserva não é tua.");
+        }
+        if (b.getStatus() != VenueBookingRequest.Status.PENDING && b.getStatus() != VenueBookingRequest.Status.CONFIRMED) {
+            throw conflict("Esta reserva já não está ativa.");
+        }
+        if (sessionId == null) throw bad("Escolhe o jogo.");
+        b.setSessionId(organisedSession(sessionId, username));
+        bookings.save(b);
+        if (b.getStatus() == VenueBookingRequest.Status.CONFIRMED) markSessionCourt(sessionId, true);
+        return bookingView(b);
+    }
+
+    static String fold(String value) {
+        if (value == null) return "";
+        return java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT).strip();
     }
 
     @Transactional

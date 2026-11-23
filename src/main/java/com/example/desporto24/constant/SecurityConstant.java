@@ -41,7 +41,8 @@ public final class SecurityConstant {
             // Jynlo court bookings: which venues accept them, their courts and free slots.
             "/api/venues/*/booking-offer",
             "/api/venues/*/booking-slots",
-            "/api/venue-bookings/accepting"
+            "/api/venue-bookings/accepting",
+            "/api/venue-bookings/search"
     };
 
     public static final String[] PUBLIC_URLS = {
