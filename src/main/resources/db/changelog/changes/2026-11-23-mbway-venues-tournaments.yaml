@@ -1,0 +1,42 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-23-mbway-venues-tournaments
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: venue_payment_setup
+      changes:
+        - createTable:
+            tableName: venue_payment_setup
+            columns:
+              - column: {name: venue_id, type: BIGINT, constraints: {primaryKey: true, primaryKeyName: pk_venue_payment_setup, nullable: false, foreignKeyName: fk_venue_payment_venue, references: venue(id), deleteCascade: true}}
+              - column: {name: method, type: VARCHAR(16), constraints: {nullable: false}}
+              - column: {name: mbway_phone, type: VARCHAR(16)}
+              - column: {name: updated_at, type: TIMESTAMP WITH TIME ZONE, constraints: {nullable: false}}
+        - addColumn:
+            tableName: venue_booking_request
+            columns:
+              - column: {name: paid_claimed_at, type: TIMESTAMP WITH TIME ZONE}
+              - column: {name: paid_confirmed_at, type: TIMESTAMP WITH TIME ZONE}
+        - createTable:
+            tableName: tournament_payment_setup
+            columns:
+              - column: {name: tournament_id, type: BIGINT, constraints: {primaryKey: true, primaryKeyName: pk_tournament_payment_setup, nullable: false, foreignKeyName: fk_tournament_payment_tournament, references: community_tournament(id), deleteCascade: true}}
+              - column: {name: entry_fee_cents, type: INT}
+              - column: {name: method, type: VARCHAR(16), constraints: {nullable: false}}
+              - column: {name: mbway_phone, type: VARCHAR(16)}
+              - column: {name: updated_at, type: TIMESTAMP WITH TIME ZONE, constraints: {nullable: false}}
+        - createTable:
+            tableName: tournament_entry_payment
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true, primaryKeyName: pk_tournament_entry_payment, nullable: false}}
+              - column: {name: tournament_id, type: BIGINT, constraints: {nullable: false, foreignKeyName: fk_tournament_entry_payment_tournament, references: community_tournament(id), deleteCascade: true}}
+              - column: {name: profile_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: claimed_at, type: TIMESTAMP WITH TIME ZONE}
+              - column: {name: confirmed_at, type: TIMESTAMP WITH TIME ZONE}
+        - addUniqueConstraint:
+            tableName: tournament_entry_payment
+            columnNames: tournament_id, profile_id
+            constraintName: uk_tournament_entry_payment

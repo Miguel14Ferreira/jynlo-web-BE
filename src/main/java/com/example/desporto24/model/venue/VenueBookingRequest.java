@@ -52,4 +52,12 @@ public class VenueBookingRequest {
 
     @Column(name = "decided_at")
     private Instant decidedAt;
+
+    /** The player says they paid (MB WAY or at the venue). */
+    @Column(name = "paid_claimed_at")
+    private Instant paidClaimedAt;
+
+    /** The venue confirms it received the payment. */
+    @Column(name = "paid_confirmed_at")
+    private Instant paidConfirmedAt;
 }

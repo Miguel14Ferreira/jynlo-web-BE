@@ -546,3 +546,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-23-email-change-request.yaml
   - include:
       file: db/changelog/changes/2026-11-23-venue-jynlo-bookings.yaml
+  - include:
+      file: db/changelog/changes/2026-11-23-mbway-venues-tournaments.yaml

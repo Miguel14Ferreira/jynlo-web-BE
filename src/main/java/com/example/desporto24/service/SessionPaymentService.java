@@ -222,7 +222,7 @@ public class SessionPaymentService {
     }
 
     /** Portuguese mobile numbers only: 9 digits starting with 91, 92, 93 or 96 (with or without +351). */
-    static String normalisePhone(String raw) {
+    public static String normalisePhone(String raw) {
         String digits = raw.replaceAll("[\\s.-]", "");
         if (digits.startsWith("+351")) digits = digits.substring(4);
         else if (digits.startsWith("00351")) digits = digits.substring(5);

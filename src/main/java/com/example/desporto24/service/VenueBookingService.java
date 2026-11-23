@@ -49,6 +49,7 @@ public class VenueBookingService {
     private final VenueCourtRepository courts;
     private final VenueOpeningHoursRepository hours;
     private final VenueBookingRequestRepository bookings;
+    private final VenuePaymentSetupRepository paymentSetups;
     private final ProfileRepository profiles;
     private final SessionRepository sessions;
     private final SessionCourtBookingRepository sessionCourtBookings;
@@ -64,14 +65,17 @@ public class VenueBookingService {
                             Instant decidedAt, String decidedBy, String decisionNote) {}
     public record CourtView(Long id, String name, String sport, Integer priceCents, int slotMinutes, boolean active) {}
     public record HoursView(int dayOfWeek, String openTime, String closeTime) {}
-    public record Offer(Long venueId, boolean acceptsBookings, List<CourtView> courts, List<HoursView> hours) {}
+    /** paymentMethod: MBWAY or IN_PERSON (null = not set, pay at the venue); mbwayPhone only for its managers. */
+    public record Offer(Long venueId, boolean acceptsBookings, List<CourtView> courts, List<HoursView> hours,
+                        String paymentMethod, String mbwayPhone) {}
     public record Slot(Instant start, Instant end, boolean free) {}
     public record CourtSlots(Long courtId, String name, String sport, Integer priceCents, int slotMinutes, List<Slot> slots) {}
     public record DaySlots(Long venueId, String date, List<CourtSlots> courts) {}
     public record BookingView(Long id, Long venueId, String venueName, Long courtId, String courtName,
                               String requesterUsername, Instant startAt, Instant endAt, String status,
                               Integer priceCents, String playerNote, String ownerNote, Long sessionId,
-                              Instant createdAt, Instant decidedAt) {}
+                              Instant createdAt, Instant decidedAt, String paymentMethod, String mbwayPhone,
+                              Instant paidClaimedAt, Instant paidConfirmedAt) {}
     public record ManagedVenue(Long venueId, String name, String city, long pendingRequests, boolean acceptsBookings) {}
 
     public record CourtInput(Long id, String name, String sport, Integer priceCents, Integer slotMinutes, Boolean active) {}
@@ -167,15 +171,18 @@ public class VenueBookingService {
                 ? courts.findByVenueIdAndActiveTrueOrderByIdAsc(venueId).stream().map(VenueBookingService::courtView).toList()
                 : List.of();
         List<HoursView> hourViews = accepts ? hoursViews(venueId) : List.of();
-        return new Offer(venueId, accepts, courtViews, hourViews);
+        String method = paymentSetups.findById(venueId).map(VenuePaymentSetup::getMethod).orElse(null);
+        return new Offer(venueId, accepts, courtViews, hourViews, accepts ? method : null, null);
     }
 
     @Transactional(readOnly = true)
     public Offer managerOffer(Long venueId, String username) {
         requireManager(venueId, username);
+        Optional<VenuePaymentSetup> setup = paymentSetups.findById(venueId);
         return new Offer(venueId, accepts(venueId),
                 courts.findByVenueIdOrderByIdAsc(venueId).stream().map(VenueBookingService::courtView).toList(),
-                hoursViews(venueId));
+                hoursViews(venueId), setup.map(VenuePaymentSetup::getMethod).orElse(null),
+                setup.map(VenuePaymentSetup::getMbwayPhone).orElse(null));
     }
 
     @Transactional
@@ -255,6 +262,62 @@ public class VenueBookingService {
         hours.flush();
         hours.saveAll(rows);
         return managerOffer(venueId, username);
+    }
+
+    /** Manager: how players pay bookings. MBWAY needs a Portuguese mobile number; null clears it (pay at the venue). */
+    @Transactional
+    public Offer savePayment(Long venueId, String username, String method, String phone) {
+        requireManager(venueId, username);
+        if (method == null || method.isBlank()) {
+            if (paymentSetups.existsById(venueId)) paymentSetups.deleteById(venueId);
+            return managerOffer(venueId, username);
+        }
+        if (!SessionPaymentService.MBWAY.equals(method) && !SessionPaymentService.IN_PERSON.equals(method)) {
+            throw bad("Forma de pagamento inválida");
+        }
+        VenuePaymentSetup setup = paymentSetups.findById(venueId).orElseGet(() -> {
+            VenuePaymentSetup fresh = new VenuePaymentSetup();
+            fresh.setVenueId(venueId);
+            return fresh;
+        });
+        setup.setMethod(method);
+        setup.setMbwayPhone(SessionPaymentService.MBWAY.equals(method)
+                ? SessionPaymentService.normalisePhone(phone == null ? "" : phone) : null);
+        setup.setUpdatedAt(Instant.now());
+        paymentSetups.save(setup);
+        return managerOffer(venueId, username);
+    }
+
+    /** Player: "Já paguei" on a confirmed booking (or undo it). */
+    @Transactional
+    public BookingView markPaid(Long bookingId, String username, boolean paid) {
+        VenueBookingRequest b = booking(bookingId);
+        if (!b.getRequesterUsername().equalsIgnoreCase(username)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Só quem fez a reserva a pode marcar como paga.");
+        }
+        if (b.getStatus() != VenueBookingRequest.Status.CONFIRMED) throw conflict("Só reservas confirmadas se pagam.");
+        if (b.getPaidConfirmedAt() != null && !paid) throw conflict("O recinto já confirmou o pagamento.");
+        b.setPaidClaimedAt(paid ? Instant.now() : null);
+        bookings.save(b);
+        if (paid) {
+            String court = courts.findById(b.getCourtId()).map(VenueCourt::getName).orElse("campo");
+            for (VenueManager m : managers.findByVenueId(b.getVenueId())) {
+                notify(m.getUsername(), b.getVenueId(), "Reserva paga",
+                        username + " diz que já pagou o " + court + " de " + when(b.getStartAt()) + ". Confirma quando receberes.");
+            }
+        }
+        return bookingView(b);
+    }
+
+    /** Manager: confirm the payment arrived (or undo it). */
+    @Transactional
+    public BookingView confirmPaid(Long bookingId, String username, boolean paid) {
+        VenueBookingRequest b = booking(bookingId);
+        requireManager(b.getVenueId(), username);
+        if (b.getStatus() != VenueBookingRequest.Status.CONFIRMED) throw conflict("Só reservas confirmadas se pagam.");
+        b.setPaidConfirmedAt(paid ? Instant.now() : null);
+        bookings.save(b);
+        return bookingView(b);
     }
 
     @Transactional(readOnly = true)
@@ -400,7 +463,8 @@ public class VenueBookingService {
         notify(b.getRequesterUsername(), b.getVenueId(),
                 confirm ? "Reserva confirmada" : "Reserva recusada",
                 (confirm ? venueName + " confirmou a tua reserva para " : venueName + " não pode aceitar a tua reserva para ")
-                        + when(b.getStartAt()) + "." + (cleanNote == null ? "" : " Nota: " + cleanNote));
+                        + when(b.getStartAt()) + "." + (confirm ? paymentHint(b) : "")
+                        + (cleanNote == null ? "" : " Nota: " + cleanNote));
         return bookingView(b);
     }
 
@@ -514,11 +578,29 @@ public class VenueBookingService {
         return bookingView(b, venues.findById(b.getVenueId()).orElse(null), courts.findById(b.getCourtId()).orElse(null));
     }
 
-    private static BookingView bookingView(VenueBookingRequest b, Venue venue, VenueCourt court) {
+    private BookingView bookingView(VenueBookingRequest b, Venue venue, VenueCourt court) {
+        Optional<VenuePaymentSetup> setup = paymentSetups.findById(b.getVenueId());
+        // The MB WAY number is shown once the venue confirmed the booking: only then is there something to pay.
+        boolean payable = b.getStatus() == VenueBookingRequest.Status.CONFIRMED;
         return new BookingView(b.getId(), b.getVenueId(), venue == null ? null : venue.getName(), b.getCourtId(),
                 court == null ? null : court.getName(), b.getRequesterUsername(), b.getStartAt(), b.getEndAt(),
                 b.getStatus().name(), b.getPriceCents(), b.getPlayerNote(), b.getOwnerNote(), b.getSessionId(),
-                b.getCreatedAt(), b.getDecidedAt());
+                b.getCreatedAt(), b.getDecidedAt(), setup.map(VenuePaymentSetup::getMethod).orElse(null),
+                payable ? setup.map(VenuePaymentSetup::getMbwayPhone).orElse(null) : null,
+                b.getPaidClaimedAt(), b.getPaidConfirmedAt());
+    }
+
+    private String paymentHint(VenueBookingRequest b) {
+        Optional<VenuePaymentSetup> setup = paymentSetups.findById(b.getVenueId());
+        if (setup.isPresent() && SessionPaymentService.MBWAY.equals(setup.get().getMethod()) && setup.get().getMbwayPhone() != null) {
+            String amount = b.getPriceCents() == null ? "" : " (" + euros(b.getPriceCents()) + ")";
+            return " Paga por MB WAY para " + setup.get().getMbwayPhone() + amount + ".";
+        }
+        return " Pagas no recinto.";
+    }
+
+    static String euros(int cents) {
+        return String.format(Locale.ROOT, "%d,%02d €", cents / 100, cents % 100);
     }
 
     static String when(Instant instant) {

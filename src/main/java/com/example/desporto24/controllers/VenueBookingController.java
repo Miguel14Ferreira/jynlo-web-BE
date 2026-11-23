@@ -18,6 +18,8 @@ public class VenueBookingController {
     public record ClaimRequest(String roleDescription, String contactPhone) {}
     public record BookingRequestBody(Long courtId, String startAt, Long sessionId, String note) {}
     public record DecisionBody(String note) {}
+    public record PaymentSetupBody(String method, String phone) {}
+    public record PaidBody(Boolean paid) {}
 
     // Public reads (listed in SecurityConstant.PUBLIC_GET_URLS).
     @GetMapping("/venues/{id}/booking-offer")
@@ -60,6 +62,21 @@ public class VenueBookingController {
     @PutMapping("/venues/{id}/management/hours")
     public Offer saveHours(@PathVariable Long id, @RequestBody List<HoursInput> body, Authentication auth) {
         return service.saveHours(id, auth.getName(), body);
+    }
+
+    @PutMapping("/venues/{id}/management/payment")
+    public Offer savePayment(@PathVariable Long id, @RequestBody(required = false) PaymentSetupBody body, Authentication auth) {
+        return service.savePayment(id, auth.getName(), body == null ? null : body.method(), body == null ? null : body.phone());
+    }
+
+    @PostMapping("/venue-bookings/{id}/paid")
+    public BookingView markPaid(@PathVariable Long id, @RequestBody(required = false) PaidBody body, Authentication auth) {
+        return service.markPaid(id, auth.getName(), body == null || body.paid() == null || body.paid());
+    }
+
+    @PostMapping("/venue-bookings/{id}/payment-received")
+    public BookingView confirmPaid(@PathVariable Long id, @RequestBody(required = false) PaidBody body, Authentication auth) {
+        return service.confirmPaid(id, auth.getName(), body == null || body.paid() == null || body.paid());
     }
 
     @GetMapping("/venues/{id}/management/requests")

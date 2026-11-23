@@ -27,6 +27,7 @@ class VenueBookingServiceTest {
     private final VenueCourtRepository courts = mock(VenueCourtRepository.class);
     private final VenueOpeningHoursRepository hours = mock(VenueOpeningHoursRepository.class);
     private final VenueBookingRequestRepository bookings = mock(VenueBookingRequestRepository.class);
+    private final VenuePaymentSetupRepository paymentSetups = mock(VenuePaymentSetupRepository.class);
     private final ProfileRepository profiles = mock(ProfileRepository.class);
     private final SessionRepository sessions = mock(SessionRepository.class);
     private final SessionCourtBookingRepository sessionCourts = mock(SessionCourtBookingRepository.class);
@@ -34,7 +35,7 @@ class VenueBookingServiceTest {
     private final NotificationPreferencesService preferences = mock(NotificationPreferencesService.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     private final VenueBookingService service = new VenueBookingService(venues, claims, managers, courts, hours,
-            bookings, profiles, sessions, sessionCourts, notifications, preferences, events);
+            bookings, paymentSetups, profiles, sessions, sessionCourts, notifications, preferences, events);
 
     private VenueCourt court;
     private LocalDate tomorrow;
@@ -179,5 +180,38 @@ class VenueBookingServiceTest {
                 List.of(new VenueBookingService.HoursInput(1, "9h", "12:00"))));
         assertThrows(ResponseStatusException.class, () -> service.saveHours(5L, "rui",
                 List.of(new VenueBookingService.HoursInput(1, "09:00", "12:00"))));
+    }
+
+    @Test
+    void mbwayNeedsAPortugueseMobileAndIsShownOnceTheBookingIsConfirmed() {
+        assertThrows(ResponseStatusException.class, () -> service.savePayment(5L, "ana", "MBWAY", "212345678"));
+        service.savePayment(5L, "ana", "MBWAY", "+351 912 345 678");
+        verify(paymentSetups).save(argThat(p -> "912345678".equals(p.getMbwayPhone()) && "MBWAY".equals(p.getMethod())));
+
+        VenuePaymentSetup setup = new VenuePaymentSetup();
+        setup.setVenueId(5L);
+        setup.setMethod("MBWAY");
+        setup.setMbwayPhone("912345678");
+        when(paymentSetups.findById(5L)).thenReturn(Optional.of(setup));
+        VenueBookingRequest b = new VenueBookingRequest();
+        b.setId(78L);
+        b.setVenueId(5L);
+        b.setCourtId(9L);
+        b.setRequesterUsername("rui");
+        b.setStartAt(at(tomorrow, 9));
+        b.setEndAt(at(tomorrow, 10));
+        b.setStatus(VenueBookingRequest.Status.PENDING);
+        b.setPriceCents(2400);
+        b.setCreatedAt(Instant.now());
+        when(bookings.findById(78L)).thenReturn(Optional.of(b));
+        assertThrows(ResponseStatusException.class, () -> service.markPaid(78L, "rui", true));
+        assertNull(service.mine("rui").stream().findFirst().map(VenueBookingService.BookingView::mbwayPhone).orElse(null));
+
+        b.setStatus(VenueBookingRequest.Status.CONFIRMED);
+        VenueBookingService.BookingView paid = service.markPaid(78L, "rui", true);
+        assertEquals("912345678", paid.mbwayPhone());
+        assertNotNull(paid.paidClaimedAt());
+        assertThrows(ResponseStatusException.class, () -> service.confirmPaid(78L, "rui", true));
+        assertNotNull(service.confirmPaid(78L, "ana", true).paidConfirmedAt());
     }
 }
