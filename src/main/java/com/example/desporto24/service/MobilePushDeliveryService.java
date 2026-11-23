@@ -90,6 +90,9 @@ public class MobilePushDeliveryService {
             } else return;
             if (mutes.muted(account,kind,key)) return;
         }
+        if (("CALL_INCOMING".equals(event.category()) || "CALL_MISSED".equals(event.category()))
+                && event.relatedUsername() != null
+                && mutes.muted(account, "direct", event.relatedUsername().toLowerCase(Locale.ROOT))) return;
         List<com.example.desporto24.model.MobilePushDevice> recipients =
                 devices.findTop20ByUsernameOrderByUpdatedAtDesc(account);
         for (var device : recipients) {
@@ -101,7 +104,7 @@ public class MobilePushDeliveryService {
     private void deliver(String deviceId,String token, Long notificationId, String category, String language) {
         String[] text = text(category, language);
         try {
-            byte[] body = json.writeValueAsBytes(Map.of(
+            var payload = new java.util.LinkedHashMap<String, Object>(Map.of(
                     "to", token,
                     "title", text[0],
                     "body", text[1],
@@ -109,6 +112,14 @@ public class MobilePushDeliveryService {
                     "channelId", "jynlo-messages",
                     "data", Map.of("kind", "notification", "id", notificationId)
             ));
+            if ("CALL_INCOMING".equals(category)) {
+                // A ring is only useful while it rings: deliver now or not at all.
+                payload.put("priority", "high");
+                payload.put("ttl", 60);
+            } else if ("CHAT_MESSAGE".equals(category) || "CALL_MISSED".equals(category)) {
+                payload.put("priority", "high");
+            }
+            byte[] body = json.writeValueAsBytes(payload);
             HttpRequest request = HttpRequest.newBuilder(EXPO_SEND)
                     .timeout(Duration.ofSeconds(5))
                     .header("Content-Type", "application/json")
@@ -176,6 +187,8 @@ public class MobilePushDeliveryService {
             case "COMMUNITY_JOIN_ACCEPTED" -> new String[]{"Welcome!", "Your request to join the community was accepted."};
             case "COMMUNITY_JOIN_REJECTED" -> new String[]{"Community", "There is an answer to your join request."};
             case "CHAT_MESSAGE" -> new String[]{"New message", "You have a new message on Jynlo."};
+            case "CALL_INCOMING" -> new String[]{"Incoming call", "Someone is calling you on Jynlo. Open the app to answer."};
+            case "CALL_MISSED" -> new String[]{"Missed call", "You missed a call on Jynlo."};
             case "SOCIAL_NEW_FOLLOWER" -> new String[]{"New follower", "Someone started following you."};
             case "SOCIAL_POST_LIKED", "SOCIAL_STORY_LIKED" -> new String[]{"Someone liked your content", "Someone liked one of your posts."};
             case "SOCIAL_POST_COMMENTED" -> new String[]{"New comment", "Someone commented on one of your posts."};
@@ -210,6 +223,8 @@ public class MobilePushDeliveryService {
             case "COMMUNITY_JOIN_ACCEPTED" -> new String[]{"Bem-vindo!", "O teu pedido de entrada na comunidade foi aceite."};
             case "COMMUNITY_JOIN_REJECTED" -> new String[]{"Comunidade", "Há uma resposta ao teu pedido de entrada."};
             case "CHAT_MESSAGE" -> new String[]{"Nova mensagem", "Tens uma nova mensagem na Jynlo."};
+            case "CALL_INCOMING" -> new String[]{"Chamada a entrar", "Alguém está a ligar-te na Jynlo. Abre a app para atender."};
+            case "CALL_MISSED" -> new String[]{"Chamada perdida", "Perdeste uma chamada na Jynlo."};
             case "SOCIAL_NEW_FOLLOWER" -> new String[]{"Novo seguidor", "Alguém começou a seguir-te."};
             case "SOCIAL_POST_LIKED", "SOCIAL_STORY_LIKED" -> new String[]{"Gostaram do teu conteúdo", "Alguém gostou de uma publicação tua."};
             case "SOCIAL_POST_COMMENTED" -> new String[]{"Novo comentário", "Comentaram uma publicação tua."};

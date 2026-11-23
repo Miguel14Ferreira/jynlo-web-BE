@@ -40,5 +40,9 @@ public enum NotificationType {
     /** Reminder, 24h later, to members who have not answered an availability request. */
     AVAILABILITY_REMINDER,
     /** A member of one of the recipient's communities created a game for that community. */
-    COMMUNITY_SESSION_CREATED
+    COMMUNITY_SESSION_CREATED,
+    /** Someone is calling the recipient (app may be closed). */
+    CALL_INCOMING,
+    /** A call to the recipient ended before being answered. */
+    CALL_MISSED
 }

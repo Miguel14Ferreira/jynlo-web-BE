@@ -540,3 +540,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-23-session-court-booking.yaml
   - include:
       file: db/changelog/changes/2026-11-23-venue-booking-url.yaml
+  - include:
+      file: db/changelog/changes/2026-11-23-call-notification-types.yaml

@@ -70,6 +70,10 @@ public class DirectCallService {
     @Autowired
     private DistributedAuthRateLimiter distributedCallLimits;
 
+    /** Phone alerts (ringing / missed call); optional so signalling never depends on it. */
+    @Autowired(required = false)
+    private CallNotificationService callAlerts;
+
     @Value("${LIVEKIT_URL:}")
     private String serverUrl;
     @Value("${LIVEKIT_API_KEY:}")
@@ -346,6 +350,7 @@ public class DirectCallService {
                         : new InviteBudget(ringBudget.since(), ringBudget.count() + 1));
         gateway.publishDirectCallEvent(caller, peer, id.toString(), media,
                 "RINGING", caller, call.expiresAt);
+        if (callAlerts != null) callAlerts.incoming(call.caller, call.peer);
         return session;
     }
 
@@ -391,6 +396,7 @@ public class DirectCallService {
         calls.put(id, accepted);
         gateway.publishDirectCallEvent(call.caller, call.peer, id.toString(), call.media,
                 "ACTIVE", actor, accepted.expiresAt);
+        if (callAlerts != null) callAlerts.answered(call.caller, call.peer);
         return session;
     }
 
@@ -452,6 +458,11 @@ public class DirectCallService {
         roomsPendingDeletion.put(id, call.room());
         gateway.publishDirectCallEvent(call.caller, call.peer, id.toString(), call.media,
                 "DECLINED", actor, Instant.now());
+        if (callAlerts != null) {
+            // The caller cancelling a ringing call is a missed call for the callee.
+            if (call.caller.equalsIgnoreCase(actor)) callAlerts.missed(call.caller, call.peer);
+            else callAlerts.answered(call.caller, call.peer);
+        }
     }
 
     public synchronized void end(UUID id, String actor) {
@@ -474,6 +485,9 @@ public class DirectCallService {
         }
         calls.remove(id);
         roomsPendingDeletion.put(id, call.room());
+        if (callAlerts != null && "RINGING".equals(call.state) && call.caller.equalsIgnoreCase(actor)) {
+            callAlerts.missed(call.caller, call.peer);
+        }
         var invited = guests.remove(id);
         gateway.publishDirectCallEvent(call.caller, call.peer, id.toString(), call.media,
                 "ENDED", actor, Instant.now());
@@ -804,6 +818,7 @@ public class DirectCallService {
 
     private void expireCall(Call call) {
         if (calls.remove(call.id(), call)) {
+            if (callAlerts != null && "RINGING".equals(call.state())) callAlerts.missed(call.caller(), call.peer());
             roomsPendingDeletion.put(call.id(), call.room());
             guests.remove(call.id());
         }

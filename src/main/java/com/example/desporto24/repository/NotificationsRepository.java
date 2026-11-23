@@ -30,4 +30,15 @@ public interface NotificationsRepository extends JpaRepository<Notifications, Lo
     void deleteByUsername(String username);
 
     long deleteByUsernameOrRelatedUsername(String username, String relatedUsername);
+
+    boolean existsByUsernameAndSessionIdAndTypeAndReadFalse(String username, Long sessionId,
+            com.example.desporto24.enumeration.NotificationType type);
+    boolean existsByUsernameAndCommunityIdAndTypeAndReadFalse(String username, Long communityId,
+            com.example.desporto24.enumeration.NotificationType type);
+    List<Notifications> findByUsernameIgnoreCaseAndSessionIdAndTypeAndReadFalse(String username, Long sessionId,
+            com.example.desporto24.enumeration.NotificationType type);
+    List<Notifications> findByUsernameIgnoreCaseAndCommunityIdAndTypeAndReadFalse(String username, Long communityId,
+            com.example.desporto24.enumeration.NotificationType type);
+    List<Notifications> findByUsernameIgnoreCaseAndRelatedUsernameIgnoreCaseAndTypeAndReadFalse(String username,
+            String relatedUsername, com.example.desporto24.enumeration.NotificationType type);
 }
