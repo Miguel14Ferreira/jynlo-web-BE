@@ -27,14 +27,26 @@ public class CommunityImportAutoService {
     public record AutoPlan(List<String> columns, CommunityImportRoundsPlanResponse plan) {}
 
     public AutoPlan plan(Long communityId, String username, MultipartFile file, Long seasonId, Integer defaultYear) {
-        Mapped mapped = mapping(communityId, username, file);
+        return plan(communityId, username, file, seasonId, defaultYear, null);
+    }
+
+    /** With {@code manual} the phone chose each column (any spreadsheet layout), like the website. */
+    public AutoPlan plan(Long communityId, String username, MultipartFile file, Long seasonId, Integer defaultYear,
+                         CommunityImportMappingRequest manual) {
+        Mapped mapped = manual != null ? manualMapping(manual) : mapping(communityId, username, file);
         return new AutoPlan(mapped.columns(), imports.finalRoundsPlan(communityId, username, file,
                 mapped.mapping(), context(seasonId, defaultYear)));
     }
 
     public CommunityImportRoundsResultResponse confirm(Long communityId, String username, MultipartFile file,
                                                        Long seasonId, Integer defaultYear) {
-        Mapped mapped = mapping(communityId, username, file);
+        return confirm(communityId, username, file, seasonId, defaultYear, null);
+    }
+
+    public CommunityImportRoundsResultResponse confirm(Long communityId, String username, MultipartFile file,
+                                                       Long seasonId, Integer defaultYear,
+                                                       CommunityImportMappingRequest manual) {
+        Mapped mapped = manual != null ? manualMapping(manual) : mapping(communityId, username, file);
         return imports.confirmRounds(communityId, username, file, mapped.mapping(), context(seasonId, defaultYear));
     }
 
@@ -72,6 +84,17 @@ public class CommunityImportAutoService {
                     + "Usa o modelo Jynlo (Data, Jogador, Resultado…) ou importa no computador, onde podes escolher cada coluna.");
         }
         return new Mapped(new CommunityImportMappingRequest(sheet.name(), columns), recognised);
+    }
+
+    static Mapped manualMapping(CommunityImportMappingRequest manual) {
+        if (manual.sheetName() == null || manual.sheetName().isBlank() || manual.columns() == null || manual.columns().isEmpty()) {
+            throw new IllegalArgumentException("Escolhe as colunas do ficheiro");
+        }
+        if (manual.columns().size() > 200) throw new IllegalArgumentException("O ficheiro tem demasiadas colunas");
+        boolean player = manual.columns().stream().anyMatch(c -> "PLAYER".equalsIgnoreCase(c.field()));
+        boolean date = manual.columns().stream().anyMatch(c -> "DATE".equalsIgnoreCase(c.field()));
+        if (!player || !date) throw new IllegalArgumentException("Indica qual é a coluna do jogador e a da data");
+        return new Mapped(manual, List.of());
     }
 
     private static CommunityImportContextRequest context(Long seasonId, Integer defaultYear) {
