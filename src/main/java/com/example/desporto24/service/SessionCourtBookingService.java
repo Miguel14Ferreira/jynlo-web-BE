@@ -108,7 +108,10 @@ public class SessionCourtBookingService {
                 try { suggested = safeUrl(candidate.trim()); } catch (ResponseStatusException ignored) { }
             }
         }
-        return new CourtBooking(access.organiser(), row == null ? null : row.getBookingUrl(), suggested, venueName,
+        // Players only see whether the court is booked; the booking link stays with the organiser.
+        boolean organiser = access.organiser();
+        return new CourtBooking(organiser, !organiser || row == null ? null : row.getBookingUrl(),
+                organiser ? suggested : null, venueName,
                 row != null && row.isBooked(), row == null ? null : row.getBookedAt(),
                 access.organiser() && editable(session));
     }

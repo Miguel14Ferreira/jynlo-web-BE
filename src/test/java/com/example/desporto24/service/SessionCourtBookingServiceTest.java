@@ -78,9 +78,11 @@ class SessionCourtBookingServiceTest {
 
     @Test
     void playersSeeTheBookingButCannotChangeIt() {
-        service.update(7L, "ana", null, true);
+        service.update(7L, "ana", "https://playtomic.com/clubs/clube-padel-lisboa", true);
         var view = service.get(7L, "rui");
         assertTrue(view.booked());
+        assertNull(view.bookingUrl());
+        assertNull(view.suggestedUrl());
         assertFalse(view.organiser());
         assertFalse(view.editable());
         assertThrows(ResponseStatusException.class, () -> service.update(7L, "rui", null, false));
