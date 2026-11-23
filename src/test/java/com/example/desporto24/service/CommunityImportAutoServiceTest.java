@@ -34,4 +34,20 @@ class CommunityImportAutoServiceTest {
                 CommunityImportAutoService.autoMapping(new CommunityImportPreviewResponse("x.csv", List.of(sheet))));
         assertTrue(error.getMessage().contains("modelo Jynlo"));
     }
+
+    @Test
+    void phoneColumnChoicesAreUsedWhenPlayerAndDateAreChosen() {
+        var manual = new com.example.desporto24.model.dto.community.CommunityImportMappingRequest("Folha1", List.of(
+                new com.example.desporto24.model.dto.community.CommunityImportMappingRequest.ColumnMapping(0, "DATE"),
+                new com.example.desporto24.model.dto.community.CommunityImportMappingRequest.ColumnMapping(1, "PLAYER"),
+                new com.example.desporto24.model.dto.community.CommunityImportMappingRequest.ColumnMapping(2, "GOALS")));
+        assertSame(manual, CommunityImportAutoService.manualMapping(manual).mapping());
+    }
+
+    @Test
+    void phoneColumnChoicesNeedPlayerAndDate() {
+        var manual = new com.example.desporto24.model.dto.community.CommunityImportMappingRequest("Folha1", List.of(
+                new com.example.desporto24.model.dto.community.CommunityImportMappingRequest.ColumnMapping(1, "PLAYER")));
+        assertThrows(IllegalArgumentException.class, () -> CommunityImportAutoService.manualMapping(manual));
+    }
 }

@@ -731,9 +731,10 @@ public class CommunityController {
             @RequestPart("file") MultipartFile file,
             @RequestParam Long seasonId,
             @RequestParam(required = false) Integer defaultYear,
+            @RequestParam(required = false) String mapping,
             Authentication authentication) {
         return ResponseEntity.ok(withImportHttpError(() -> communityImportAutoService.plan(
-                id, authentication.getName(), file, seasonId, defaultYear)));
+                id, authentication.getName(), file, seasonId, defaultYear, phoneMapping(mapping))));
     }
 
     @PostMapping(value = "/{id}/competition/import/auto/confirm", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -742,9 +743,22 @@ public class CommunityController {
             @RequestPart("file") MultipartFile file,
             @RequestParam Long seasonId,
             @RequestParam(required = false) Integer defaultYear,
+            @RequestParam(required = false) String mapping,
             Authentication authentication) {
         return ResponseEntity.ok(withImportHttpError(() -> communityImportAutoService.confirm(
-                id, authentication.getName(), file, seasonId, defaultYear)));
+                id, authentication.getName(), file, seasonId, defaultYear, phoneMapping(mapping))));
+    }
+
+    /** Column choices sent by the phone as a plain form field (JSON). */
+    private static com.example.desporto24.model.dto.community.CommunityImportMappingRequest phoneMapping(String json) {
+        if (json == null || json.isBlank()) return null;
+        if (json.length() > 20_000) throw new IllegalArgumentException("Escolha de colunas inválida");
+        try {
+            return new com.fasterxml.jackson.databind.ObjectMapper().readValue(json,
+                    com.example.desporto24.model.dto.community.CommunityImportMappingRequest.class);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalArgumentException("Escolha de colunas inválida");
+        }
     }
 
     @PostMapping(value = "/{id}/competition/import/validate", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
