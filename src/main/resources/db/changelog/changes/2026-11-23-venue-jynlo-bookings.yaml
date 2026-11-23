@@ -1,0 +1,96 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-23-venue-jynlo-bookings
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: venue_ownership_claim
+      changes:
+        - createTable:
+            tableName: venue_ownership_claim
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true, primaryKeyName: pk_venue_ownership_claim, nullable: false}}
+              - column: {name: venue_id, type: BIGINT, constraints: {nullable: false, foreignKeyName: fk_venue_claim_venue, references: venue(id), deleteCascade: true}}
+              - column: {name: username, type: VARCHAR(120), constraints: {nullable: false}}
+              - column: {name: role_description, type: VARCHAR(300), constraints: {nullable: false}}
+              - column: {name: contact_phone, type: VARCHAR(40)}
+              - column: {name: status, type: VARCHAR(16), defaultValue: PENDING, constraints: {nullable: false}}
+              - column: {name: created_at, type: TIMESTAMP WITH TIME ZONE, constraints: {nullable: false}}
+              - column: {name: decided_at, type: TIMESTAMP WITH TIME ZONE}
+              - column: {name: decided_by, type: VARCHAR(120)}
+              - column: {name: decision_note, type: VARCHAR(500)}
+        - createIndex:
+            tableName: venue_ownership_claim
+            indexName: idx_venue_claim_queue
+            columns:
+              - column: {name: status}
+              - column: {name: created_at}
+        - createTable:
+            tableName: venue_manager
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true, primaryKeyName: pk_venue_manager, nullable: false}}
+              - column: {name: venue_id, type: BIGINT, constraints: {nullable: false, foreignKeyName: fk_venue_manager_venue, references: venue(id), deleteCascade: true}}
+              - column: {name: username, type: VARCHAR(120), constraints: {nullable: false}}
+              - column: {name: created_at, type: TIMESTAMP WITH TIME ZONE, constraints: {nullable: false}}
+        - addUniqueConstraint:
+            tableName: venue_manager
+            columnNames: venue_id, username
+            constraintName: uk_venue_manager
+        - createTable:
+            tableName: venue_court
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true, primaryKeyName: pk_venue_court, nullable: false}}
+              - column: {name: venue_id, type: BIGINT, constraints: {nullable: false, foreignKeyName: fk_venue_court_venue, references: venue(id), deleteCascade: true}}
+              - column: {name: name, type: VARCHAR(80), constraints: {nullable: false}}
+              - column: {name: sport, type: VARCHAR(80)}
+              - column: {name: price_cents, type: INT}
+              - column: {name: slot_minutes, type: INT, defaultValueNumeric: 60, constraints: {nullable: false}}
+              - column: {name: active, type: BOOLEAN, defaultValueBoolean: true, constraints: {nullable: false}}
+              - column: {name: created_at, type: TIMESTAMP WITH TIME ZONE, constraints: {nullable: false}}
+        - createTable:
+            tableName: venue_opening_hours
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true, primaryKeyName: pk_venue_opening_hours, nullable: false}}
+              - column: {name: venue_id, type: BIGINT, constraints: {nullable: false, foreignKeyName: fk_venue_hours_venue, references: venue(id), deleteCascade: true}}
+              - column: {name: day_of_week, type: SMALLINT, constraints: {nullable: false}}
+              - column: {name: open_time, type: VARCHAR(5), constraints: {nullable: false}}
+              - column: {name: close_time, type: VARCHAR(5), constraints: {nullable: false}}
+        - createTable:
+            tableName: venue_booking_request
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true, primaryKeyName: pk_venue_booking_request, nullable: false}}
+              - column: {name: venue_id, type: BIGINT, constraints: {nullable: false, foreignKeyName: fk_venue_booking_venue, references: venue(id), deleteCascade: true}}
+              - column: {name: court_id, type: BIGINT, constraints: {nullable: false, foreignKeyName: fk_venue_booking_court, references: venue_court(id), deleteCascade: true}}
+              - column: {name: requester_username, type: VARCHAR(120), constraints: {nullable: false}}
+              - column: {name: start_at, type: TIMESTAMP WITH TIME ZONE, constraints: {nullable: false}}
+              - column: {name: end_at, type: TIMESTAMP WITH TIME ZONE, constraints: {nullable: false}}
+              - column: {name: status, type: VARCHAR(16), defaultValue: PENDING, constraints: {nullable: false}}
+              - column: {name: price_cents, type: INT}
+              - column: {name: player_note, type: VARCHAR(300)}
+              - column: {name: owner_note, type: VARCHAR(300)}
+              - column: {name: session_id, type: BIGINT}
+              - column: {name: created_at, type: TIMESTAMP WITH TIME ZONE, constraints: {nullable: false}}
+              - column: {name: decided_at, type: TIMESTAMP WITH TIME ZONE}
+        - createIndex:
+            tableName: venue_booking_request
+            indexName: idx_venue_booking_court_time
+            columns:
+              - column: {name: court_id}
+              - column: {name: start_at}
+        - createIndex:
+            tableName: venue_booking_request
+            indexName: idx_venue_booking_requester
+            columns:
+              - column: {name: requester_username}
+  - changeSet:
+      id: 2026-11-23-venue-booking-notification-type
+      author: jynlo
+      changes:
+        - sql:
+            dbms: postgresql
+            sql: |-
+              ALTER TABLE desporto24.notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+              ALTER TABLE desporto24.notifications ADD CONSTRAINT notifications_type_check
+              CHECK (type IS NULL OR type IN ('WAITLIST_PROMOTED', 'SESSION_REMOVED', 'SESSION_CANCELLED', 'SESSION_MEETING_POINT_UPDATED', 'SESSION_DETAILS_UPDATED', 'SESSION_POST_GAME_REVIEW', 'ATTENDANCE_DISPUTE_ACCEPTED', 'ATTENDANCE_DISPUTE_REJECTED', 'COMMUNITY_INVITE', 'COMMUNITY_JOIN_REQUEST', 'COMMUNITY_JOIN_ACCEPTED', 'COMMUNITY_JOIN_REJECTED', 'SESSION_INVITE', 'CHAT_MESSAGE', 'ADMIN_MESSAGE', 'VENUE_EDIT_DECISION', 'SOCIAL_NEW_FOLLOWER', 'SOCIAL_POST_LIKED', 'SOCIAL_POST_COMMENTED', 'TEAM_MEMBER_INVITE', 'TEAM_ADMIN_TRANSFER', 'TEAM_ADMIN_ASSIGNED', 'SOCIAL_STORY_LIKED', 'SOCIAL_STORY_REPLIED', 'SESSION_REMINDER', 'TOURNAMENT_RESULT', 'TOURNAMENT_LEADER', 'PAYMENT_REMINDER', 'NEARBY_SESSION', 'AVAILABILITY_REQUEST', 'AVAILABILITY_REMINDER', 'COMMUNITY_SESSION_CREATED', 'CALL_INCOMING', 'CALL_MISSED', 'VENUE_BOOKING'));

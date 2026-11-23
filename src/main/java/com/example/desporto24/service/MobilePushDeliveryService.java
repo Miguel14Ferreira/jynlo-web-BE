@@ -189,6 +189,7 @@ public class MobilePushDeliveryService {
             case "CHAT_MESSAGE" -> new String[]{"New message", "You have a new message on Jynlo."};
             case "CALL_INCOMING" -> new String[]{"Incoming call", "Someone is calling you on Jynlo. Open the app to answer."};
             case "CALL_MISSED" -> new String[]{"Missed call", "You missed a call on Jynlo."};
+            case "VENUE_BOOKING" -> new String[]{"Court booking", "There is news about a court booking. Open Jynlo to see it."};
             case "SOCIAL_NEW_FOLLOWER" -> new String[]{"New follower", "Someone started following you."};
             case "SOCIAL_POST_LIKED", "SOCIAL_STORY_LIKED" -> new String[]{"Someone liked your content", "Someone liked one of your posts."};
             case "SOCIAL_POST_COMMENTED" -> new String[]{"New comment", "Someone commented on one of your posts."};
@@ -225,6 +226,7 @@ public class MobilePushDeliveryService {
             case "CHAT_MESSAGE" -> new String[]{"Nova mensagem", "Tens uma nova mensagem na Jynlo."};
             case "CALL_INCOMING" -> new String[]{"Chamada a entrar", "Alguém está a ligar-te na Jynlo. Abre a app para atender."};
             case "CALL_MISSED" -> new String[]{"Chamada perdida", "Perdeste uma chamada na Jynlo."};
+            case "VENUE_BOOKING" -> new String[]{"Reserva de campo", "Há novidades sobre uma reserva de campo. Abre a Jynlo para veres."};
             case "SOCIAL_NEW_FOLLOWER" -> new String[]{"Novo seguidor", "Alguém começou a seguir-te."};
             case "SOCIAL_POST_LIKED", "SOCIAL_STORY_LIKED" -> new String[]{"Gostaram do teu conteúdo", "Alguém gostou de uma publicação tua."};
             case "SOCIAL_POST_COMMENTED" -> new String[]{"Novo comentário", "Comentaram uma publicação tua."};

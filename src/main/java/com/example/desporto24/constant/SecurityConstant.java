@@ -37,7 +37,11 @@ public final class SecurityConstant {
             "/api/share/profiles/*",
             "/api/venues",
             "/api/venues/*",
-            "/api/venues/*/ratings/summary"
+            "/api/venues/*/ratings/summary",
+            // Jynlo court bookings: which venues accept them, their courts and free slots.
+            "/api/venues/*/booking-offer",
+            "/api/venues/*/booking-slots",
+            "/api/venue-bookings/accepting"
     };
 
     public static final String[] PUBLIC_URLS = {

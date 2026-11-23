@@ -44,5 +44,7 @@ public enum NotificationType {
     /** Someone is calling the recipient (app may be closed). */
     CALL_INCOMING,
     /** A call to the recipient ended before being answered. */
-    CALL_MISSED
+    CALL_MISSED,
+    /** Venue claims and Jynlo court booking requests: new request, confirmed, declined, cancelled. */
+    VENUE_BOOKING
 }
