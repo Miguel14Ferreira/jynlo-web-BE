@@ -1,0 +1,13 @@
+name: Venue contacts geocode (read-only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  geocode:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Geocode contacted venues and flag directory duplicates
+        run: python3 scripts/venue_contacts/geocode.py scripts/venue_contacts/contacted.json
