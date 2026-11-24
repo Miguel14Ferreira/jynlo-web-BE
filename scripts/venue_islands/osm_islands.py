@@ -31,36 +31,40 @@ def overpass(query):
     return {'elements': []}
 
 
-def municipalities(bbox):
+def venues_in(bbox):
     s, w, n, e = bbox
-    q = f'''[out:json][timeout:120];
-rel["boundary"="administrative"]["admin_level"="7"]({s},{w},{n},{e});
-out tags;'''
-    return [(e['id'], e['tags'].get('name')) for e in overpass(q)['elements'] if e.get('tags', {}).get('name')]
-
-
-def venues(rel_id):
-    area_id = 3600000000 + rel_id
-    q = f'''[out:json][timeout:180];
-area({area_id})->.m;
+    q = f"""[out:json][timeout:240];
 (
-  nwr["leisure"~"^(sports_centre|pitch|stadium|track|swimming_pool|fitness_centre|golf_course|horse_riding|ice_rink)$"]["name"](area.m);
-  nwr["building"="sports_hall"]["name"](area.m);
+  nwr["leisure"~"^(sports_centre|pitch|stadium|track|swimming_pool|fitness_centre|golf_course|horse_riding|ice_rink)$"]["name"]({s},{w},{n},{e});
+  nwr["building"="sports_hall"]["name"]({s},{w},{n},{e});
 );
-out center tags;'''
+out center tags;"""
     return overpass(q)['elements']
+
+
+def municipality(lat, lon):
+    """Municipality name from OpenStreetMap Nominatim (1 request per second)."""
+    url = ('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&accept-language=pt&lat='
+           f'{lat}&lon={lon}')
+    for attempt in range(3):
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': UA})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                ad = json.loads(r.read().decode()).get('address', {})
+            time.sleep(1.1)
+            return ad.get('municipality') or ad.get('city') or ad.get('town') or ad.get('county') or ad.get('village')
+        except Exception:
+            time.sleep(5)
+    return None
 
 
 seen = set()
 for district, region in REGIONS.items():
-    munis = municipalities(region)
-    if not munis:
-        print('QA-WARN no municipalities for', district, file=sys.stderr)
-    print('QA-INFO', district, len(munis), 'municipalities')
-    for rel_id, muni in munis:
-        time.sleep(2)
-        n = 0
-        for e in venues(rel_id):
+    elements = venues_in(region)
+    print('QA-INFO', district, len(elements), 'elements')
+    n = 0
+    if True:
+        for e in elements:
             key = (e['type'], e['id'])
             if key in seen:
                 continue
@@ -82,6 +86,7 @@ for district, region in REGIONS.items():
             kind = nat.LEISURE.get(leisure) or ('Pavilhão desportivo' if tags.get('building') == 'sports_hall' else None)
             if not kind:
                 continue
+            muni = (tags.get('addr:city') or '').strip() or municipality(coords[0], coords[1]) or district
             raw = (tags.get('sport') or '').replace(',', ';')
             sports = list(dict.fromkeys(nat.SPORTS[k.strip().lower()] for k in raw.split(';') if k.strip().lower() in nat.SPORTS))
             if not sports and leisure in nat.INFER:
@@ -100,4 +105,4 @@ for district, region in REGIONS.items():
             }
             print('QA-ROW', json.dumps(row, ensure_ascii=False))
             n += 1
-        print('QA-INFO', district, muni, n)
+        print('QA-INFO', district, 'rows', n)
