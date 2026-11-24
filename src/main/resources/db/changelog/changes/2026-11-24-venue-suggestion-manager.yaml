@@ -1,0 +1,26 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-24-venue-suggestion-manager
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: venue_suggestion
+                columnName: manager_requested
+      changes:
+        - addColumn:
+            tableName: venue_suggestion
+            columns:
+              - column:
+                  name: manager_requested
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: manager_role
+                  type: VARCHAR(120)
+              - column:
+                  name: manager_phone
+                  type: VARCHAR(40)

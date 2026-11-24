@@ -4,5 +4,6 @@ import java.time.Instant;
 
 public record VenueSuggestionResponse(
     Long id, String status, CreateVenueRequest venue, String submittedByUsername,
-    Instant submittedAt, String reviewedByUsername, Instant reviewedAt, Long publishedVenueId
+    Instant submittedAt, String reviewedByUsername, Instant reviewedAt, Long publishedVenueId,
+    boolean managerRequested, String managerRole, String managerPhone
 ) {}

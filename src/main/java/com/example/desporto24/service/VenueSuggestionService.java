@@ -22,11 +22,27 @@ import java.time.Instant;
 public class VenueSuggestionService {
     private final VenueSuggestionRepository repository;
     private final VenueService venueService;
+    private final VenueBookingService venueBookingService;
 
     // Spring Boot 4 configures Jackson 3 for HTTP. The persisted suggestion
     // payload still uses Jackson 2; it is a local codec, not an HTTP bean.
     // Do not make every /api/venues endpoint depend on a missing Jackson 2 bean.
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** "Criar o meu recinto": a new venue sent for review together with the request to manage it. */
+    public VenueSuggestionResponse submitManaged(CreateVenueRequest request, String username, String role, String phone) {
+        String cleanRole = role == null ? "" : role.strip();
+        if (cleanRole.length() < 2 || cleanRole.length() > 120) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Diz-nos qual é a tua função no recinto.");
+        }
+        String cleanPhone = phone == null || phone.isBlank() ? null : VenueBookingService.normalisePhone(phone);
+        VenueSuggestionResponse created = submit(request, username);
+        var suggestion = repository.findById(created.id()).orElseThrow();
+        suggestion.setManagerRequested(true);
+        suggestion.setManagerRole(cleanRole);
+        suggestion.setManagerPhone(cleanPhone);
+        return response(repository.save(suggestion));
+    }
 
     public VenueSuggestionResponse submit(CreateVenueRequest request, String username) {
         if (username == null || username.isBlank()) {
@@ -80,6 +96,10 @@ public class VenueSuggestionService {
         var published = venueService.create(original, suggestion.getSubmittedByUsername());
         suggestion.setStatus(VenueSuggestion.Status.APPROVED);
         suggestion.setPublishedVenueId(published.id());
+        if (suggestion.isManagerRequested()) {
+            venueBookingService.grantManagerFromSuggestion(published.id(), suggestion.getSubmittedByUsername(),
+                    suggestion.getManagerRole(), suggestion.getManagerPhone(), adminUsername);
+        }
         suggestion.setReviewedAt(Instant.now());
         suggestion.setReviewedByUsername(adminUsername);
         return response(repository.save(suggestion));
@@ -113,6 +133,7 @@ public class VenueSuggestionService {
     private VenueSuggestionResponse response(VenueSuggestion s) {
         return new VenueSuggestionResponse(s.getId(), s.getStatus().name(),
                 parse(s.getRequestPayload()), s.getSubmittedByUsername(), s.getSubmittedAt(),
-                s.getReviewedByUsername(), s.getReviewedAt(), s.getPublishedVenueId());
+                s.getReviewedByUsername(), s.getReviewedAt(), s.getPublishedVenueId(),
+                s.isManagerRequested(), s.getManagerRole(), s.getManagerPhone());
     }
 }

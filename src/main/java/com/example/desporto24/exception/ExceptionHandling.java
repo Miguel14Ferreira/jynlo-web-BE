@@ -25,11 +25,11 @@ import static org.springframework.http.HttpStatus.*;
 @RestControllerAdvice
 public class ExceptionHandling {
 
-    protected static final String ACCOUNT_LOCKED = "A tua conta foi bloqueada. Por favor contacta a administração pelo email: desporto24app@gmail.com";
+    protected static final String ACCOUNT_LOCKED = "A tua conta foi bloqueada. Por favor contacta a administração pelo email: geral@jynlosports.com";
     protected static final String METHOD_IS_NOT_ALLOWED = "This request method is not allowed on this endpoint. Please send a '%s' request";
     protected static final String INTERNAL_SERVER_ERROR_MSG = "Ocorreu um erro ao processar o pedido";
     protected static final String INCORRECT_CREDENTIALS = "Nome de utilizador ou password incorretos, por favor tenta novamente.";
-    protected static final String ACCOUNT_DISABLED = "A tua conta foi desativada. Se isto é um erro, por favor contacta a administração pelo email: desporto24app@gmail.com";
+    protected static final String ACCOUNT_DISABLED = "A tua conta foi desativada. Se isto é um erro, por favor contacta a administração pelo email: geral@jynlosports.com";
     protected static final String ERROR_PROCESSING_FILE = "Um erro ocorreu a processar o ficheiro";
     protected static final String NOT_ENOUGH_PERMISSION = "Não tens permissões suficientes.";
     protected static final String TOKEN_NOT_VERIFIED = "O teu email ainda não está verificado, por favor verifica o teu email";

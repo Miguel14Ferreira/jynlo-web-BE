@@ -44,4 +44,15 @@ public class VenueSuggestion {
     private Instant reviewedAt;
     @Column(name = "published_venue_id")
     private Long publishedVenueId;
+
+    /** The person creating the venue says they run it: approving the venue also makes them its manager. */
+    @Builder.Default
+    @Column(name = "manager_requested", nullable = false)
+    private boolean managerRequested = false;
+
+    @Column(name = "manager_role", length = 120)
+    private String managerRole;
+
+    @Column(name = "manager_phone", length = 40)
+    private String managerPhone;
 }

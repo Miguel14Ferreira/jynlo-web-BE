@@ -11,7 +11,7 @@ public class UserImplConstant {
     public static final String RETURNING_FOUND_USER_BY_USERNAME = "A returnar a informação do perfil com o nome de utilizador: ";
     public static final String TOKEN_NOT_VERIFIED = "O teu email ainda não está verificado!";
     public static final String EQUAL_USERNAME_PASSWORD = "O teu nome de utilizador e palavra-passe são as mesmas que tu usavas!";
-    public static final String ACCOUNT_DISABLED = "A tua conta foi bloqueada. Se isto foi um erro envia-nos um email para desporto24app@gmail.com";
+    public static final String ACCOUNT_DISABLED = "A tua conta foi bloqueada. Se isto foi um erro envia-nos um email para geral@jynlosports.com";
     public static final String INCORRECT_CREDENTIALS = "Nome de utilizador / palavra-passe incorretos, por favor tenta novamente";
     public static final String TOKEN_NOT_FOUND = "Este código de verificação de email parece estar incorreto, por favor tenta novamente";
     public static final String TOKEN_ALREADY_CONFIRMED = "Este código de verificação de email já foi confirmado, podes aceder à tua conta";

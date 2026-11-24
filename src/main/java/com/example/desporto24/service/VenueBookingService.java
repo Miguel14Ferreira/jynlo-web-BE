@@ -163,6 +163,31 @@ public class VenueBookingService {
         return claimView(claim, venue);
     }
 
+    /** Approving a venue its creator runs makes them its manager at once, with an approved claim for the record. */
+    @Transactional
+    public void grantManagerFromSuggestion(Long venueId, String username, String role, String phone, String admin) {
+        Venue venue = venue(venueId);
+        VenueOwnershipClaim claim = new VenueOwnershipClaim();
+        claim.setVenueId(venueId);
+        claim.setUsername(username);
+        claim.setRoleDescription(role);
+        claim.setContactPhone(phone);
+        claim.setStatus(VenueOwnershipClaim.Status.APPROVED);
+        claim.setCreatedAt(Instant.now());
+        claim.setDecidedAt(Instant.now());
+        claim.setDecidedBy(admin);
+        claims.save(claim);
+        if (!managers.existsByVenueIdAndUsernameIgnoreCase(venueId, username)) {
+            VenueManager manager = new VenueManager();
+            manager.setVenueId(venueId);
+            manager.setUsername(username);
+            manager.setCreatedAt(Instant.now());
+            managers.save(manager);
+        }
+        notify(username, venueId, "O teu recinto está na Jynlo",
+                "\"" + venue.getName() + "\" foi aprovado e já o podes gerir: adiciona os campos e o horário para receberes reservas.");
+    }
+
     // ---- Courts and hours (managers) ---------------------------------------------------
 
     @Transactional(readOnly = true)

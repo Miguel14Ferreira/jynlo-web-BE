@@ -120,6 +120,19 @@ public class VenueController {
                 .body(suggestionService.submit(request, authentication.getName()));
     }
 
+    public record ManagedVenueBody(@Valid @jakarta.validation.constraints.NotNull CreateVenueRequest venue,
+                                   String roleDescription, String contactPhone) {}
+
+    /** "Criar o meu recinto": a new venue plus the request to manage it, reviewed together. */
+    @PostMapping("/mine")
+    public ResponseEntity<com.example.desporto24.model.dto.venue.VenueSuggestionResponse> createMine(
+            @RequestBody @Valid ManagedVenueBody body,
+            Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(suggestionService.submitManaged(body.venue(), authentication.getName(),
+                        body.roleDescription(), body.contactPhone()));
+    }
+
     // Stop unreviewed public uploads until a photo moderation queue is available.
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PostMapping(value = "/{id}/photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

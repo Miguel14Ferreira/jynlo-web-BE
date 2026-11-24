@@ -32,7 +32,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class IdeaServiceImpl implements IdeaService {
 
-    private static final String MANAGEMENT_EMAIL = "desporto24app@gmail.com";
+    private static final String MANAGEMENT_EMAIL = "geral@jynlosports.com";
 
     private final IdeasRepository ideasRepository;
     private final IdeaAttachmentRepository ideaAttachments;

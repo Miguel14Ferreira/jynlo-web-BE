@@ -14,20 +14,23 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class VenueSuggestionServiceTest {
     @Mock VenueSuggestionRepository repository;
     @Mock VenueService venueService;
+    @Mock VenueBookingService venueBookingService;
     private final ObjectMapper mapper = new ObjectMapper();
     VenueSuggestionService service;
 
     @BeforeEach
     void setUp() {
-        service = new VenueSuggestionService(repository, venueService);
+        service = new VenueSuggestionService(repository, venueService, venueBookingService);
     }
 
     @Test
@@ -99,6 +102,40 @@ class VenueSuggestionServiceTest {
         assertEquals("admin", output.reviewedByUsername());
         assertNotNull(output.reviewedAt());
         verify(venueService, times(1)).create(any(CreateVenueRequest.class), eq("tester"));
+    }
+
+    @Test
+    void approvingAVenueItsCreatorRunsMakesThemManager() throws Exception {
+        var pending = VenueSuggestion.builder()
+            .id(20L).name("Padel do Miguel").city("Braga")
+            .requestPayload(mapper.writeValueAsString(request()))
+            .submittedByUsername("dono").status(VenueSuggestion.Status.PENDING)
+            .managerRequested(true).managerRole("Dono").managerPhone("912345678")
+            .build();
+        when(repository.findForReview(20L)).thenReturn(Optional.of(pending));
+        var published = mock(VenueResponse.class);
+        when(published.id()).thenReturn(77L);
+        when(venueService.create(any(CreateVenueRequest.class), eq("dono"))).thenReturn(published);
+        when(repository.save(any(VenueSuggestion.class))).thenAnswer(inv -> inv.getArgument(0));
+        var output = service.approve(20L, "admin");
+        assertTrue(output.managerRequested());
+        verify(venueBookingService).grantManagerFromSuggestion(77L, "dono", "Dono", "912345678", "admin");
+    }
+
+    @Test
+    void approvingAPlainSuggestionGrantsNoManager() throws Exception {
+        var pending = VenueSuggestion.builder()
+            .id(21L).name("Campo").city("Faro")
+            .requestPayload(mapper.writeValueAsString(request()))
+            .submittedByUsername("fan").status(VenueSuggestion.Status.PENDING)
+            .build();
+        when(repository.findForReview(21L)).thenReturn(Optional.of(pending));
+        var published = mock(VenueResponse.class);
+        when(published.id()).thenReturn(78L);
+        when(venueService.create(any(CreateVenueRequest.class), eq("fan"))).thenReturn(published);
+        when(repository.save(any(VenueSuggestion.class))).thenAnswer(inv -> inv.getArgument(0));
+        service.approve(21L, "admin");
+        verifyNoInteractions(venueBookingService);
     }
 
     @Test
