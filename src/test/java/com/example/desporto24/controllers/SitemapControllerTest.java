@@ -26,7 +26,8 @@ class SitemapControllerTest {
         assertTrue(xml.contains("<loc>https://d24sports.com/venues/7</loc>"));
         assertFalse(xml.contains("/menu/"));
         assertFalse(xml.contains("/sessions/"));
-        assertEquals(7, xml.split("<url>").length - 1);
+        assertTrue(xml.contains("<loc>https://d24sports.com/para-recintos</loc>"));
+        assertEquals(8, xml.split("<url>").length - 1);
         assertTrue(response.getHeaders().getCacheControl().contains("max-age=21600"));
     }
 }
