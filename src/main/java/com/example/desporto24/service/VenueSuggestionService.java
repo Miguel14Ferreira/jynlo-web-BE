@@ -35,7 +35,7 @@ public class VenueSuggestionService {
         if (cleanRole.length() < 2 || cleanRole.length() > 120) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Diz-nos qual é a tua função no recinto.");
         }
-        String cleanPhone = phone == null || phone.isBlank() ? null : VenueBookingService.normalisePhone(phone);
+        String cleanPhone = phone == null || phone.isBlank() ? null : SessionPaymentService.normalisePhone(phone);
         VenueSuggestionResponse created = submit(request, username);
         var suggestion = repository.findById(created.id()).orElseThrow();
         suggestion.setManagerRequested(true);
