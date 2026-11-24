@@ -25,6 +25,10 @@ public class ChatTypingService {
     private final SessionRepository sessions;
     private final SessionParticipantRepository participants;
     private final CommunityChatRecipientResolver communityRecipients;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.team.SportsTeamRepository teams;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.team.SportsTeamMemberRepository teamMembers;
 
     public record Audience(String conversationId, Set<String> usernames) {}
 
@@ -58,6 +62,21 @@ public class ChatTypingService {
             case "community" -> {
                 long id = Long.parseLong(conversationId);
                 yield new Audience(Long.toString(id), communityRecipients.currentRecipients(id));
+            }
+            case "team" -> {
+                long id = Long.parseLong(conversationId);
+                Set<String> names = new LinkedHashSet<>();
+                if (teams != null) teams.findById(id).ifPresent(team -> {
+                    if (team.getOwner() != null && team.getOwner().getUsername() != null)
+                        names.add(team.getOwner().getUsername());
+                });
+                if (teamMembers != null)
+                    for (var m : teamMembers.findByTeamIdAndStatusOrderByIdAsc(id,
+                            com.example.desporto24.model.team.SportsTeamMember.Status.ACTIVE)) {
+                        var p = m.getProfile();
+                        if (p != null && p.getUsername() != null) names.add(p.getUsername());
+                    }
+                yield new Audience(Long.toString(id), names);
             }
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
         };

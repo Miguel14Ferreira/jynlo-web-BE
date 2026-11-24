@@ -16,7 +16,7 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class SportsTeamReactionService {
-    private static final Set<String> ALLOWED = Set.of("👍", "❤️", "😂", "🔥", "👏");
+    private static final Set<String> ALLOWED = Set.of("👍", "❤️", "😂", "🎉", "🔥", "👏");
     private final SportsTeamRepository teams;
     private final SportsTeamMemberRepository members;
     private final SportsTeamContentRepository content;
