@@ -1,0 +1,13 @@
+name: Venue open data explore (read-only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  explore:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: List municipal sports-facility datasets
+        run: python3 scripts/venue_open_data/explore.py
