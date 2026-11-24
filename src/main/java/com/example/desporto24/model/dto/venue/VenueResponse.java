@@ -62,6 +62,7 @@ public record VenueResponse(
         String ref = sourceReference == null ? "" : sourceReference;
         if (ref.startsWith("SNID:")) return "IPDJ – Sistema Nacional de Informação Desportiva (CC BY 4.0)";
         if (ref.startsWith("CML:")) return "Câmara Municipal de Lisboa – dados abertos";
+        if (ref.startsWith("CMC:")) return "Câmara Municipal de Cascais – dados abertos (CC BY)";
         if ("OPENSTREETMAP".equals(informationSource)) return "© OpenStreetMap contributors (ODbL)";
         return null;
     }
