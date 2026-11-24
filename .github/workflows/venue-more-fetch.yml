@@ -1,0 +1,12 @@
+name: Venue more sources fetch (read-only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fetch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/venue_more/fetch.py
