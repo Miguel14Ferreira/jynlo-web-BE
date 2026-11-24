@@ -239,6 +239,29 @@ class InboxSummaryServiceTest {
     }
 
     @Test
+    void readingACommunityChatClearsItsUnreadMessageAlerts() {
+        actor();
+        var bell = org.mockito.Mockito.mock(com.example.desporto24.repository.NotificationsRepository.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "notifications", bell);
+        when(communities.findById(7L)).thenReturn(Optional.of(Community.builder()
+                .id(7L).owner(profile(1, "ana")).build()));
+        CommunityTimelineEntry last = CommunityTimelineEntry.builder()
+                .id(12L).body("Olá").createdAt(Instant.now())
+                .community(Community.builder().id(7L).build())
+                .author(profile(90, "someone")).kind(CommunityTimelineEntry.Kind.CHAT).build();
+        when(timelines.findByCommunityIdAndKindOrderByIdDesc(eq(7L),
+                eq(CommunityTimelineEntry.Kind.CHAT), any(Pageable.class)))
+                .thenReturn(List.of(last));
+        var alert = new com.example.desporto24.register.Notifications.Notifications();
+        alert.setRead(false);
+        when(bell.findByUsernameIgnoreCaseAndCommunityIdAndTypeAndReadFalse("ana", 7L,
+                com.example.desporto24.enumeration.NotificationType.CHAT_MESSAGE)).thenReturn(List.of(alert));
+        service.markRead("ana", new InboxReadRequest("community", "7", 12L));
+        assertTrue(alert.isRead());
+        verify(bell).saveAll(List.of(alert));
+    }
+
+    @Test
     void authorizedDirectReceiptReadsOnlyThePeerCursorForThisConversation() {
         actor();
         when(profiles.findUserByUsernameIgnoreCase("bea"))

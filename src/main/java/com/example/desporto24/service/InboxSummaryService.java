@@ -66,6 +66,8 @@ public class InboxSummaryService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private SportsTeamContentService teamContent;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.NotificationsRepository notifications;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.repository.team.SportsTeamContentRepository teamEntries;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.repository.team.SportsTeamRepository sportsTeams;
@@ -218,6 +220,9 @@ public class InboxSummaryService {
             // server-authoritative unread count without waiting for polling.
             events.publishEvent(new InboxOwnReadUpdatedEvent(
                     actor.getUsername(), kind, key, watermark));
+            // Reading the conversation also clears its "new message" alerts in the bell:
+            // someone with the chat open should not see notifications pile up.
+            clearChatNotifications(actor.getUsername(), kind, key);
             if ("direct".equals(kind)) {
                 // This durable cursor (never an inferred device receipt) is
                 // announced only AFTER_COMMIT. The listener rechecks access.
@@ -228,6 +233,22 @@ public class InboxSummaryService {
             }
         }
         return summary(actor, kind, key);
+    }
+
+    private void clearChatNotifications(String username, String kind, String key) {
+        if (notifications == null) return;
+        var type = com.example.desporto24.enumeration.NotificationType.CHAT_MESSAGE;
+        List<com.example.desporto24.register.Notifications.Notifications> unread = switch (kind) {
+            case "direct" -> notifications.findByUsernameIgnoreCaseAndRelatedUsernameIgnoreCaseAndTypeAndReadFalse(username, key, type);
+            case "session" -> notifications.findByUsernameIgnoreCaseAndSessionIdAndTypeAndReadFalse(username, Long.parseLong(key), type);
+            case "community" -> notifications.findByUsernameIgnoreCaseAndCommunityIdAndTypeAndReadFalse(username, Long.parseLong(key), type);
+            case "private" -> notifications.findByUsernameIgnoreCaseAndPrivateGroupIdAndReadFalse(username, Long.parseLong(key));
+            case "team" -> notifications.findByUsernameIgnoreCaseAndSportsTeamIdAndReadFalse(username, Long.parseLong(key));
+            default -> List.of();
+        };
+        if (unread == null || unread.isEmpty()) return;
+        unread.forEach(n -> n.setRead(true));
+        notifications.saveAll(unread);
     }
 
     private InboxSummaryResponse summary(Profile actor, String kind, String key) {
