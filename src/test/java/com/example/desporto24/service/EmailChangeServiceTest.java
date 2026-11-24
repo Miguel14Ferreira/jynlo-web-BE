@@ -57,7 +57,7 @@ class EmailChangeServiceTest {
         ArgumentCaptor<String> html = ArgumentCaptor.forClass(String.class);
         verify(email).send(eq("new@example.com"), contains("Confirma"), html.capture());
         verify(email).send(eq("old@example.com"), contains("Pedido"), anyString());
-        Matcher link = Pattern.compile("/login/confirmar-email/([A-Za-z0-9_-]{40,})").matcher(html.getValue());
+        Matcher link = Pattern.compile("/login/confirm-email/([A-Za-z0-9_-]{40,})").matcher(html.getValue());
         assertTrue(link.find());
         String token = link.group(1);
 

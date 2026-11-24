@@ -60,7 +60,7 @@ class CommunityPublicRankingServiceTest {
         member(2, "rui", CommunityRole.MEMBER);
         assertThrows(ResponseStatusException.class, () -> service.update(5L, "rui", true));
         var setting = service.update(5L, "ana", true);
-        assertEquals("/classificacao/5", setting.path());
+        assertEquals("/rankings/5", setting.path());
         assertTrue(community.isPublicRankingEnabled());
         assertTrue(service.setting(5L, "rui").enabled());
     }

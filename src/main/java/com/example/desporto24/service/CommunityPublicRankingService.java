@@ -90,7 +90,7 @@ public class CommunityPublicRankingService {
     }
 
     private static String path(Community community) {
-        return "/classificacao/" + community.getId();
+        return "/rankings/" + community.getId();
     }
 
     private static String clean(String value) {

@@ -138,7 +138,7 @@ public class TournamentPublicPageService {
     }
 
     private static String path(CommunityTournament tournament) {
-        return "/torneio/" + tournament.getId();
+        return "/tournaments/" + tournament.getId();
     }
 
     private String publicName(Long profileId, String username) {

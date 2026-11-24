@@ -93,7 +93,7 @@ class SessionShareControllerTest {
         String body = controller.profile("joao.silva").getBody();
 
         assertTrue(body.contains("og:title\" content=\"@joao.silva na Jynlo\""));
-        assertTrue(body.contains("og:url\" content=\"https://d24sports.com/menu/perfis/joao.silva\""));
+        assertTrue(body.contains("og:url\" content=\"https://d24sports.com/menu/profiles/joao.silva\""));
     }
 
     @Test

@@ -86,7 +86,7 @@ public class EmailChangeService {
                         "Confirm your new email",
                         "Hi " + profile.getUsername() + ", you asked to use this address on your Jynlo account. Confirm to finish the change.",
                         "Confirmar email / Confirm email",
-                        base + "/login/confirmar-email/" + token,
+                        base + "/login/confirm-email/" + token,
                         "O link é válido durante 24 horas. Se não foste tu, ignora este email.",
                         "The link is valid for 24 hours. If this wasn't you, ignore this email."));
         if (profile.getEmail() != null && !profile.getEmail().isBlank()) {

@@ -103,7 +103,7 @@ public class SessionShareController {
         }
         Card card = new Card("@" + handle + " na Jynlo",
                 "Vê o perfil de @" + handle + " e combina um jogo na Jynlo.");
-        return html(siteUrl + "/menu/perfis/" + handle, card, null);
+        return html(siteUrl + "/menu/profiles/" + handle, card, null);
     }
 
     private ResponseEntity<String> html(String url, Card card, String image) {

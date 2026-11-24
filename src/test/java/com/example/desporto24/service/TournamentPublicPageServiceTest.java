@@ -79,7 +79,7 @@ class TournamentPublicPageServiceTest {
         assertThrows(ResponseStatusException.class, () -> service.update(5L, 9L, "rui", true), "members cannot share");
         var setting = service.update(5L, 9L, "ana", true);
         assertTrue(setting.enabled());
-        assertEquals("/torneio/9", setting.path());
+        assertEquals("/tournaments/9", setting.path());
         assertTrue(tournament.isPublicPageEnabled());
         assertThrows(ResponseStatusException.class, () -> service.update(99L, 9L, "ana", true));
     }
