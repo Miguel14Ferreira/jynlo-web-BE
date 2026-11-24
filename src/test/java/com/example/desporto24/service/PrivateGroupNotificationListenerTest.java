@@ -61,7 +61,7 @@ class PrivateGroupNotificationListenerTest {
 
     @Test
     void mutedMembersAreSkippedAndUnreadAlertsAreRefreshed() {
-        when(mutes.muted("ana", "private", "5")).thenReturn(true);
+        when(mutes.silenced("ana", "private", "5")).thenReturn(true);
         Notifications unread = new Notifications();
         unread.setId(9L);
         unread.setUsername("rui");

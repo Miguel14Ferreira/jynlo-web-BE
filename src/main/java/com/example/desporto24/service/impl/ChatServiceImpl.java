@@ -150,7 +150,7 @@ public class ChatServiceImpl implements ChatService {
         notification.setRead(false);
         boolean enabled = preferenceService == null ||
                 preferenceService.allowsInApp(notification.getUsername(), notification);
-        boolean muted = muteService != null && muteService.muted(
+        boolean muted = muteService != null && muteService.silenced(
                 notification.getUsername(), "direct",
                 chat.getUsername1().toLowerCase(java.util.Locale.ROOT));
         if (enabled && !muted) {

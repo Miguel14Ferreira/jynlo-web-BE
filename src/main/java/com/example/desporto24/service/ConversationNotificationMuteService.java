@@ -48,6 +48,34 @@ public class ConversationNotificationMuteService {
         }
     }
 
+    /** Conversations open on someone's screen right now (refreshed every ~20 s by the client). */
+    private final java.util.concurrent.ConcurrentHashMap<String, Long> viewing = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long VIEWING_TTL_MS = 45_000;
+
+    private static String viewingKey(String username, String kind, String key) {
+        return user(username) + "|" + kind + "|" + key;
+    }
+
+    public void markViewing(String username, String rawKind, String rawId, boolean open) {
+        String kind = kind(rawKind);
+        String id = key(kind, rawId);
+        long now = System.currentTimeMillis();
+        if (open) viewing.put(viewingKey(username, kind, id), now + VIEWING_TTL_MS);
+        else viewing.remove(viewingKey(username, kind, id));
+        if (viewing.size() > 5_000) viewing.values().removeIf(expiry -> expiry < now);
+    }
+
+    public boolean isViewing(String username, String kind, String key) {
+        if (username == null || kind == null || key == null) return false;
+        Long expiry = viewing.get(viewingKey(username, kind, key.toLowerCase(Locale.ROOT)));
+        return expiry != null && expiry > System.currentTimeMillis();
+    }
+
+    /** No alert for a muted conversation, nor for one the person has open right now. */
+    public boolean silenced(String username, String kind, String key) {
+        return isViewing(username, kind, key) || muted(username, kind, key);
+    }
+
     private static String user(String username) {
         return username.toLowerCase(Locale.ROOT);
     }

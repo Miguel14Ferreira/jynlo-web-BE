@@ -83,7 +83,7 @@ public class TeamChatNotificationListener {
     }
 
     private void notify(String member, String sender, Long teamId, String teamName, String preview) {
-        if (mutes.muted(member.toLowerCase(Locale.ROOT), "team", teamId.toString())) return;
+        if (mutes.silenced(member.toLowerCase(Locale.ROOT), "team", teamId.toString())) return;
         // Every message alerts the phone (like WhatsApp); the inbox keeps one entry per chat with the latest text.
         var open = notifications.findByUsernameIgnoreCaseAndSportsTeamIdAndReadFalse(member, teamId);
         Notifications n = open == null || open.isEmpty() ? new Notifications() : open.get(0);

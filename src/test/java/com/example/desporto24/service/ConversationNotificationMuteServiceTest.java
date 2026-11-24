@@ -51,4 +51,15 @@ class ConversationNotificationMuteServiceTest {
             service.list("BEA"));
         verify(repository).findByUsername("bea");
     }
+
+    @Test void anOpenConversationIsSilencedUntilItIsClosed() {
+        service.markViewing("Ana", "direct", "Bea", true);
+        assertTrue(service.isViewing("ana", "direct", "bea"));
+        assertTrue(service.silenced("ana", "direct", "bea"));
+        assertFalse(service.isViewing("bea", "direct", "ana"));
+        service.markViewing("ana", "community", "7", true);
+        assertTrue(service.silenced("ana", "community", "7"));
+        service.markViewing("ana", "direct", "bea", false);
+        assertFalse(service.isViewing("ana", "direct", "bea"));
+    }
 }

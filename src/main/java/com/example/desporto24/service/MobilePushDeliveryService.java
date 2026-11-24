@@ -95,7 +95,7 @@ public class MobilePushDeliveryService {
                     && event.relatedUsername().toLowerCase(Locale.ROOT).matches("[a-z0-9._-]{1,128}")) {
                 kind="direct"; key=event.relatedUsername().toLowerCase(Locale.ROOT);
             } else return;
-            if (mutes.muted(account,kind,key)) return;
+            if (mutes.silenced(account,kind,key)) return;
         }
         if (("CALL_INCOMING".equals(event.category()) || "CALL_MISSED".equals(event.category()))
                 && event.relatedUsername() != null

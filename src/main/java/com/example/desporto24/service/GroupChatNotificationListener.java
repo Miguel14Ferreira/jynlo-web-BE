@@ -99,7 +99,7 @@ public class GroupChatNotificationListener {
     }
 
     private void notify(String member, String kind, Long id, String subject, String preview) {
-        if (mutes.muted(member.toLowerCase(Locale.ROOT), kind, id.toString())) return;
+        if (mutes.silenced(member.toLowerCase(Locale.ROOT), kind, id.toString())) return;
         // Every message alerts the phone (like WhatsApp); the inbox keeps one entry per chat with the latest text.
         var open = "session".equals(kind)
                 ? notifications.findByUsernameIgnoreCaseAndSessionIdAndTypeAndReadFalse(member, id, NotificationType.CHAT_MESSAGE)

@@ -49,7 +49,7 @@ class MobilePushDeliveryServiceTest {
         ReflectionTestUtils.setField(sender,"accessToken","test-only");
         when(preferences.get("player")).thenReturn(
                 new NotificationPreferencesRequest(true,true,Set.of(),Set.of()));
-        when(mutes.muted("player","community","12")).thenReturn(true);
+        when(mutes.silenced("player","community","12")).thenReturn(true);
         sender.afterCommit(new MobilePushDeliveryService.StoredNotification(
                 "player",42L,"CHAT_MESSAGE",null,12L,null,true));
         verifyNoInteractions(devices);
@@ -61,10 +61,10 @@ class MobilePushDeliveryServiceTest {
         ReflectionTestUtils.setField(sender,"accessToken","test-only");
         when(preferences.get("player")).thenReturn(
                 new NotificationPreferencesRequest(true,true,Set.of(),Set.of()));
-        when(mutes.muted("player","private","5")).thenReturn(true);
+        when(mutes.silenced("player","private","5")).thenReturn(true);
         sender.afterCommit(new MobilePushDeliveryService.StoredNotification(
                 "player",42L,"CHAT_MESSAGE",null,null,"someone",true,5L));
-        verify(mutes).muted("player","private","5");
+        verify(mutes).silenced("player","private","5");
         verifyNoInteractions(devices);
     }
 

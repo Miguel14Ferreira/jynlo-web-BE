@@ -79,7 +79,7 @@ class GroupChatNotificationListenerTest {
     void editsAndMutedChatsDoNotAlert() {
         listener.onSessionMessage(message(Instant.now()));
         verify(notifications, never()).save(any());
-        when(mutes.muted(anyString(), eq("session"), eq("7"))).thenReturn(true);
+        when(mutes.silenced(anyString(), eq("session"), eq("7"))).thenReturn(true);
         listener.onSessionMessage(message(null));
         verify(notifications, never()).save(any());
     }

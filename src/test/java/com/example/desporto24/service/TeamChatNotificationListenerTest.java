@@ -84,13 +84,13 @@ class TeamChatNotificationListenerTest {
 
     @Test
     void mutedMembersExistingAlertsAndDisabledChatAreSkipped() {
-        when(mutes.muted("rui", "team", "8")).thenReturn(true);
+        when(mutes.silenced("rui", "team", "8")).thenReturn(true);
         when(preferences.allowsInApp(eq("capitao"), any(Notifications.class))).thenReturn(false);
         listener.onMessage(message("ana"));
         verify(notifications, never()).save(any(Notifications.class));
         when(preferences.allowsInApp(eq("capitao"), any(Notifications.class))).thenReturn(true);
 
-        when(mutes.muted("rui", "team", "8")).thenReturn(false);
+        when(mutes.silenced("rui", "team", "8")).thenReturn(false);
         when(team.isChatEnabled()).thenReturn(false);
         listener.onMessage(message("ana"));
         verify(notifications, never()).save(any(Notifications.class));

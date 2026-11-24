@@ -17,6 +17,8 @@ import java.util.List;
 @RequestMapping("/api/messages/inbox")
 public class InboxController {
     private final InboxSummaryService service;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.service.ConversationNotificationMuteService viewingMutes;
 
     @PostMapping("/summaries")
     public List<InboxSummaryResponse> summaries(
@@ -34,6 +36,18 @@ public class InboxController {
     public DirectReadReceiptResponse directReadReceipt(
             @PathVariable String peer, Authentication authentication) {
         return service.peerDirectReadReceipt(authentication.getName(), peer);
+    }
+
+    public record ViewingRequest(String kind, String id, Boolean open) {}
+
+    /** The client says which conversation is on screen, so no alerts are created for it. */
+    @PutMapping("/viewing")
+    public org.springframework.http.ResponseEntity<Void> viewing(
+            @RequestBody ViewingRequest request, Authentication authentication) {
+        if (viewingMutes != null && request != null)
+            viewingMutes.markViewing(authentication.getName(), request.kind(), request.id(),
+                    !Boolean.FALSE.equals(request.open()));
+        return org.springframework.http.ResponseEntity.noContent().build();
     }
 
     @PutMapping("/read")
