@@ -38,7 +38,7 @@ class VenueSuggestionServiceTest {
         var constructors = VenueSuggestionService.class.getDeclaredConstructors();
         assertEquals(1, constructors.length);
         assertArrayEquals(new Class<?>[]{
-                VenueSuggestionRepository.class, VenueService.class
+                VenueSuggestionRepository.class, VenueService.class, VenueBookingService.class
         }, constructors[0].getParameterTypes());
         assertNotNull(service);
     }
