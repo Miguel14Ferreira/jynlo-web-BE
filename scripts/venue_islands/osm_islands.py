@@ -59,7 +59,11 @@ def municipality(lat, lon):
 
 
 seen = set()
+import os
+ONLY = os.environ.get('REGION')
 for district, region in REGIONS.items():
+    if ONLY and district != ONLY:
+        continue
     elements = venues_in(region)
     print('QA-INFO', district, len(elements), 'elements')
     n = 0

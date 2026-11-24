@@ -1,6 +1,12 @@
 name: Venue islands OSM (read-only)
 on:
   workflow_dispatch:
+    inputs:
+      region:
+        description: "Madeira ou Açores (vazio = ambos)"
+        required: false
+        default: ""
+
 permissions:
   contents: read
 jobs:
@@ -13,4 +19,6 @@ jobs:
         with:
           python-version: '3.12'
       - name: Madeira and Azores sports venues from OpenStreetMap
+        env:
+          REGION: ${{ inputs.region }}
         run: python3 scripts/venue_islands/osm_islands.py
