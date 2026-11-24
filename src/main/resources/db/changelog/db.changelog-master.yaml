@@ -558,3 +558,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-24-azores-osm-venues.yaml
   - include:
       file: db/changelog/changes/2026-11-24-lisbon-official-venues.yaml
+  - include:
+      file: db/changelog/changes/2026-11-24-snid-official-venues.yaml
