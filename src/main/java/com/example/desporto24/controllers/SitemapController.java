@@ -24,6 +24,7 @@ public class SitemapController {
     static final int MAX_VENUES = 49_000;
     private static final List<String[]> STATIC_PAGES = List.of(
             new String[]{"/", "weekly", "1.0"},
+            new String[]{"/para-recintos", "monthly", "0.7"},
             new String[]{"/about", "monthly", "0.6"},
             new String[]{"/contact", "yearly", "0.4"},
             new String[]{"/privacy", "yearly", "0.3"},
