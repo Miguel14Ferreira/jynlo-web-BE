@@ -1,0 +1,12 @@
+name: Venue live count (read-only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  count:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/venue_lisbon/count_live.py
