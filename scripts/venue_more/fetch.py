@@ -21,7 +21,15 @@ try:
     print('QA-CASCAIS-KEYS', json.dumps(collections.Counter(k for f in feats for k in (f.get('properties') or {})).most_common(40), ensure_ascii=False))
     print('QA-CASCAIS-GEOM', json.dumps(collections.Counter((f.get('geometry') or {}).get('type') for f in feats).most_common(), ensure_ascii=False))
     for f in feats:
-        print('QA-CASCAIS', json.dumps({'p': f.get('properties'), 'g': f.get('geometry')}, ensure_ascii=False)[:1500])
+        pts = []
+        def walk(c):
+            if isinstance(c[0], (int, float)): pts.append(c)
+            else:
+                for x in c: walk(x)
+        walk((f.get('geometry') or {}).get('coordinates') or [])
+        lon = sum(p[0] for p in pts) / len(pts) if pts else None
+        lat = sum(p[1] for p in pts) / len(pts) if pts else None
+        print('QA-CASCAIS', json.dumps({'p': f.get('properties'), 'lat': lat, 'lon': lon}, ensure_ascii=False))
 except Exception as e:
     print('QA-WARN cascais', e)
 try:
