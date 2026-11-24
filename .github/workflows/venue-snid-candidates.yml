@@ -1,0 +1,24 @@
+name: Venue SNID candidates (read-only)
+on:
+  workflow_dispatch:
+    inputs:
+      geocode:
+        description: "Look up the municipality (Nominatim, 1 req/s)"
+        type: choice
+        options: ["0", "1"]
+        default: "0"
+      limit:
+        description: "Only the first N candidates (0 = all)"
+        default: "0"
+permissions:
+  contents: read
+jobs:
+  candidates:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/venue_snid/candidates.py
+        env:
+          GEOCODE: ${{ inputs.geocode }}
+          LIMIT: ${{ inputs.limit }}
