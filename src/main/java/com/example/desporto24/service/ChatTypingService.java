@@ -29,6 +29,8 @@ public class ChatTypingService {
     private com.example.desporto24.repository.team.SportsTeamRepository teams;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.repository.team.SportsTeamMemberRepository teamMembers;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.PrivateGroupMemberRepository privateMembers;
 
     public record Audience(String conversationId, Set<String> usernames) {}
 
@@ -62,6 +64,14 @@ public class ChatTypingService {
             case "community" -> {
                 long id = Long.parseLong(conversationId);
                 yield new Audience(Long.toString(id), communityRecipients.currentRecipients(id));
+            }
+            case "private" -> {
+                long id = Long.parseLong(conversationId);
+                Set<String> names = new LinkedHashSet<>();
+                if (privateMembers != null)
+                    for (var m : privateMembers.findByGroupIdOrderByJoinedAtAsc(id))
+                        if (m.getUsername() != null) names.add(m.getUsername());
+                yield new Audience(Long.toString(id), names);
             }
             case "team" -> {
                 long id = Long.parseLong(conversationId);
