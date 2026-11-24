@@ -10,9 +10,9 @@ seen = set()
 for term in ['equipamentos desportivos', 'instalações desportivas', 'desporto equipamentos', 'campos de jogos',
              'piscinas', 'pavilhões desportivos', 'parques desportivos', 'equipamentos de utilização coletiva desporto',
              'carta desportiva municipal', 'polidesportivos']:
-    for page in (1, 2):
+    for page in (1,):
         try:
-            d = get('https://dados.gov.pt/api/1/datasets/?' + urllib.parse.urlencode({'q': term, 'page_size': 40, 'page': page}))
+            d = get('https://dados.gov.pt/api/1/datasets/?' + urllib.parse.urlencode({'q': term, 'page_size': 12}))
         except Exception as e:
             print('QA-WARN', term, e); break
         for ds in d.get('data', []):
