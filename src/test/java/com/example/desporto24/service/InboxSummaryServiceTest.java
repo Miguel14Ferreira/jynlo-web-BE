@@ -485,12 +485,11 @@ class InboxSummaryServiceTest {
     }
 
     @Test
-    void rejectsUnknownKindsAndMalformedIdsWithoutQueryingMessages() {
+    void skipsUnknownKindsAndMalformedIdsWithoutQueryingMessages() {
         actor();
-        assertThrows(ResponseStatusException.class,
-                () -> service.summaries("ana", request(reference("unknown", "7"))));
-        assertThrows(ResponseStatusException.class,
-                () -> service.summaries("ana", request(reference("session", "1 OR 1=1"))));
+        // A malformed reference is ignored instead of failing the whole batch.
+        assertTrue(service.summaries("ana", request(reference("unknown", "7"))).isEmpty());
+        assertTrue(service.summaries("ana", request(reference("session", "1 OR 1=1"))).isEmpty());
         verifyNoInteractions(chats, timelines, sessionMessages);
     }
 
