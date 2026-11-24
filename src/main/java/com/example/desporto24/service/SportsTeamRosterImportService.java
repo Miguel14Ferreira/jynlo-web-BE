@@ -399,11 +399,12 @@ public class SportsTeamRosterImportService {
     Parsed read(MultipartFile file) {
         if (file == null || file.isEmpty()) throw bad("Escolhe um ficheiro Excel ou CSV");
         String lower = Optional.ofNullable(file.getOriginalFilename()).orElse("").toLowerCase(Locale.ROOT);
-        if (!lower.endsWith(".xlsx") && !lower.endsWith(".xls") && !lower.endsWith(".csv") && !lower.endsWith(".tsv")) {
-            throw bad("Formatos suportados: .xlsx, .xls, .csv e .tsv");
+        if (!lower.endsWith(".xlsx") && !lower.endsWith(".xls") && !lower.endsWith(".ods")
+                && !lower.endsWith(".csv") && !lower.endsWith(".tsv") && !lower.endsWith(".txt")) {
+            throw bad("Formatos suportados: Excel (.xlsx, .xls), LibreOffice (.ods), CSV, TSV ou uma lista colada");
         }
         if (file.getSize() > 2L * 1024 * 1024) throw bad("O ficheiro não pode ultrapassar 2 MB");
-        try (Workbook workbook = CommunityImportWorkbookReader.open(file)) {
+        try (Workbook workbook = lower.endsWith(".txt") ? pastedList(file) : CommunityImportWorkbookReader.open(file)) {
             if (workbook.getNumberOfSheets() == 0) throw bad("O ficheiro está vazio");
             return parse(workbook.getSheetAt(0));
         } catch (IOException | RuntimeException e) {
@@ -411,6 +412,56 @@ public class SportsTeamRosterImportService {
             throw bad(e instanceof IllegalArgumentException && e.getMessage() != null
                     ? e.getMessage() : "Não foi possível ler o ficheiro");
         }
+    }
+
+    /**
+     * A plain list (one player per line), e.g. pasted from WhatsApp, Word or Notes:
+     * "10 João Silva", "João Silva - 10 - Defesa", "João Silva; 10; Defesa".
+     * A list copied from a spreadsheet keeps its tab-separated columns and header.
+     */
+    static Workbook pastedList(MultipartFile file) throws IOException {
+        String text = new String(file.getBytes(), java.nio.charset.StandardCharsets.UTF_8).replaceFirst("^\uFEFF", "");
+        List<String> lines = text.lines().map(String::strip).filter(l -> !l.isBlank()).toList();
+        Workbook workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("Lista");
+        if (lines.isEmpty()) return workbook;
+        boolean tabular = lines.get(0).contains("\t") && NAME.stream().anyMatch(h ->
+                java.util.Arrays.stream(lines.get(0).split("\t")).map(SportsTeamRosterImportService::normalize).anyMatch(h::equals));
+        int rowIndex = 0;
+        if (tabular) {
+            for (String line : lines) {
+                Row row = sheet.createRow(rowIndex++);
+                String[] parts = line.split("\t", -1);
+                for (int i = 0; i < parts.length && i < 20; i++) row.createCell(i).setCellValue(parts[i].strip());
+            }
+            return workbook;
+        }
+        Row header = sheet.createRow(rowIndex++);
+        header.createCell(0).setCellValue("Nome");
+        header.createCell(1).setCellValue("Número");
+        header.createCell(2).setCellValue("Posição");
+        java.util.regex.Pattern leadingNumber = java.util.regex.Pattern.compile("^#?(\\d{1,3})[.)\\s-]+\\s*(.+)$");
+        for (String raw : lines.subList(0, Math.min(lines.size(), MAX_PLAYERS + 1))) {
+            String line = raw.replaceFirst("^[-•*·]\\s*", "").strip();
+            String name = line, number = "", position = "";
+            String[] parts = line.split("\\s*[;\\t|]\\s*|\\s+[-–]\\s+");
+            if (parts.length > 1) {
+                name = parts[0];
+                for (int i = 1; i < parts.length; i++) {
+                    String part = parts[i].replaceFirst("^#", "").strip();
+                    if (number.isEmpty() && part.matches("\\d{1,3}")) number = part;
+                    else if (position.isEmpty() && !part.isEmpty()) position = part;
+                }
+            }
+            var match = leadingNumber.matcher(name);
+            if (number.isEmpty() && match.matches()) { number = match.group(1); name = match.group(2).strip(); }
+            if (name.isBlank()) continue;
+            Row row = sheet.createRow(rowIndex++);
+            row.createCell(0).setCellValue(name);
+            row.createCell(1).setCellValue(number);
+            row.createCell(2).setCellValue(position);
+        }
+        return workbook;
     }
 
     static Parsed parse(Sheet sheet) {

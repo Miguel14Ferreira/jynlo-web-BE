@@ -67,4 +67,56 @@ class SportsTeamRosterImportParseTest {
         assertEquals(64, hash.length());
         assertNotEquals("123e4567-e89b-12d3-a456-426614174000", hash);
     }
+
+    @Test
+    void readsAPastedPlainListOfPlayers() throws Exception {
+        var file = new org.springframework.mock.web.MockMultipartFile("file", "lista.txt", "text/plain",
+                "10 João Silva\n- Rui Costa; 7; Médio\nAna Santos - 3\n\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        try (var wb = SportsTeamRosterImportService.pastedList(file)) {
+            var parsed = SportsTeamRosterImportService.parse(wb.getSheetAt(0));
+            assertEquals(3, parsed.rows().size());
+            assertEquals("João Silva", parsed.rows().get(0).name());
+            assertEquals(10, parsed.rows().get(0).shirtNumber());
+            assertEquals("Rui Costa", parsed.rows().get(1).name());
+            assertEquals(7, parsed.rows().get(1).shirtNumber());
+            assertEquals("Médio", parsed.rows().get(1).position());
+            assertEquals(3, parsed.rows().get(2).shirtNumber());
+        }
+    }
+
+    @Test
+    void readsCellsCopiedFromASpreadsheetWithTheirHeader() throws Exception {
+        var file = new org.springframework.mock.web.MockMultipartFile("file", "lista.txt", "text/plain",
+                "Nome\tNº\tPosição\nEva\t1\tGuarda-redes\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        try (var wb = SportsTeamRosterImportService.pastedList(file)) {
+            var parsed = SportsTeamRosterImportService.parse(wb.getSheetAt(0));
+            assertEquals(1, parsed.rows().size());
+            assertEquals("Guarda-redes", parsed.rows().get(0).position());
+            assertEquals(1, parsed.rows().get(0).shirtNumber());
+        }
+    }
+
+    @Test
+    void readsAnOpenDocumentSpreadsheet() throws Exception {
+        String xml = "<?xml version=\"1.0\"?><office:document-content xmlns:office=\"urn:oasis:names:tc:opendocument:xmlns:office:1.0\" "
+                + "xmlns:table=\"urn:oasis:names:tc:opendocument:xmlns:table:1.0\" xmlns:text=\"urn:oasis:names:tc:opendocument:xmlns:text:1.0\">"
+                + "<office:body><office:spreadsheet><table:table table:name=\"Plantel\">"
+                + "<table:table-row><table:table-cell><text:p>Nome</text:p></table:table-cell><table:table-cell><text:p>Número</text:p></table:table-cell>"
+                + "<table:table-cell table:number-columns-repeated=\"1000\"/></table:table-row>"
+                + "<table:table-row><table:table-cell><text:p>Ana Silva</text:p></table:table-cell><table:table-cell><text:p>9</text:p></table:table-cell></table:table-row>"
+                + "<table:table-row table:number-rows-repeated=\"1048570\"><table:table-cell table:number-columns-repeated=\"1024\"/></table:table-row>"
+                + "</table:table></office:spreadsheet></office:body></office:document-content>";
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var zip = new java.util.zip.ZipOutputStream(bytes)) {
+            zip.putNextEntry(new java.util.zip.ZipEntry("content.xml"));
+            zip.write(xml.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        try (var wb = CommunityImportWorkbookReader.openOds(bytes.toByteArray())) {
+            var parsed = SportsTeamRosterImportService.parse(wb.getSheetAt(0));
+            assertEquals(1, parsed.rows().size());
+            assertEquals("Ana Silva", parsed.rows().get(0).name());
+            assertEquals(9, parsed.rows().get(0).shirtNumber());
+        }
+    }
 }

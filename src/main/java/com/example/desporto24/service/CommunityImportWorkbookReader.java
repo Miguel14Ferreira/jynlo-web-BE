@@ -48,6 +48,9 @@ final class CommunityImportWorkbookReader {
                 }
             }
         }
+        if (name.endsWith(".ods")) {
+            return openOds(file.getBytes());
+        }
         if (!name.endsWith(".csv") && !name.endsWith(".tsv")) {
             throw new IllegalArgumentException("Formato de importação não suportado");
         }
@@ -97,6 +100,95 @@ final class CommunityImportWorkbookReader {
         } catch (IOException | RuntimeException exception) {
             workbook.close();
             throw exception;
+        }
+    }
+
+    /**
+     * OpenDocument spreadsheets (LibreOffice, Numbers/Google exports): reads the first
+     * table of content.xml as literal text cells. DTDs and external entities are refused.
+     */
+    static Workbook openOds(byte[] bytes) throws IOException {
+        byte[] content = null;
+        try (var zip = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(bytes))) {
+            java.util.zip.ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                if ("content.xml".equals(entry.getName())) {
+                    content = zip.readNBytes(20 * 1024 * 1024 + 1);
+                    if (content.length > 20 * 1024 * 1024) {
+                        throw new IllegalArgumentException("O ficheiro .ods é demasiado grande");
+                    }
+                    break;
+                }
+            }
+        }
+        if (content == null) throw new IOException("Ficheiro .ods inválido");
+        Workbook workbook = new XSSFWorkbook();
+        try {
+            var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(true);
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            factory.setXIncludeAware(false);
+            factory.setExpandEntityReferences(false);
+            var document = factory.newDocumentBuilder().parse(new java.io.ByteArrayInputStream(content));
+            String table = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
+            var tables = document.getElementsByTagNameNS(table, "table");
+            if (tables.getLength() == 0) throw new IllegalArgumentException("O ficheiro está vazio");
+            Sheet sheet = workbook.createSheet("Dados");
+            int rowIndex = 0;
+            var rows = ((org.w3c.dom.Element) tables.item(0)).getElementsByTagNameNS(table, "table-row");
+            for (int r = 0; r < rows.getLength() && rowIndex < MAX_ROWS; r++) {
+                var rowElement = (org.w3c.dom.Element) rows.item(r);
+                java.util.List<String> values = new java.util.ArrayList<>();
+                for (var node = rowElement.getFirstChild(); node != null; node = node.getNextSibling()) {
+                    if (!(node instanceof org.w3c.dom.Element cell) || !table.equals(cell.getNamespaceURI())) continue;
+                    if (!"table-cell".equals(cell.getLocalName()) && !"covered-table-cell".equals(cell.getLocalName())) continue;
+                    String text = odsCellText(cell);
+                    int repeat = parseRepeat(cell.getAttributeNS(table, "number-columns-repeated"));
+                    // Trailing empty cells are often repeated thousands of times: never expand them.
+                    if (text.isEmpty() && repeat > 1) repeat = Math.min(repeat, MAX_COLUMNS - values.size());
+                    for (int i = 0; i < repeat && values.size() < MAX_COLUMNS; i++) values.add(text);
+                }
+                while (!values.isEmpty() && values.get(values.size() - 1).isEmpty()) values.remove(values.size() - 1);
+                if (values.isEmpty()) continue;
+                int repeatRows = Math.min(parseRepeat(rowElement.getAttributeNS(table, "number-rows-repeated")), 1000);
+                for (int k = 0; k < repeatRows && rowIndex < MAX_ROWS; k++) {
+                    Row row = sheet.createRow(rowIndex++);
+                    for (int i = 0; i < values.size(); i++) {
+                        String value = values.get(i);
+                        if (value.length() > MAX_CELL_LENGTH) value = value.substring(0, MAX_CELL_LENGTH);
+                        row.createCell(i).setCellValue(value);
+                    }
+                }
+            }
+            return workbook;
+        } catch (javax.xml.parsers.ParserConfigurationException | org.xml.sax.SAXException exception) {
+            workbook.close();
+            throw new IOException("Ficheiro .ods inválido", exception);
+        } catch (IOException | RuntimeException exception) {
+            workbook.close();
+            throw exception;
+        }
+    }
+
+    private static String odsCellText(org.w3c.dom.Element cell) {
+        String text = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
+        var paragraphs = cell.getElementsByTagNameNS(text, "p");
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < paragraphs.getLength(); i++) {
+            if (i > 0) out.append('\n');
+            out.append(paragraphs.item(i).getTextContent());
+        }
+        return out.toString().trim();
+    }
+
+    private static int parseRepeat(String raw) {
+        if (raw == null || raw.isBlank()) return 1;
+        try {
+            return Math.max(1, Math.min(Integer.parseInt(raw.trim()), 100_000));
+        } catch (NumberFormatException ignored) {
+            return 1;
         }
     }
 
