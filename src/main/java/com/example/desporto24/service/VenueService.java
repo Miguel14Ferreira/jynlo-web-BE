@@ -503,7 +503,8 @@ public class VenueService {
                 venue.getCreatedAt(),
                 venue.getDistrict(),
                 venue.getBookingUrl(),
-                venue.getFreeAccess()
+                venue.getFreeAccess(),
+                venue.getSourceReference()
         );
     }
 
