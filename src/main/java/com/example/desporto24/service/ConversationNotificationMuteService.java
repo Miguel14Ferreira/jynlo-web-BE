@@ -34,8 +34,8 @@ public class ConversationNotificationMuteService {
         if (raw == null || raw.isBlank() || raw.length() > 128)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid conversation");
         if ("direct".equals(kind)) {
-            String normalized = raw.toLowerCase(Locale.ROOT);
-            if (!normalized.matches("[a-z0-9._-]{1,128}"))
+            String normalized = raw.trim().toLowerCase(Locale.ROOT);
+            if (!normalized.matches("[a-z0-9._ @-]{1,128}"))
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid conversation");
             return normalized;
         }

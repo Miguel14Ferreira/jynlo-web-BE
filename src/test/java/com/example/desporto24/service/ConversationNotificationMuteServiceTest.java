@@ -62,4 +62,8 @@ class ConversationNotificationMuteServiceTest {
         service.markViewing("ana", "direct", "bea", false);
         assertFalse(service.isViewing("ana", "direct", "bea"));
     }
+
+    @Test void olderUsernamesWithASpaceAreStillValidConversations() {
+        assertEquals("miguel marques", ConversationNotificationMuteService.key("direct", "Miguel Marques"));
+    }
 }

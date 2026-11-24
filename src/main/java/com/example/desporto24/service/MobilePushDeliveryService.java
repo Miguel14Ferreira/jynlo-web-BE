@@ -92,7 +92,7 @@ public class MobilePushDeliveryService {
             } else if (event.communityId()!=null && event.communityId()>0) {
                 kind="community"; key=event.communityId().toString();
             } else if (event.relatedUsername()!=null
-                    && event.relatedUsername().toLowerCase(Locale.ROOT).matches("[a-z0-9._-]{1,128}")) {
+                    && event.relatedUsername().toLowerCase(Locale.ROOT).matches("[a-z0-9._ @-]{1,128}")) {
                 kind="direct"; key=event.relatedUsername().toLowerCase(Locale.ROOT);
             } else return;
             if (mutes.silenced(account,kind,key)) return;

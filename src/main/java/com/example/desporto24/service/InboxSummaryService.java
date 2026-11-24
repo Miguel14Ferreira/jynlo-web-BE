@@ -81,9 +81,13 @@ public class InboxSummaryService {
         // not described with a different status that would disclose their contents.
         Map<String, InboxRequest.Conversation> unique = new LinkedHashMap<>();
         for (var item : request.conversations()) {
-            String kind = normalizeKind(item.kind());
-            String key = canonicalKey(kind, item.id());
-            unique.putIfAbsent(kind + ":" + key, new InboxRequest.Conversation(kind, key));
+            try {
+                String kind = normalizeKind(item.kind());
+                String key = canonicalKey(kind, item.id());
+                unique.putIfAbsent(kind + ":" + key, new InboxRequest.Conversation(kind, key));
+            } catch (ResponseStatusException invalid) {
+                // One malformed reference must never hide every other conversation's unread state.
+            }
         }
         List<InboxSummaryResponse> result = new ArrayList<>();
         for (var item : unique.values()) {
@@ -394,7 +398,8 @@ public class InboxSummaryService {
         }
         if (kind.equals("direct")) {
             String username = value.trim().toLowerCase(Locale.ROOT);
-            if (!username.matches("[a-z0-9_.@-]{1,128}")) {
+            // Some older accounts have a space in their username.
+            if (!username.matches("[a-z0-9_.@ -]{1,128}")) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid username");
             }
             return username;
