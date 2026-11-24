@@ -12,27 +12,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import import_osm_venues_national as nat  # noqa: E402
 
 UA = 'JynloVenueResearch/1.0 (+https://jynlosports.com; geral@jynlosports.com)'
-OVERPASS = 'https://overpass-api.de/api/interpreter'
-REGIONS = {'Madeira': 'Região Autónoma da Madeira', 'Açores': 'Região Autónoma dos Açores'}
+OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter',
+            'https://maps.mail.ru/osm/tools/overpass/api/interpreter']
+# Bounding boxes (south, west, north, east) of each archipelago.
+REGIONS = {'Madeira': (32.3, -17.4, 33.2, -16.1), 'Açores': (36.8, -31.6, 39.9, -24.8)}
 
 
 def overpass(query):
-    for attempt in range(4):
+    for attempt in range(6):
         try:
             data = urllib.parse.urlencode({'data': query}).encode()
-            req = urllib.request.Request(OVERPASS, data=data, headers={'User-Agent': UA})
+            req = urllib.request.Request(OVERPASS[attempt % len(OVERPASS)], data=data, headers={'User-Agent': UA})
             with urllib.request.urlopen(req, timeout=180) as r:
                 return json.loads(r.read().decode())
         except Exception as e:  # rate limit or timeout: wait and retry
             print('QA-WARN', type(e).__name__, str(e)[:120], file=sys.stderr)
-            time.sleep(20 * (attempt + 1))
+            time.sleep(10 * (attempt + 1))
     return {'elements': []}
 
 
-def municipalities(region_name):
+def municipalities(bbox):
+    s, w, n, e = bbox
     q = f'''[out:json][timeout:120];
-area["boundary"="administrative"]["admin_level"="4"]["name"="{region_name}"]->.r;
-rel["boundary"="administrative"]["admin_level"="7"](area.r);
+rel["boundary"="administrative"]["admin_level"="7"]({s},{w},{n},{e});
 out tags;'''
     return [(e['id'], e['tags'].get('name')) for e in overpass(q)['elements'] if e.get('tags', {}).get('name')]
 
@@ -52,6 +54,8 @@ out center tags;'''
 seen = set()
 for district, region in REGIONS.items():
     munis = municipalities(region)
+    if not munis:
+        print('QA-WARN no municipalities for', district, file=sys.stderr)
     print('QA-INFO', district, len(munis), 'municipalities')
     for rel_id, muni in munis:
         time.sleep(2)
