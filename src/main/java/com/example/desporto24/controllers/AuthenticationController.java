@@ -171,6 +171,30 @@ public class AuthenticationController {
     }
 
     /**
+     * Native app refresh: the app keeps its refresh token in the device's secure
+     * storage and sends it in a header. Browsers always send Origin on POST, so a
+     * request with an Origin is refused here (they must use the cookie endpoint).
+     */
+    @PostMapping("/mobile/refresh")
+    public ResponseEntity<LoginResponse> refreshNative(
+            @RequestHeader(value = NATIVE_REFRESH_HEADER, required = false) String refreshToken,
+            @RequestHeader(value = HttpHeaders.ORIGIN, required = false) String origin) {
+        if (origin != null || refreshToken == null || refreshToken.isBlank()) {
+            throw new BadCredentialsException(INCORRECT_CREDENTIALS);
+        }
+        LoginResponse result = authenticationService.refresh(refreshToken);
+        String username = result.profile() == null ? null : result.profile().getUsername();
+        if (username == null || username.isBlank()) {
+            throw new BadCredentialsException(INCORRECT_CREDENTIALS);
+        }
+        String rotatedToken = authenticationService.createRefreshToken(username);
+        String family = refreshTokenRotationService.rotate(refreshToken, rotatedToken, username);
+        return ResponseEntity.ok()
+                .header(NATIVE_REFRESH_HEADER, rotatedToken)
+                .body(withBoundToken(result, family));
+    }
+
+    /**
      * Lists only the authenticated user's unrevoked, unexpired refresh families.
      * Never returns raw refresh cookies, hashes, IP addresses or User-Agent.
      */
@@ -373,9 +397,12 @@ public class AuthenticationController {
 
         String refreshToken = authenticationService.createRefreshToken(username);
         String family = refreshTokenRotationService.registerIssued(username, refreshToken);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, refreshCookie(refreshToken).toString())
-                .body(withBoundToken(result, family));
+        ResponseEntity.BodyBuilder response = ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookie(refreshToken).toString());
+        if (isNativeClient()) {
+            response.header(NATIVE_REFRESH_HEADER, refreshToken);
+        }
+        return response.body(withBoundToken(result, family));
     }
 
     private ResponseEntity<GoogleAuthResponse> withGoogleRefreshCookie(GoogleAuthResponse result) {
@@ -386,9 +413,23 @@ public class AuthenticationController {
 
         String refreshToken = authenticationService.createRefreshToken(username);
         String family = refreshTokenRotationService.registerIssued(username, refreshToken);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, refreshCookie(refreshToken).toString())
-                .body(withBoundToken(result, family));
+        ResponseEntity.BodyBuilder response = ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookie(refreshToken).toString());
+        if (isNativeClient()) {
+            response.header(NATIVE_REFRESH_HEADER, refreshToken);
+        }
+        return response.body(withBoundToken(result, family));
+    }
+
+    static final String NATIVE_REFRESH_HEADER = "X-Jynlo-Refresh";
+
+    /** The native app identifies itself and never sends Origin; browsers always do on POST. */
+    private static boolean isNativeClient() {
+        var attributes = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        if (!(attributes instanceof org.springframework.web.context.request.ServletRequestAttributes servlet)) return false;
+        var request = servlet.getRequest();
+        return "mobile".equalsIgnoreCase(request.getHeader("X-Jynlo-Client"))
+                && request.getHeader(HttpHeaders.ORIGIN) == null;
     }
 
     private ResponseCookie refreshCookie(String token) {

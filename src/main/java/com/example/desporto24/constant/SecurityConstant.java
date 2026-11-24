@@ -50,6 +50,7 @@ public final class SecurityConstant {
             "/api/auth/google/**",
             "/api/auth/apple/**",
             "/api/auth/refresh",
+            "/api/auth/mobile/refresh",
             "/api/auth/register",
             "/api/auth/register/mobile",
             "/api/auth/register/confirm",

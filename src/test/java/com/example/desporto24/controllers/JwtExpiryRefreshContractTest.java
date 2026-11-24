@@ -181,6 +181,30 @@ class JwtExpiryRefreshContractTest {
     }
 
     @Test
+    void nativeAppRefreshesWithHeaderTokenAndGetsRotatedTokenBack() throws Exception {
+        String refresh = jwt.generateRefreshToken(new ProfilePrincipal(profile));
+        String recovered = jwt.generateJwtToken(new ProfilePrincipal(profile));
+        ProfileDTO dto = new ProfileDTO();
+        dto.setUsername(USERNAME);
+        when(auth.refresh(refresh)).thenReturn(new LoginResponse(false, null, null, recovered, dto));
+        when(auth.createRefreshToken(USERNAME)).thenReturn("rotated-native");
+
+        mvc.perform(post("/api/auth/mobile/refresh").header("X-Jynlo-Refresh", refresh))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Jynlo-Refresh", "rotated-native"));
+        verify(refreshTokenRotationService).rotate(refresh, "rotated-native", USERNAME);
+    }
+
+    @Test
+    void nativeRefreshRefusesBrowserRequests() throws Exception {
+        mvc.perform(post("/api/auth/mobile/refresh")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:4200")
+                        .header("X-Jynlo-Refresh", "anything"))
+                .andExpect(status().isBadRequest());
+        verify(auth, never()).refresh(anyString());
+    }
+
+    @Test
     void signedRefreshTokenCannotBeUsedAsAccessBearer() throws Exception {
         String refresh = jwt.generateRefreshToken(new ProfilePrincipal(profile));
 
