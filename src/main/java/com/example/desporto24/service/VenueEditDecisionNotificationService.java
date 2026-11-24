@@ -60,6 +60,8 @@ public class VenueEditDecisionNotificationService {
     public record DecisionEmail(String username, long venueId, String venueName,
                                 boolean approved, String note) {}
 
+    /** Off the request thread: a slow email provider must not make the admin's approval look like it failed. */
+    @org.springframework.scheduling.annotation.Async("applicationTaskExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void sendOptionalEmail(DecisionEmail decision) {
         try {
