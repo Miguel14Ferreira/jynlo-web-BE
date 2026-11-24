@@ -1,0 +1,49 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-24-community-post-like
+      author: jynlo
+      changes:
+        - createTable:
+            tableName: community_post_like
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_community_post_like
+                    nullable: false
+              - column:
+                  name: entry_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: profile_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: community_post_like
+            baseColumnNames: entry_id
+            referencedTableName: community_timeline_entry
+            referencedColumnNames: id
+            constraintName: fk_community_post_like_entry
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: community_post_like
+            baseColumnNames: profile_id
+            referencedTableName: profile
+            referencedColumnNames: id
+            constraintName: fk_community_post_like_profile
+            onDelete: CASCADE
+        - addUniqueConstraint:
+            tableName: community_post_like
+            columnNames: entry_id, profile_id
+            constraintName: uk_community_post_like

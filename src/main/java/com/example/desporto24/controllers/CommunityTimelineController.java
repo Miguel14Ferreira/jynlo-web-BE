@@ -22,6 +22,33 @@ public class CommunityTimelineController {
     private final CommunityTimelineService service;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.service.SessionCallUp sessionCallUp;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.service.CommunityPostLikeService likes;
+
+    /** Like counts for the community feed, keyed by post id (posts without likes are left out). */
+    @GetMapping("/posts/likes")
+    public java.util.Map<Long, com.example.desporto24.service.CommunityPostLikeService.Summary> postLikes(
+            @PathVariable Long communityId, Authentication authentication) {
+        return likes().summaries(communityId, authentication.getName());
+    }
+
+    @PostMapping("/posts/{entryId}/likes")
+    public com.example.desporto24.service.CommunityPostLikeService.Summary likePost(
+            @PathVariable Long communityId, @PathVariable Long entryId, Authentication authentication) {
+        return likes().like(communityId, entryId, authentication.getName());
+    }
+
+    @DeleteMapping("/posts/{entryId}/likes")
+    public com.example.desporto24.service.CommunityPostLikeService.Summary unlikePost(
+            @PathVariable Long communityId, @PathVariable Long entryId, Authentication authentication) {
+        return likes().unlike(communityId, entryId, authentication.getName());
+    }
+
+    private com.example.desporto24.service.CommunityPostLikeService likes() {
+        if (likes == null) throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Likes unavailable");
+        return likes;
+    }
 
 
     @GetMapping("/posts")

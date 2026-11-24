@@ -507,6 +507,21 @@ public class CommunityTimelineService {
         if (kind == CommunityTimelineEntry.Kind.POST) publishFeedChange(communityId);
     }
 
+    /** Members may like posts of their community feed. Returns the liker's profile id. */
+    @Transactional(readOnly = true)
+    public Long requirePostLikeAccess(Long communityId, Long entryId, String username) {
+        Access access = requireMember(communityId, username);
+        if (entryId != null) {
+            CommunityTimelineEntry entry = timelineRepository.findById(entryId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Entry not found"));
+            if (!communityId.equals(entry.getCommunity().getId()) || entry.getKind() != CommunityTimelineEntry.Kind.POST
+                    || entry.getDeletedAt() != null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entry not found");
+            }
+        }
+        return access.actor().getId();
+    }
+
     private Access requireMember(Long communityId, String username) {
         Profile actor = profileRepository.findUserByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new AccessDeniedException("Not authenticated as a community member"));
