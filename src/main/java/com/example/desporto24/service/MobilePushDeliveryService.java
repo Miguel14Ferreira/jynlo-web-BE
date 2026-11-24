@@ -20,7 +20,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Fail-closed, optional Expo transport. Push payloads must not include private message text. */
+/**
+ * Fail-closed, optional Expo transport. Chat alerts show the sender and a short preview
+ * (like WhatsApp) unless the person turned previews off; everything else stays generic.
+ */
 @Service
 @RequiredArgsConstructor
 public class MobilePushDeliveryService {
@@ -32,6 +35,10 @@ public class MobilePushDeliveryService {
     private final ObjectMapper json;
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(3)).build();
+
+    /** Optional so older wiring and tests keep working; without it chat alerts stay generic. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.NotificationsRepository storedAlerts;
 
     @Value("${jynlo.push.enabled:false}")
     private boolean enabled;
@@ -93,16 +100,44 @@ public class MobilePushDeliveryService {
         if (("CALL_INCOMING".equals(event.category()) || "CALL_MISSED".equals(event.category()))
                 && event.relatedUsername() != null
                 && mutes.muted(account, "direct", event.relatedUsername().toLowerCase(Locale.ROOT))) return;
+        String[] preview = "CHAT_MESSAGE".equals(event.category())
+                && !rules.disabledInAppTypes().contains(NotificationPreferencesService.CHAT_PREVIEW)
+                ? chatPreview(event.notificationId(), account) : null;
         List<com.example.desporto24.model.MobilePushDevice> recipients =
                 devices.findTop20ByUsernameOrderByUpdatedAtDesc(account);
         for (var device : recipients) {
             if (!account.equals(device.getUsername())) continue;
-            deliver(device.getDeviceId(),device.getPushToken(), event.notificationId(), event.category(), device.getLanguage());
+            deliver(device.getDeviceId(),device.getPushToken(), event.notificationId(), event.category(), device.getLanguage(), preview);
         }
     }
 
-    private void deliver(String deviceId,String token, Long notificationId, String category, String language) {
-        String[] text = text(category, language);
+    /** Title = who wrote (or the group), body = the stored short preview. Null falls back to generic text. */
+    String[] chatPreview(Long notificationId, String account) {
+        if (storedAlerts == null) return null;
+        try {
+            var stored = storedAlerts.findById(notificationId).orElse(null);
+            if (stored == null || stored.getUsername() == null || !account.equalsIgnoreCase(stored.getUsername())) return null;
+            return previewText(stored.getSubject(), stored.getMessage());
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    static String[] previewText(String subject, String message) {
+        if (message == null || message.isBlank()) return null;
+        String title = subject == null ? "" : subject.strip();
+        for (String prefix : new String[]{"Nova mensagem de ", "Novas mensagens em ", "Nova mensagem em "}) {
+            if (title.startsWith(prefix)) { title = title.substring(prefix.length()).strip(); break; }
+        }
+        if (title.isEmpty()) title = "Jynlo";
+        String body = message.strip().replaceAll("\\s+", " ");
+        if (body.length() > 180) body = body.substring(0, 177).strip() + "…";
+        if (title.length() > 80) title = title.substring(0, 79).strip() + "…";
+        return new String[]{title, body};
+    }
+
+    private void deliver(String deviceId,String token, Long notificationId, String category, String language, String[] preview) {
+        String[] text = preview != null ? preview : text(category, language);
         try {
             var payload = new java.util.LinkedHashMap<String, Object>(Map.of(
                     "to", token,

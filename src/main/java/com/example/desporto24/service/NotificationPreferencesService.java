@@ -27,10 +27,12 @@ public class NotificationPreferencesService {
     public static final String FRIEND_REQUEST = "FRIEND_REQUEST";
     public static final String PROFILE_UPDATE = "PROFILE_UPDATE";
     public static final String OTHER = "OTHER";
+    /** Listed as "disabled" when the person hides who wrote and what in chat alerts on the phone. */
+    public static final String CHAT_PREVIEW = "CHAT_PREVIEW";
 
     private static final Set<String> TYPES = java.util.stream.Stream.concat(
             Arrays.stream(NotificationType.values()).map(Enum::name),
-            java.util.stream.Stream.of(FRIEND_REQUEST, PROFILE_UPDATE, OTHER))
+            java.util.stream.Stream.of(FRIEND_REQUEST, PROFILE_UPDATE, OTHER, CHAT_PREVIEW))
             .collect(Collectors.toUnmodifiableSet());
 
     private final NotificationPreferencesRepository repository;

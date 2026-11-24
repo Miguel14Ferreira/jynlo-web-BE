@@ -100,11 +100,11 @@ public class GroupChatNotificationListener {
 
     private void notify(String member, String kind, Long id, String subject, String preview) {
         if (mutes.muted(member.toLowerCase(Locale.ROOT), kind, id.toString())) return;
-        boolean pending = "session".equals(kind)
-                ? notifications.existsByUsernameAndSessionIdAndTypeAndReadFalse(member, id, NotificationType.CHAT_MESSAGE)
-                : notifications.existsByUsernameAndCommunityIdAndTypeAndReadFalse(member, id, NotificationType.CHAT_MESSAGE);
-        if (pending) return;
-        Notifications n = new Notifications();
+        // Every message alerts the phone (like WhatsApp); the inbox keeps one entry per chat with the latest text.
+        var open = "session".equals(kind)
+                ? notifications.findByUsernameIgnoreCaseAndSessionIdAndTypeAndReadFalse(member, id, NotificationType.CHAT_MESSAGE)
+                : notifications.findByUsernameIgnoreCaseAndCommunityIdAndTypeAndReadFalse(member, id, NotificationType.CHAT_MESSAGE);
+        Notifications n = open == null || open.isEmpty() ? new Notifications() : open.get(0);
         n.setSubject(subject);
         n.setMessage(preview);
         n.setGreeting("");

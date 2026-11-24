@@ -60,12 +60,17 @@ class PrivateGroupNotificationListenerTest {
     }
 
     @Test
-    void mutedMembersAndExistingUnreadAlertsAreSkipped() {
+    void mutedMembersAreSkippedAndUnreadAlertsAreRefreshed() {
         when(mutes.muted("ana", "private", "5")).thenReturn(true);
-        when(notifications.existsByUsernameAndPrivateGroupIdAndReadFalse("rui", 5L)).thenReturn(true);
+        Notifications unread = new Notifications();
+        unread.setId(9L);
+        unread.setUsername("rui");
+        unread.setMessage("miguel: antiga");
+        when(notifications.findByUsernameIgnoreCaseAndPrivateGroupIdAndReadFalse("rui", 5L)).thenReturn(List.of(unread));
+        when(notifications.save(any(Notifications.class))).thenAnswer(inv -> inv.getArgument(0));
         listener.onGroupEvent(message("miguel", Set.of("miguel", "ana", "rui")));
-        verify(notifications, never()).save(any(Notifications.class));
-        verifyNoInteractions(events);
+        verify(notifications, times(1)).save(unread);
+        verify(events, times(1)).publishEvent(any(MobilePushDeliveryService.StoredNotification.class));
     }
 
     @Test

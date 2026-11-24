@@ -152,4 +152,16 @@ class MobilePushDeliveryServiceTest {
         org.junit.jupiter.api.Assertions.assertEquals("pt", MobilePushDeviceService.language("fr"));
         org.junit.jupiter.api.Assertions.assertEquals("pt", MobilePushDeviceService.language(null));
     }
+
+    @org.junit.jupiter.api.Test
+    void chatPreviewShowsWhoWroteAndAShortText() {
+        String[] direct = MobilePushDeliveryService.previewText("Nova mensagem de joao.fresco", "Forasteiros?");
+        org.junit.jupiter.api.Assertions.assertEquals("joao.fresco", direct[0]);
+        org.junit.jupiter.api.Assertions.assertEquals("Forasteiros?", direct[1]);
+        String[] group = MobilePushDeliveryService.previewText("Novas mensagens em Padel Lisboa", "ana: vamos às 19h");
+        org.junit.jupiter.api.Assertions.assertEquals("Padel Lisboa", group[0]);
+        String[] longText = MobilePushDeliveryService.previewText("Nova mensagem em Equipa", "x".repeat(400));
+        org.junit.jupiter.api.Assertions.assertTrue(longText[1].length() <= 178);
+        org.junit.jupiter.api.Assertions.assertNull(MobilePushDeliveryService.previewText("Nova mensagem de a", " "));
+    }
 }

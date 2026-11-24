@@ -52,15 +52,27 @@ class GroupChatNotificationListenerTest {
     }
 
     @Test
-    void gameChatAlertsTheOthersOncePerConversation() {
-        when(notifications.existsByUsernameAndSessionIdAndTypeAndReadFalse("joao", 7L, NotificationType.CHAT_MESSAGE)).thenReturn(true);
+    void gameChatAlertsEveryMessageButKeepsOneInboxEntryPerConversation() {
+        Notifications existing = new Notifications();
+        existing.setUsername("joao");
+        existing.setMessage("ana: antiga");
+        when(notifications.findByUsernameIgnoreCaseAndSessionIdAndTypeAndReadFalse("joao", 7L, NotificationType.CHAT_MESSAGE))
+                .thenReturn(List.of(existing));
+        when(notifications.save(any(Notifications.class))).thenAnswer(inv -> {
+            Notifications n = inv.getArgument(0);
+            if (n.getId() == null) n.setId(n == existing ? 40L : 41L);
+            return n;
+        });
         listener.onSessionMessage(message(null));
         ArgumentCaptor<Notifications> saved = ArgumentCaptor.forClass(Notifications.class);
-        verify(notifications, times(1)).save(saved.capture());
-        assertEquals("rui", saved.getValue().getUsername());
-        assertEquals(7L, saved.getValue().getSessionId());
-        assertEquals(NotificationType.CHAT_MESSAGE, saved.getValue().getType());
-        verify(events).publishEvent(any(MobilePushDeliveryService.StoredNotification.class));
+        verify(notifications, times(2)).save(saved.capture());
+        Notifications rui = saved.getAllValues().stream().filter(n -> "rui".equals(n.getUsername())).findFirst().orElseThrow();
+        assertEquals(7L, rui.getSessionId());
+        assertEquals(NotificationType.CHAT_MESSAGE, rui.getType());
+        // joao's unread entry is reused with the latest text instead of a second row.
+        assertTrue(saved.getAllValues().contains(existing));
+        assertFalse(existing.getMessage().contains("antiga"));
+        verify(events, times(2)).publishEvent(any(MobilePushDeliveryService.StoredNotification.class));
     }
 
     @Test

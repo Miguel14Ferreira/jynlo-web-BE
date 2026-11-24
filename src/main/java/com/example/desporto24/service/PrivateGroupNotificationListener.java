@@ -60,8 +60,9 @@ public class PrivateGroupNotificationListener {
 
     private void notify(String member, String sender, Long groupId, String title, String preview) {
         if (mutes.muted(member.toLowerCase(Locale.ROOT), "private", groupId.toString())) return;
-        if (notifications.existsByUsernameAndPrivateGroupIdAndReadFalse(member, groupId)) return;
-        Notifications n = new Notifications();
+        // Every message alerts the phone (like WhatsApp); the inbox keeps one entry per chat with the latest text.
+        var open = notifications.findByUsernameIgnoreCaseAndPrivateGroupIdAndReadFalse(member, groupId);
+        Notifications n = open == null || open.isEmpty() ? new Notifications() : open.get(0);
         n.setSubject("Nova mensagem em " + title);
         n.setMessage(sender + ": " + preview);
         n.setGreeting("");
