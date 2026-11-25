@@ -108,4 +108,6 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
 
      @Query("SELECT p FROM Profile p WHERE LOWER(p.username) <> LOWER(:username) AND p.enabled = true ORDER BY p.id DESC")
      List<Profile> discoverProfiles(@Param("username") String username, Pageable pageable);
+    /** Newest accounts first, for the administration list of recent sign-ups. */
+    java.util.List<Profile> findByJoinDateAfterOrderByJoinDateDesc(java.util.Date after, org.springframework.data.domain.Pageable pageable);
 }

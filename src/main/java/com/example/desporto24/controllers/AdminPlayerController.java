@@ -23,6 +23,8 @@ public class AdminPlayerController {
     private final ProfileRepository profileRepository;
     private final CommunityRoundEntryRepository roundEntryRepository;
     private final CommunityCreationQuotaService communityCreationQuota;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.service.AdminRecentAccountsService recentAccounts;
 
     @GetMapping("/{id}/community-limit")
     @PreAuthorize("hasRole('SUPER_ADMIN') and @adminCurrentRoleGuard.superAdmin(authentication)")
@@ -46,6 +48,14 @@ public class AdminPlayerController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pedido obrigatório");
         }
         return communityCreationQuota.updateOverride(id, actor.getId(), request.limit(), request.reason());
+    }
+
+    /** Sign-ups of the last days with warning signs (hints for review, never automatic action). */
+    @GetMapping("/recent")
+    public List<com.example.desporto24.service.AdminRecentAccountsService.RecentAccount> recent(
+            @RequestParam(defaultValue = "14") int days) {
+        if (recentAccounts == null) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Indisponível");
+        return recentAccounts.recent(days);
     }
 
     @GetMapping
