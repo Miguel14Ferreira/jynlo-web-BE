@@ -2,6 +2,7 @@ package com.example.desporto24.controllers;
 
 import com.example.desporto24.model.dto.social.FollowProfileResponse;
 import com.example.desporto24.model.dto.social.FollowStatusResponse;
+import com.example.desporto24.service.PeopleYouMayKnowService;
 import com.example.desporto24.service.ProfileFollowService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -15,6 +16,14 @@ import java.util.List;
 public class ProfileFollowController {
 
     private final ProfileFollowService followService;
+    private final PeopleYouMayKnowService peopleYouMayKnow;
+
+    /** People followed by the people you follow, with who ("Seguido por @x e mais 2"). */
+    @GetMapping("/suggestions")
+    public List<PeopleYouMayKnowService.Suggestion> suggestions(@RequestParam(defaultValue = "8") int limit,
+            Authentication authentication) {
+        return peopleYouMayKnow.suggestions(authentication.getName(), limit);
+    }
 
     @PostMapping("/{username}")
     public FollowStatusResponse follow(
