@@ -1,0 +1,30 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-25-message-requests
+      author: jynlo
+      changes:
+        - createTable:
+            tableName: message_request
+            columns:
+              - column: {name: id, type: BIGINT, autoIncrement: true, constraints: {primaryKey: true, primaryKeyName: pk_message_request, nullable: false}}
+              - column: {name: sender_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: recipient_id, type: BIGINT, constraints: {nullable: false}}
+              - column: {name: first_text, type: VARCHAR(1000), constraints: {nullable: false}}
+              - column: {name: status, type: VARCHAR(20), constraints: {nullable: false}}
+              - column: {name: created_at, type: TIMESTAMP WITH TIME ZONE, constraints: {nullable: false}}
+              - column: {name: decided_at, type: TIMESTAMP WITH TIME ZONE}
+        - addForeignKeyConstraint: {baseTableName: message_request, baseColumnNames: sender_id, referencedTableName: profile, referencedColumnNames: id, constraintName: fk_message_request_sender, onDelete: CASCADE}
+        - addForeignKeyConstraint: {baseTableName: message_request, baseColumnNames: recipient_id, referencedTableName: profile, referencedColumnNames: id, constraintName: fk_message_request_recipient, onDelete: CASCADE}
+        - addUniqueConstraint: {tableName: message_request, columnNames: "sender_id, recipient_id", constraintName: uk_message_request_pair}
+        - createIndex:
+            tableName: message_request
+            indexName: ix_message_request_recipient_status
+            columns:
+              - column: {name: recipient_id}
+              - column: {name: status}
+        - createTable:
+            tableName: message_privacy
+            columns:
+              - column: {name: profile_id, type: BIGINT, constraints: {primaryKey: true, primaryKeyName: pk_message_privacy, nullable: false}}
+              - column: {name: policy, type: VARCHAR(20), constraints: {nullable: false}}
+        - addForeignKeyConstraint: {baseTableName: message_privacy, baseColumnNames: profile_id, referencedTableName: profile, referencedColumnNames: id, constraintName: fk_message_privacy_profile, onDelete: CASCADE}

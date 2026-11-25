@@ -53,6 +53,8 @@ public class ChatServiceImpl implements ChatService {
     /** Session-scoped contact permission is additive to normal friendship. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.service.SessionContactAccessService sessionContactAccess;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.service.MessageRequestService messageRequests;
 
     @Override
     @Transactional
@@ -251,6 +253,10 @@ public class ChatServiceImpl implements ChatService {
                     if (sessionContactAccess != null
                             && sessionContactAccess.mayContact(first.getUsername(), second.getUsername())) {
                         return new Friend(); // Unblocked session contact; never persisted.
+                    }
+                    // Accepted message request, the other person follows them, or a shared community.
+                    if (messageRequests != null && messageRequests.directlyAllowed(first, second)) {
+                        return new Friend(); // Conversation permission only; not a friendship.
                     }
                     throw new AccessDeniedException("Users are not friends or session contacts");
                 });

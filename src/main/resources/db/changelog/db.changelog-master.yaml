@@ -568,3 +568,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-24-community-post-like.yaml
   - include:
       file: db/changelog/changes/2026-11-24-pio-xii-name.yaml
+  - include:
+      file: db/changelog/changes/2026-11-25-message-requests.yaml
