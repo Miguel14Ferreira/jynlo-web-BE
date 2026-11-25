@@ -73,6 +73,8 @@ public class InboxSummaryService {
     private com.example.desporto24.repository.team.SportsTeamRepository sportsTeams;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.repository.team.SportsTeamMemberRepository sportsTeamMembers;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.PrivateGroupRepository privateGroups;
 
     @Transactional(readOnly = true)
     public List<InboxSummaryResponse> summaries(String username, InboxRequest request) {
@@ -282,7 +284,7 @@ public class InboxSummaryService {
                 .getContent();
         if (latest.isEmpty()) {
             chatService.getChatInfo(actor.getUsername(), friend.getUsername());
-            return empty("direct", key);
+            return empty("direct", key).withImageUrl(friend.getProfilePicUrl());
         }
         Chat message = latest.get(0);
         Date at = message.getDate();
@@ -291,7 +293,8 @@ public class InboxSummaryService {
         // unread queries execute. Never return a stale preview after revocation.
         chatService.getChatInfo(actor.getUsername(), friend.getUsername());
         return new InboxSummaryResponse("direct", key, message.getId(), ChatMessagePreview.forMessage(message),
-                message.getUsername1(), at == null ? null : at.toInstant(), unread);
+                message.getUsername1(), at == null ? null : at.toInstant(), unread)
+                .withImageUrl(friend.getProfilePicUrl());
     }
 
     private InboxSummaryResponse communitySummary(Profile actor, Long id, String key, long readId) {
@@ -304,11 +307,12 @@ public class InboxSummaryService {
         }
         var latest = timelines.findByCommunityIdAndKindOrderByIdDesc(
                 id, CommunityTimelineEntry.Kind.CHAT, PageRequest.of(0, 1));
-        if (latest.isEmpty()) return empty("community", key);
+        if (latest.isEmpty()) return empty("community", key).withImageUrl(community.getPhotoUrl());
         var entry = latest.get(0);
         return new InboxSummaryResponse("community", key, entry.getId(), ChatMessagePreview.forText(entry.getBody()),
                 entry.getAuthor().getUsername(), entry.getCreatedAt(),
-                timelines.countUnread(id, CommunityTimelineEntry.Kind.CHAT, actor.getId(), readId));
+                timelines.countUnread(id, CommunityTimelineEntry.Kind.CHAT, actor.getId(), readId))
+                .withImageUrl(community.getPhotoUrl());
     }
 
     private InboxSummaryResponse sessionSummary(Profile actor, Long id, String key, long readId) {
@@ -335,11 +339,13 @@ public class InboxSummaryService {
                 .orElseThrow(() -> new AccessDeniedException("No accessible group"));
         var latest = groupMessages.findByGroupIdAndCreatedAtGreaterThanEqualOrderByIdDesc(
                 id, membership.getJoinedAt(), PageRequest.of(0, 1));
-        if (latest.isEmpty()) return empty("private", key);
+        String groupPhoto = privateGroups == null ? null
+                : privateGroups.findById(id).map(com.example.desporto24.model.PrivateGroup::getPhotoUrl).orElse(null);
+        if (latest.isEmpty()) return empty("private", key).withImageUrl(groupPhoto);
         var entry = latest.get(0);
         long unread = groupMessages.countUnread(id, membership.getJoinedAt(), readId, actor.getUsername());
         return new InboxSummaryResponse("private", key, entry.getId(), ChatMessagePreview.forText(entry.getBody()),
-                entry.getSenderUsername(), entry.getCreatedAt(), unread);
+                entry.getSenderUsername(), entry.getCreatedAt(), unread).withImageUrl(groupPhoto);
     }
 
     /** Sports team chats: owner and active members, while the team chat is on. */
@@ -352,12 +358,15 @@ public class InboxSummaryService {
         }
         var latest = teamEntries.findByTeamIdAndKindAndDeletedAtIsNullOrderByIdDesc(
                 id, com.example.desporto24.model.team.SportsTeamContent.Kind.CHAT, PageRequest.of(0, 1));
-        if (latest.isEmpty()) return empty("team", key);
+        String teamLogo = sportsTeams == null ? null
+                : sportsTeams.findById(id).map(com.example.desporto24.model.team.SportsTeam::getLogoUrl).orElse(null);
+        if (latest.isEmpty()) return empty("team", key).withImageUrl(teamLogo);
         var entry = latest.get(0);
         long unread = teamEntries.countUnread(id, com.example.desporto24.model.team.SportsTeamContent.Kind.CHAT,
                 readId, actor.getId());
         return new InboxSummaryResponse("team", key, entry.getId(), ChatMessagePreview.forText(entry.getBody()),
-                entry.getAuthor() == null ? null : entry.getAuthor().getUsername(), entry.getCreatedAt(), unread);
+                entry.getAuthor() == null ? null : entry.getAuthor().getUsername(), entry.getCreatedAt(), unread)
+                .withImageUrl(teamLogo);
     }
 
     private void requireSessionSummaryAccess(Profile actor, Session session, Long id) {
