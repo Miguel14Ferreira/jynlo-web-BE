@@ -566,3 +566,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-24-gd-operario-fix.yaml
   - include:
       file: db/changelog/changes/2026-11-24-community-post-like.yaml
+  - include:
+      file: db/changelog/changes/2026-11-24-pio-xii-name.yaml
