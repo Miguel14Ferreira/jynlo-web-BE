@@ -26,12 +26,18 @@ import java.util.*;
  * Poll results and votes. Like reactions, every read and write rechecks the
  * caller's access to the exact conversation, and message IDs are matched
  * against that conversation so IDs from other chats cannot be probed.
- * Results carry counts only; who voted for what is never exposed.
+ * Results carry counts and, like WhatsApp, who voted for each option (only to members of
+ * that conversation, and only for votes cast since this was announced: older votes stay anonymous).
  */
 @Service
 @RequiredArgsConstructor
 public class ChatPollService {
-    public record PollResult(Long messageId, List<Long> counts, long total, Integer mine) {}
+    public record Voter(String username, String profilePicUrl) {}
+    public record PollResult(Long messageId, List<Long> counts, long total, Integer mine, List<List<Voter>> voters) {
+        public PollResult(Long messageId, List<Long> counts, long total, Integer mine) {
+            this(messageId, counts, total, mine, List.of());
+        }
+    }
 
     private final InboxSummaryService inbox;
     private final ProfileRepository profiles;
@@ -79,7 +85,7 @@ public class ChatPollService {
         }
         PollResult result = tally(actor.getId(), kind, Map.of(messageId, poll)).getFirst();
         events.publishEvent(new ChatPollChangedEvent(kind, conversationId, messageId,
-                result.counts(), result.total(), recipients(kind, conversationId)));
+                result.counts(), result.total(), recipients(kind, conversationId), result.voters()));
         return result;
     }
 
@@ -137,19 +143,34 @@ public class ChatPollService {
         if (polls.isEmpty()) return List.of();
         Map<Long, long[]> counts = new HashMap<>();
         Map<Long, Integer> mine = new HashMap<>();
-        polls.forEach((id, poll) -> counts.put(id, new long[poll.options().size()]));
+        Map<Long, List<List<Long>>> visibleIds = new HashMap<>();
+        polls.forEach((id, poll) -> {
+            counts.put(id, new long[poll.options().size()]);
+            List<List<Long>> perOption = new ArrayList<>();
+            for (int i = 0; i < poll.options().size(); i++) perOption.add(new ArrayList<>());
+            visibleIds.put(id, perOption);
+        });
+        Set<Long> voterIds = new HashSet<>();
         for (var vote : votes.findByConversationKindAndMessageIdIn(kind, polls.keySet())) {
             long[] row = counts.get(vote.getMessageId());
             int option = vote.getOptionIndex();
             if (row == null || option < 0 || option >= row.length) continue;
             row[option]++;
             if (actorId.equals(vote.getProfileId())) mine.put(vote.getMessageId(), option);
+            List<Long> shown = visibleIds.get(vote.getMessageId()).get(option);
+            if (vote.isVisible() && shown.size() < 50) { shown.add(vote.getProfileId()); voterIds.add(vote.getProfileId()); }
+        }
+        Map<Long, Voter> people = new HashMap<>();
+        if (!voterIds.isEmpty()) for (Profile p : profiles.findAllById(voterIds)) {
+            people.put(p.getId(), new Voter(p.getUsername(), p.getProfilePicUrl()));
         }
         List<PollResult> result = new ArrayList<>();
         for (Long id : polls.keySet()) {
             long[] row = counts.get(id);
             List<Long> list = Arrays.stream(row).boxed().toList();
-            result.add(new PollResult(id, list, Arrays.stream(row).sum(), mine.get(id)));
+            List<List<Voter>> voters = visibleIds.get(id).stream()
+                    .map(ids -> ids.stream().map(people::get).filter(Objects::nonNull).toList()).toList();
+            result.add(new PollResult(id, list, Arrays.stream(row).sum(), mine.get(id), voters));
         }
         return result;
     }

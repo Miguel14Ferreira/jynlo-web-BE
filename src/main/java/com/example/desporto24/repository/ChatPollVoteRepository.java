@@ -17,10 +17,10 @@ public interface ChatPollVoteRepository extends JpaRepository<ChatPollVote, Long
     @Modifying
     @Query(value = """
             INSERT INTO desporto24.chat_poll_vote
-                (profile_id, conversation_kind, message_id, option_index)
-            VALUES (:actorId, :kind, :messageId, :option)
+                (profile_id, conversation_kind, message_id, option_index, visible)
+            VALUES (:actorId, :kind, :messageId, :option, true)
             ON CONFLICT (profile_id, conversation_kind, message_id)
-            DO UPDATE SET option_index = EXCLUDED.option_index
+            DO UPDATE SET option_index = EXCLUDED.option_index, visible = true
             """, nativeQuery = true)
     int upsert(@Param("actorId") Long actorId, @Param("kind") String kind,
                @Param("messageId") Long messageId, @Param("option") short option);

@@ -26,4 +26,8 @@ public class ChatPollVote {
 
     @Column(name = "option_index", nullable = false)
     private Short optionIndex;
+
+    /** Shown to the chat (votes cast before 25 Nov 2026 were anonymous and stay hidden). */
+    @Column(name = "visible", nullable = false)
+    private boolean visible = false;
 }

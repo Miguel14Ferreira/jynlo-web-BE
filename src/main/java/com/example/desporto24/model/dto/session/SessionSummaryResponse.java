@@ -28,8 +28,30 @@ public record SessionSummaryResponse(
         Double longitude,
         com.example.desporto24.enumeration.SessionSkillLevel skillLevel,
         /** True when the organiser marked the court as booked; null = not tracked. */
-        Boolean courtBooked
+        Boolean courtBooked,
+        /** Players needed for the game to happen (custom or the sport's default). */
+        Integer minPlayers
 ) {
+    /** Signature before the minimum players field. */
+    public SessionSummaryResponse(
+            Long id, String sport, String city, Instant gameDate, Double distanceKm,
+            int participantCount, int maxParticipants, BigDecimal priceAmount,
+            boolean privateGame, SessionStatus status, SessionAudience audience,
+            boolean joinedByViewer, boolean waitlistedByViewer, String recurrenceSeriesId,
+            Long communityId, Long seasonCommunityId,
+            com.example.desporto24.enumeration.AirsoftGameType airsoftGameType,
+            Double latitude, Double longitude,
+            com.example.desporto24.enumeration.SessionSkillLevel skillLevel, Boolean courtBooked) {
+        this(id, sport, city, gameDate, distanceKm, participantCount, maxParticipants, priceAmount, privateGame, status, audience, joinedByViewer, waitlistedByViewer, recurrenceSeriesId, communityId, seasonCommunityId, airsoftGameType, latitude, longitude, skillLevel, courtBooked, null);
+    }
+
+    public SessionSummaryResponse withMinPlayers(Integer minimum) {
+        return new SessionSummaryResponse(id, sport, city, gameDate, distanceKm,
+                participantCount, maxParticipants, priceAmount, privateGame, status,
+                audience, joinedByViewer, waitlistedByViewer, recurrenceSeriesId,
+                communityId, seasonCommunityId, airsoftGameType, latitude, longitude, skillLevel, courtBooked, minimum);
+    }
+
     /** Previous canonical signature (before the court booking flag). */
     public SessionSummaryResponse(
             Long id, String sport, String city, Instant gameDate, Double distanceKm,
@@ -47,7 +69,7 @@ public record SessionSummaryResponse(
         return new SessionSummaryResponse(id, sport, city, gameDate, distanceKm,
                 participantCount, maxParticipants, priceAmount, privateGame, status,
                 audience, joinedByViewer, waitlistedByViewer, recurrenceSeriesId,
-                communityId, seasonCommunityId, airsoftGameType, latitude, longitude, skillLevel, booked);
+                communityId, seasonCommunityId, airsoftGameType, latitude, longitude, skillLevel, booked, minPlayers);
     }
 
     /** Former canonical signature (before the session level). */
@@ -93,14 +115,14 @@ public record SessionSummaryResponse(
         return new SessionSummaryResponse(id, sport, city, gameDate, distanceKm,
                 participantCount, maxParticipants, priceAmount, privateGame, status,
                 audience, joinedByViewer, waitlistedByViewer, recurrenceSeriesId,
-                communityId, seasonCommunityId, airsoftGameType, publicLatitude, publicLongitude, skillLevel, courtBooked);
+                communityId, seasonCommunityId, airsoftGameType, publicLatitude, publicLongitude, skillLevel, courtBooked, minPlayers);
     }
 
     public SessionSummaryResponse withSkillLevel(com.example.desporto24.enumeration.SessionSkillLevel level) {
         return new SessionSummaryResponse(id, sport, city, gameDate, distanceKm,
                 participantCount, maxParticipants, priceAmount, privateGame, status,
                 audience, joinedByViewer, waitlistedByViewer, recurrenceSeriesId,
-                communityId, seasonCommunityId, airsoftGameType, latitude, longitude, level, courtBooked);
+                communityId, seasonCommunityId, airsoftGameType, latitude, longitude, level, courtBooked, minPlayers);
     }
 
     /** Backwards-compatible constructor for existing summary projections. */

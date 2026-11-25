@@ -1,0 +1,23 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-25-chat-poll-visible-votes
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                schemaName: desporto24
+                tableName: chat_poll_vote
+                columnName: visible
+      comment: Votes cast from now on are shown to the chat (like WhatsApp); earlier votes were anonymous and stay hidden.
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: chat_poll_vote
+            columns:
+              - column:
+                  name: visible
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false

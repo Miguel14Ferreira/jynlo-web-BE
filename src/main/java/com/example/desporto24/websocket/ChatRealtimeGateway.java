@@ -462,6 +462,7 @@ public class ChatRealtimeGateway extends TextWebSocketHandler {
                     .put("messageId", poll.messageId())
                     .put("total", poll.total());
             details.set("counts", objectMapper.valueToTree(poll.counts()));
+            if (poll.voters() != null) details.set("voters", objectMapper.valueToTree(poll.voters()));
             String payload = objectMapper.createObjectNode()
                     .put("type", "CHAT_POLL_CHANGED")
                     .set("poll", details)

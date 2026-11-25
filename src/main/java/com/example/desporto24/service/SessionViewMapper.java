@@ -74,7 +74,8 @@ public class SessionViewMapper {
                         : session.getSeasonCompetition().getCommunity().getId(),
                 session.getAirsoftGameType()
         ).withSkillLevel(session.getSkillLevel())
-                .withCourtBooked(Boolean.TRUE.equals(session.getCourtBooked()) ? Boolean.TRUE : null);
+                .withCourtBooked(Boolean.TRUE.equals(session.getCourtBooked()) ? Boolean.TRUE : null)
+                .withMinPlayers(SessionMinimumPlayers.required(session));
     }
 
     public SessionSummaryResponse toSummary(
@@ -104,7 +105,8 @@ public class SessionViewMapper {
                         : session.getSeasonCompetition().getCommunity().getId(),
                 session.getAirsoftGameType()
         ).withSkillLevel(session.getSkillLevel())
-                .withCourtBooked(Boolean.TRUE.equals(session.getCourtBooked()) ? Boolean.TRUE : null);
+                .withCourtBooked(Boolean.TRUE.equals(session.getCourtBooked()) ? Boolean.TRUE : null)
+                .withMinPlayers(SessionMinimumPlayers.required(session));
     }
 
     public SessionDetailResponse toDetail(Session session, Profile viewer) {
