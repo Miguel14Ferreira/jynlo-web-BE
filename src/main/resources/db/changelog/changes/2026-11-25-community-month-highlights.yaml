@@ -1,0 +1,23 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-25-community-month-highlights
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                schemaName: desporto24
+                tableName: community
+                columnName: month_highlights_enabled
+      comment: Each community decides whether to show the month's top players and the player-of-the-month vote.
+      changes:
+        - addColumn:
+            schemaName: desporto24
+            tableName: community
+            columns:
+              - column:
+                  name: month_highlights_enabled
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false

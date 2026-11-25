@@ -102,6 +102,11 @@ public class Community {
     @Column(name = "public_ranking_enabled", nullable = false)
     private boolean publicRankingEnabled = false;
 
+    /** Opt-in by Owner/Admin: "Destaques do mês" and the "Jogador do mês" vote. */
+    @Builder.Default
+    @Column(name = "month_highlights_enabled", nullable = false)
+    private boolean monthHighlightsEnabled = false;
+
     /** Opt-in by Owner/Admin: an extra "Geral" table across all sports of a shared season. */
     @Builder.Default
     @Column(name = "overall_standings_enabled", nullable = false)

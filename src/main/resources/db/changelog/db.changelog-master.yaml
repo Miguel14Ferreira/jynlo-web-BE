@@ -574,3 +574,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-25-login-location.yaml
   - include:
       file: db/changelog/changes/2026-11-25-chat-poll-visible-votes.yaml
+  - include:
+      file: db/changelog/changes/2026-11-25-community-month-highlights.yaml

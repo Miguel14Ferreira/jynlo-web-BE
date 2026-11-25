@@ -21,6 +21,13 @@ public class PlayerHighlightsController {
         return service.monthLeaders(id, auth.getName(), month);
     }
 
+    public record Toggle(boolean enabled) {}
+
+    @PutMapping("/api/communities/{id}/month-highlights")
+    public PlayerHighlightsService.MonthLeaders setEnabled(@PathVariable Long id, @RequestBody Toggle body, Authentication auth) {
+        return service.setEnabled(id, auth.getName(), body != null && body.enabled());
+    }
+
     @PostMapping("/api/communities/{id}/player-of-month-poll")
     public void playerOfMonthPoll(@PathVariable Long id, @RequestParam(required = false) String month, Authentication auth) {
         service.playerOfMonthPoll(id, auth.getName(), month);

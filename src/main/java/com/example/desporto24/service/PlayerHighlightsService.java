@@ -33,7 +33,7 @@ public class PlayerHighlightsService {
 
     public record ProfileStats(long games, long wins, long goals, long assists, long mvps) {}
     public record MonthLeader(String name, String username, long games, long goals, long assists, long mvps, long score) {}
-    public record MonthLeaders(String month, List<MonthLeader> leaders) {}
+    public record MonthLeaders(String month, List<MonthLeader> leaders, boolean enabled, boolean canManage) {}
 
     private static final ZoneId LISBON = ZoneId.of("Europe/Lisbon");
     private static final Locale PT = Locale.forLanguageTag("pt-PT");
@@ -66,18 +66,39 @@ public class PlayerHighlightsService {
     public MonthLeaders monthLeaders(Long communityId, String viewer, String month) {
         Community community = readable(communityId, viewer);
         YearMonth ym = parseMonth(month);
-        return new MonthLeaders(ym.toString(), leaders(community.getId(), ym, 5));
+        boolean manager = isManager(community, viewer);
+        // Off unless the community turned it on; managers still see the switch.
+        if (!community.isMonthHighlightsEnabled())
+            return new MonthLeaders(ym.toString(), List.of(), false, manager);
+        return new MonthLeaders(ym.toString(), leaders(community.getId(), ym, 5), true, manager);
+    }
+
+    /** Owner/Admin: turn "Destaques do mês" and the "Jogador do mês" vote on or off for the community. */
+    @Transactional
+    public MonthLeaders setEnabled(Long communityId, String admin, boolean enabled) {
+        Community community = readable(communityId, admin);
+        if (!isManager(community, admin))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Só os administradores da comunidade podem mudar isto.");
+        community.setMonthHighlightsEnabled(enabled);
+        communities.save(community);
+        return monthLeaders(communityId, admin, null);
+    }
+
+    private boolean isManager(Community community, String username) {
+        Profile me = username == null ? null : profiles.findUserByUsernameIgnoreCase(username).orElse(null);
+        if (me == null) return false;
+        return community.getOwner() != null && community.getOwner().getId().equals(me.getId())
+                || members.findByCommunityIdAndProfileId(community.getId(), me.getId())
+                   .map(m -> m.getRole() == CommunityRole.ADMIN || m.getRole() == CommunityRole.OWNER).orElse(false);
     }
 
     /** Community admins: posts a "Jogador do mês" poll with the month's top players in the community chat. */
     @Transactional
     public void playerOfMonthPoll(Long communityId, String admin, String month) {
         Community community = readable(communityId, admin);
-        Profile me = profiles.findUserByUsernameIgnoreCase(admin).orElseThrow();
-        boolean manager = community.getOwner() != null && community.getOwner().getId().equals(me.getId())
-                || members.findByCommunityIdAndProfileId(communityId, me.getId())
-                   .map(m -> m.getRole() == CommunityRole.ADMIN || m.getRole() == CommunityRole.OWNER).orElse(false);
-        if (!manager) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Só os administradores da comunidade podem criar esta votação.");
+        if (!community.isMonthHighlightsEnabled())
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ativa primeiro os destaques do mês nesta comunidade.");
+        if (!isManager(community, admin)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Só os administradores da comunidade podem criar esta votação.");
         YearMonth ym = parseMonth(month);
         List<MonthLeader> top = leaders(communityId, ym, ChatPoll.MAX_OPTIONS);
         if (top.size() < ChatPoll.MIN_OPTIONS)
