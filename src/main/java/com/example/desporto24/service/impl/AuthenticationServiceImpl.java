@@ -71,6 +71,9 @@ import static org.springframework.web.servlet.support.ServletUriComponentsBuilde
 @Service
 @RequiredArgsConstructor
 public class AuthenticationServiceImpl implements AuthenticationService {
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.service.LoginLocationService loginLocations;
+
 
     private static final SecureRandom MFA_CODE_RANDOM = new SecureRandom();
     private static final int MFA_CODE_BOUND = 1_000_000;
@@ -435,6 +438,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         profile.setStatusId(Status.ONLINE);
         profile.setLastLoginDate(new Date());
         profile.setLastLoginDateDisplay(formatJoinDate(new Date()));
+        if (loginLocations != null) loginLocations.recordCurrentLogin(profile.getId());
     }
 
     private String formatJoinDate(Date date) {

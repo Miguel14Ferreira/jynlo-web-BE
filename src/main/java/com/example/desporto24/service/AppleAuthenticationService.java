@@ -41,6 +41,9 @@ import static com.example.desporto24.constant.UserImplConstant.*;
 @Service
 @RequiredArgsConstructor
 public class AppleAuthenticationService {
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private LoginLocationService loginLocations;
+
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final String USER_ID_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -197,6 +200,7 @@ public class AppleAuthenticationService {
         profile.setLoginAttempts(0);
         profile.setStatusId(Status.ONLINE);
         profile.setLastLoginDate(new Date());
+        if (loginLocations != null) loginLocations.recordCurrentLogin(profile.getId());
         profile.setLastLoginDateDisplay(
                 new java.text.SimpleDateFormat("yyyy MMM dd HH:mm").format(new Date())
         );

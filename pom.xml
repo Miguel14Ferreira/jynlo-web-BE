@@ -86,6 +86,12 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
+			<!-- Reads the DB-IP Lite city database (mmdb) for the approximate login location. -->
+			<groupId>com.maxmind.geoip2</groupId>
+			<artifactId>geoip2</artifactId>
+			<version>4.2.1</version>
+		</dependency>
+		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
 		</dependency>

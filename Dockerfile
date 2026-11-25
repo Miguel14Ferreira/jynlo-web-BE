@@ -17,8 +17,17 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system desporto24 \
     && useradd --system --gid desporto24 --home /app --shell /usr/sbin/nologin desporto24 \
-    && mkdir -p /app/data/media \
+    && mkdir -p /app/data/media /app/geo \
     && chown -R desporto24:desporto24 /app
+
+# Approximate login location (country + city) is computed locally: no IP is sent
+# to third parties. DB-IP Lite, CC BY 4.0 (https://db-ip.com). A missing file
+# only disables the feature; it never fails the image build.
+RUN for m in $(date +%Y-%m) $(date -d "$(date +%Y-%m-01) -1 month" +%Y-%m); do \
+      curl -fsSL "https://download.db-ip.com/free/dbip-city-lite-$m.mmdb.gz" -o /tmp/dbip.mmdb.gz && break; \
+    done; \
+    if [ -s /tmp/dbip.mmdb.gz ]; then gunzip -c /tmp/dbip.mmdb.gz > /app/geo/dbip-city-lite.mmdb && rm /tmp/dbip.mmdb.gz; fi; \
+    chown -R desporto24:desporto24 /app/geo || true
 
 WORKDIR /app
 COPY --from=build --chown=desporto24:desporto24 /workspace/target/*.jar app.jar

@@ -26,10 +26,13 @@ public class AdminRecentAccountsService {
     private static final Pattern GENERATED_EMAIL = Pattern.compile("^[a-z]+[._-]?[a-z]*[._-]?\\d{4,}@.*$");
     private static final int MAX = 200;
     private final ProfileRepository profiles;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private LoginLocationService loginLocations;
 
     public record RecentAccount(Long id, String username, String fullName, String email, Instant joinedAt,
                                 Instant lastLoginAt, boolean emailConfirmed, boolean hasPhoto,
-                                Instant suspendedAt, boolean locked, List<String> flags) {}
+                                Instant suspendedAt, boolean locked, List<String> flags,
+                                String loginCountry, String loginCity) {}
 
     @Transactional(readOnly = true)
     public List<RecentAccount> recent(int days) {
@@ -47,10 +50,13 @@ public class AdminRecentAccountsService {
             if (p.getProfilePicUrl() == null || p.getProfilePicUrl().isBlank()) flags.add("SEM_FOTO");
             if (p.getLastLoginDate() == null) flags.add("NUNCA_ENTROU");
             if (joined != null && burst(list, joined)) flags.add("VARIOS_REGISTOS_SEGUIDOS");
+            LoginLocationService.Place place = loginLocations == null ? null : loginLocations.latest(p.getId());
+            if (place != null && place.country() != null && !"PT".equals(place.country())) flags.add("ENTRA_DE_FORA_DE_PORTUGAL");
             out.add(new RecentAccount(p.getId(), p.getUsername(), p.getFullName(), p.getEmail(), joined,
                     p.getLastLoginDate() == null ? null : p.getLastLoginDate().toInstant(),
                     Boolean.TRUE.equals(p.getEnabled()), !flags.contains("SEM_FOTO"),
-                    p.getModerationSuspendedAt(), Boolean.FALSE.equals(p.getNotLocked()), List.copyOf(flags)));
+                    p.getModerationSuspendedAt(), Boolean.FALSE.equals(p.getNotLocked()), List.copyOf(flags),
+                    place == null ? null : place.country(), place == null ? null : place.city()));
         }
         return out;
     }
