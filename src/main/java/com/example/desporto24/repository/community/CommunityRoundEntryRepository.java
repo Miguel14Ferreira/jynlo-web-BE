@@ -20,6 +20,12 @@ public interface CommunityRoundEntryRepository extends JpaRepository<CommunityRo
            or (entry.profile is null and player.profile.id = :profileId)
         """)
     List<CommunityRoundEntry> findEntriesForProfile(@Param("profileId") Long profileId);
+
+    /** Entries of rounds played in a community between two instants (e.g. one month). */
+    @Query("select entry from CommunityRoundEntry entry join fetch entry.communityPlayer player " +
+           "where entry.round.community.id = :communityId and entry.round.playedAt >= :from and entry.round.playedAt < :to")
+    List<CommunityRoundEntry> findCommunityEntriesBetween(@Param("communityId") Long communityId,
+            @Param("from") java.time.Instant from, @Param("to") java.time.Instant to);
     void deleteByRoundId(Long roundId);
 
     /** Player IDs linked to this exact season before its entries are deleted. */
