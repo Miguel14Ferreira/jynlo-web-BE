@@ -37,6 +37,12 @@ public class MessageRequestService {
     private final com.example.desporto24.repository.FriendRepository friends;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private SessionContactAccessService sessionContacts;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.NotificationsRepository notifications;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificationPreferencesService preferences;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher events;
 
     private Profile profile(String username) {
         return profiles.findUserByUsernameIgnoreCase(username)
@@ -151,6 +157,35 @@ public class MessageRequestService {
                 insert into message_request(sender_id, recipient_id, first_text, status, created_at)
                 values (?, ?, ?, 'PENDING', ?)
                 """, me.getId(), other.getId(), body, Timestamp.from(Instant.now()));
+        notifyRecipient(other.getUsername(), me.getUsername(), body);
+    }
+
+    /** In-app notice and phone push ("Pedido de mensagem"), like Instagram. No email. */
+    private void notifyRecipient(String recipient, String sender, String body) {
+        if (notifications == null) return;
+        try {
+            com.example.desporto24.register.Notifications.Notifications n = new com.example.desporto24.register.Notifications.Notifications();
+            n.setUsername(recipient);
+            n.setRelatedUsername(sender);
+            n.setSubject("Pedido de mensagem");
+            String preview = body.length() > 120 ? body.substring(0, 117) + "…" : body;
+            n.setMessage("@" + sender + " quer falar contigo: " + preview);
+            n.setGreeting("");
+            n.setSignature("");
+            n.setCreatedAt(Instant.now().toString());
+            n.setNormalMessage(true);
+            n.setType(com.example.desporto24.enumeration.NotificationType.CHAT_MESSAGE);
+            n.setRead(false);
+            if (preferences != null && !preferences.allowsInApp(recipient, n)) return;
+            var saved = notifications.save(n);
+            if (events != null && saved != null && saved.getId() != null) {
+                events.publishEvent(new MobilePushDeliveryService.StoredNotification(
+                        recipient, saved.getId(), com.example.desporto24.enumeration.NotificationType.CHAT_MESSAGE.name(),
+                        null, null, sender, true));
+            }
+        } catch (RuntimeException ignored) {
+            // A failed notice must never undo the request.
+        }
     }
 
     public List<IncomingRequest> incoming(String username) {
