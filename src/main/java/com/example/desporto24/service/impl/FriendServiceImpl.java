@@ -46,6 +46,8 @@ public class FriendServiceImpl implements FriendService {
     private final NotificationService notificationService;
     private final ProfileRepository profileRepository;
     private final UserBlockService userBlockService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.NotificationsRepository notificationsRepository;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.service.NotificationPreferencesService preferenceService;
@@ -198,6 +200,23 @@ public class FriendServiceImpl implements FriendService {
             friendConnection.setChatBlocked(false);
             friendConnection.setWhoBlocked(null);
             friendRepository.save(friendConnection);
+        }
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public void cancelFriendRequest(String senderUsername, String recipientUsername) {
+        Profile sender = profileRepository.findUserByUsername(senderUsername)
+                .orElseThrow(() -> new UserNotFoundException("Profile not found"));
+        Profile recipient = profileRepository.findUserByUsername(recipientUsername)
+                .orElseThrow(() -> new UserNotFoundException("Profile not found"));
+        // Only requests this account sent can be withdrawn; the recipient's
+        // pending notification goes with it so it can no longer be accepted.
+        for (FriendRequest request : friendRequestService.pendingSentBy(sender.getUsername(), recipient.getUsername())) {
+            if (notificationsRepository != null && request.getToken() != null) {
+                notificationsRepository.findByToken(request.getToken()).ifPresent(notificationsRepository::delete);
+            }
+            friendRequestService.deleteFriendRequest(request);
         }
     }
 

@@ -16,4 +16,6 @@ public interface FriendService {
     List<Profile> getFriends(String username);
     List<FriendSummaryResponse> getFriendSummaries(String username);
     FriendshipStatusResponse getFriendshipStatus(String requester, String recipient);
+    /** The sender withdraws a friend request that was not answered yet. */
+    void cancelFriendRequest(String senderUsername, String recipientUsername);
 }

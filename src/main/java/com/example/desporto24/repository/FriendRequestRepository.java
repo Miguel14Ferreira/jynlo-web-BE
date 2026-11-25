@@ -33,4 +33,7 @@ public interface FriendRequestRepository extends JpaRepository<FriendRequest, Lo
     int updateConfirmedAt(String token, LocalDateTime confirmedAt);
 
     long deleteByPerfil1OrPerfil2(String perfil1, String perfil2);
+
+    /** Requests the sender still has waiting for this recipient (not yet accepted). */
+    java.util.List<FriendRequest> findByPerfil1AndPerfil2AndConfirmedAtIsNull(String perfil1, String perfil2);
 }

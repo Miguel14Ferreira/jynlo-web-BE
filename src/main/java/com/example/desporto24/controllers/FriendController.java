@@ -78,6 +78,15 @@ public class FriendController {
         return buildResponse(UNBLOCKED);
     }
 
+    /** Withdraw a friend request this account sent and that was not answered yet. */
+    @DeleteMapping("/requests/{username}")
+    public ResponseEntity<HttpResponse> cancelFriendRequest(
+            @PathVariable String username,
+            Authentication authentication) {
+        friendService.cancelFriendRequest(authentication.getName(), username);
+        return buildResponse("Pedido de amizade cancelado.");
+    }
+
     @DeleteMapping("/{username}")
     public ResponseEntity<HttpResponse> removeFriendAuthenticated(
             @PathVariable String username,

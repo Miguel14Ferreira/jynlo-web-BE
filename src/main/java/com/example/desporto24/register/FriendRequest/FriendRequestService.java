@@ -26,6 +26,10 @@ public class FriendRequestService {
         friendRequestRepository.delete(friendRequest);
     }
 
+    public java.util.List<FriendRequest> pendingSentBy(String sender, String recipient) {
+        return friendRequestRepository.findByPerfil1AndPerfil2AndConfirmedAtIsNull(sender, recipient);
+    }
+
     public boolean hasPendingRequestBetween(String firstUsername, String secondUsername) {
         return friendRequestRepository
                 .existsPendingBetween(firstUsername, secondUsername);
