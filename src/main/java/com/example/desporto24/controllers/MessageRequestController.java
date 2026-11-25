@@ -39,6 +39,11 @@ public class MessageRequestController {
         return requests.incoming(auth.getName());
     }
 
+    @GetMapping("/sent")
+    public List<MessageRequestService.IncomingRequest> sent(Authentication auth) {
+        return requests.sent(auth.getName());
+    }
+
     @GetMapping("/count")
     public Map<String, Integer> count(Authentication auth) {
         return Map.of("pending", requests.pendingCount(auth.getName()));

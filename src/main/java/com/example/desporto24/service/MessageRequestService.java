@@ -164,6 +164,18 @@ public class MessageRequestService {
                 rs.getString(5), rs.getTimestamp(6).toInstant()), me.getId());
     }
 
+    /** Requests this account sent that are still waiting, so they show in its inbox like Instagram. */
+    public List<IncomingRequest> sent(String username) {
+        Profile me = profile(username);
+        return jdbc.query("""
+                select r.id, p.username, p.full_name, p.profile_pic_url, r.first_text, r.created_at
+                  from message_request r join profile p on p.id = r.recipient_id
+                 where r.sender_id = ? and r.status = 'PENDING'
+                 order by r.created_at desc limit 100
+                """, (rs, i) -> new IncomingRequest(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4),
+                rs.getString(5), rs.getTimestamp(6).toInstant()), me.getId());
+    }
+
     public int pendingCount(String username) {
         Integer n = jdbc.queryForObject("select count(*) from message_request where recipient_id = ? and status = 'PENDING'",
                 Integer.class, profile(username).getId());
