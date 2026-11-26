@@ -584,3 +584,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-26-usc-padel-clubs.yaml
   - include:
       file: db/changelog/changes/2026-11-26-playtomic-clubs.yaml
+  - include:
+      file: db/changelog/changes/2026-11-26-playtomic-clubs-2.yaml
