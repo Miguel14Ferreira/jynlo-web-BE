@@ -466,6 +466,11 @@ public class DirectCallService {
     }
 
     public synchronized void end(UUID id, String actor) {
+        // Hanging up a call that is already over (the other person hung up, it expired or the
+        // server restarted) is not an error: the result the caller wants is already true.
+        Call existing = id == null ? null : calls.get(id);
+        if (existing == null) return;
+        if (!Instant.now().isBefore(existing.expiresAt) && isParticipant(existing, actor)) { expireCall(existing); return; }
         Call call = requireCall(id, actor);
         Guest leaving = guestFor(id, actor);
         if (leaving != null) {
