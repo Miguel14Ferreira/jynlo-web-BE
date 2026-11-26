@@ -64,6 +64,9 @@ public class Profile implements Serializable {
     @Column(name = "apple_subject", unique = true)
     private String appleSubject;
 
+    @Column(name = "facebook_subject", unique = true)
+    private String facebookSubject;
+
     @Column(name = "community_creation_limit")
     private Integer communityCreationLimit;
 

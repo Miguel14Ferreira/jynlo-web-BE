@@ -128,6 +128,39 @@ public class AuthenticationController {
                 appleAuthenticationService.completeRegistration(request.registration(), request.fullName(), cohort));
     }
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.security.FacebookIdentityService facebookIdentityService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.service.FacebookAuthenticationService facebookAuthenticationService;
+
+    /** Clients show "Continuar com Facebook" only when appId is non-empty (app id and secret configured). */
+    @GetMapping("/facebook/config")
+    public ResponseEntity<java.util.Map<String, String>> facebookConfig() {
+        return ResponseEntity.ok(java.util.Map.of("appId", facebookIdentityService == null ? "" : facebookIdentityService.appId()));
+    }
+
+    /** Facebook Login (web and Android): the client sends the user access token; verified server-side. */
+    @PostMapping("/facebook/login")
+    public ResponseEntity<GoogleAuthResponse> facebookLogin(@RequestBody @Valid GoogleCredentialRequest request) {
+        if (facebookAuthenticationService == null) throw new IllegalStateException("Login com Facebook indisponível");
+        GoogleAuthResponse result = facebookAuthenticationService.authenticate(request.credential());
+        if (result.onboardingRequired()) {
+            return ResponseEntity.ok(result);
+        }
+        if (result.mfaRequired()) {
+            return ResponseEntity.status(ACCEPTED).body(result);
+        }
+        return withGoogleRefreshCookie(result);
+    }
+
+    @PostMapping("/facebook/register")
+    public ResponseEntity<GoogleAuthResponse> facebookRegister(
+            @RequestBody @Valid GoogleRegistrationRequest request,
+            @RequestParam(required = false) String cohort) {
+        return withGoogleRefreshCookie(facebookAuthenticationService.completeRegistration(request, cohort));
+    }
+
     @PostMapping("/login")
     @Operation(summary = "User Login", description = "Authenticate a user and return a JWT or an MFA challenge.")
     public ResponseEntity<LoginResponse> login(@RequestBody @Valid ProfileDTO credentials) {

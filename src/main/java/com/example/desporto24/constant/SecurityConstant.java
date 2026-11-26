@@ -49,6 +49,7 @@ public final class SecurityConstant {
             "/api/auth/login",
             "/api/auth/google/**",
             "/api/auth/apple/**",
+            "/api/auth/facebook/**",
             "/api/auth/refresh",
             "/api/auth/mobile/refresh",
             "/api/auth/register",

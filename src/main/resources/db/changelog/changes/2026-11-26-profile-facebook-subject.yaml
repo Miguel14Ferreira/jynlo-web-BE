@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-26-profile-facebook-subject
+      author: jynlo
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: profile
+                columnName: facebook_subject
+      changes:
+        - addColumn:
+            tableName: profile
+            columns:
+              - column:
+                  name: facebook_subject
+                  type: varchar(255)
+        - addUniqueConstraint:
+            tableName: profile
+            columnNames: facebook_subject
+            constraintName: uk_profile_facebook_subject

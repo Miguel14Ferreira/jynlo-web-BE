@@ -55,6 +55,8 @@ public interface ProfileRepository extends JpaRepository<Profile, Long> {
 
      Optional<Profile> findByAppleSubject(String appleSubject);
 
+     Optional<Profile> findByFacebookSubject(String facebookSubject);
+
      @Query(value = "SELECT p " +
              "FROM Profile p " +
              "WHERE p.username = :username " +
