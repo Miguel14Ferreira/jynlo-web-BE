@@ -70,4 +70,11 @@ class FacebookIdentityServiceTest {
         assertThat(id.email()).isNull();
         assertThat(id.picture()).isNull();
     }
+
+    @Test
+    void buttonStaysHiddenUntilTheMetaAppIsLive() {
+        FacebookIdentityService notLive = new FacebookIdentityService("123", "shh", uri -> null, false);
+        assertThat(notLive.enabled()).isTrue();
+        assertThat(notLive.appId()).isEmpty();
+    }
 }

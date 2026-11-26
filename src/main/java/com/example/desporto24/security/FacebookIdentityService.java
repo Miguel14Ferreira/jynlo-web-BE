@@ -36,16 +36,25 @@ public class FacebookIdentityService {
     private final String appSecret;
     private final Graph graph;
 
+    /** Show the button to everyone only once the Meta app is published (FACEBOOK_LOGIN_LIVE=true). */
+    private final boolean live;
+
     @org.springframework.beans.factory.annotation.Autowired
     public FacebookIdentityService(@Value("${desporto.facebook.app-id:}") String appId,
-                                   @Value("${desporto.facebook.app-secret:}") String appSecret) {
-        this(appId, appSecret, httpGraph());
+                                   @Value("${desporto.facebook.app-secret:}") String appSecret,
+                                   @Value("${desporto.facebook.live:false}") boolean live) {
+        this(appId, appSecret, httpGraph(), live);
     }
 
     FacebookIdentityService(String appId, String appSecret, Graph graph) {
+        this(appId, appSecret, graph, true);
+    }
+
+    FacebookIdentityService(String appId, String appSecret, Graph graph, boolean live) {
         this.appId = appId == null ? "" : appId.trim();
         this.appSecret = appSecret == null ? "" : appSecret.trim();
         this.graph = graph;
+        this.live = live;
     }
 
     public record FacebookIdentity(String subject, String email, String name, String picture) {}
@@ -56,7 +65,7 @@ public class FacebookIdentityService {
 
     /** Public: the app id is not a secret (it is shipped in the web page and the app). */
     public String appId() {
-        return enabled() ? appId : "";
+        return enabled() && live ? appId : "";
     }
 
     public FacebookIdentity verify(String accessToken) {
