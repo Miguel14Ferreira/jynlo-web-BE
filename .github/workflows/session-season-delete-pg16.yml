@@ -1,13 +1,7 @@
 name: Jynlo session season deletion PostgreSQL 16
 on:
-  push:
-    branches: [develop]
-    paths:
-      - 'scripts/qa_session_season_delete_pg16.sql'
-      - '.github/workflows/session-season-delete-pg16.yml'
-      - 'src/main/java/com/example/desporto24/repository/SessionRepository.java'
-      - 'src/main/java/com/example/desporto24/service/CommunityCompetitionService.java'
   workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

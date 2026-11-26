@@ -1,10 +1,7 @@
 name: CAOP2025 Braga/Evora two official site points (audit only)
 on:
-  push:
-    branches: ['audit/venues-braga-evora-official-gps-20261021']
-    paths:
-      - 'docs/venue-imports/braga-evora-2-official-site-gps-review-20261021.json'
-      - '.github/workflows/caop2025-braga-evora-2-official-gps-ci.yml'
+  workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

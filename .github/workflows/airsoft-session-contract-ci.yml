@@ -1,24 +1,6 @@
 name: Jynlo Airsoft session contract CI
 
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/airsoft-session-contract-ci.yml'
-      - 'pom.xml'
-      - 'src/main/java/com/example/desporto24/enumeration/AirsoftGameType.java'
-      - 'src/main/java/com/example/desporto24/model/Session.java'
-      - 'src/main/java/com/example/desporto24/model/dto/session/CreateSessionRequest.java'
-      - 'src/main/java/com/example/desporto24/model/dto/session/SessionSummaryResponse.java'
-      - 'src/main/java/com/example/desporto24/model/dto/session/SessionDetailResponse.java'
-      - 'src/main/java/com/example/desporto24/service/impl/SessionServiceImpl.java'
-      - 'src/main/java/com/example/desporto24/service/SessionViewMapper.java'
-      - 'src/main/resources/db/changelog/db.changelog-master.yaml'
-      - 'src/main/resources/db/changelog/changes/2026-11-08-session-airsoft-game-type.yaml'
-      - 'src/test/java/com/example/desporto24/enumeration/AirsoftGameTypeTest.java'
-      - 'src/test/java/com/example/desporto24/model/SessionAirsoftGameTypeTest.java'
-      - 'src/test/java/com/example/desporto24/service/SessionViewMapperPrivacyTest.java'
-      - 'src/test/java/com/example/desporto24/model/dto/session/CreateSessionRequestValidationTest.java'
   workflow_dispatch:
 
 jobs:

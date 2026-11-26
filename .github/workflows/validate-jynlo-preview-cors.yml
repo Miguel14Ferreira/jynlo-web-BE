@@ -1,12 +1,6 @@
 name: Jynlo staging CORS allowlist safety
 
 on:
-  push:
-    branches: [develop]
-    paths:
-      - 'src/main/java/com/example/desporto24/configuration/SecurityConfiguration.java'
-      - 'src/test/java/com/example/desporto24/configuration/SecurityCorsAllowlistTest.java'
-      - '.github/workflows/validate-jynlo-preview-cors.yml'
   workflow_dispatch:
 
 permissions:

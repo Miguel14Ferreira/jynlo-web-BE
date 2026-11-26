@@ -1,14 +1,6 @@
 name: Sprint Olympic real Angular Chromium + JWT + PostgreSQL 16
 # All identities and race outcomes are fictional. localhost-only, NEVER Render.
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [feature/desporto24-preview-deploy]
-    paths:
-      - 'src/test/java/com/example/desporto24/service/CommunityTrackSprintAuthenticatedPgIT.java'
-      - 'scripts/qa/track-sprint-browser-real.cjs'
-      - '.github/workflows/track-sprint-real-browser-pg16.yml'
-      - 'src/main/java/com/example/desporto24/service/CommunityCompetitionService.java'
   workflow_dispatch:
 
 permissions:

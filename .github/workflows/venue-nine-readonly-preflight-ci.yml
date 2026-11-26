@@ -1,12 +1,6 @@
 name: Read-only nine-venue release gate PostgreSQL16
 
 on:
-  pull_request:
-    branches: ['feature/desporto24-preview-deploy']
-    paths:
-      - 'src/main/resources/db/changelog/venue-imports/preflight-nine-source-backed-READONLY-20261026.sql'
-      - '.github/workflows/venue-nine-readonly-preflight-ci.yml'
-      - 'docs/venue-imports/nine-venue-final-readonly-preflight-20261026.md'
   workflow_dispatch:
 
 permissions:

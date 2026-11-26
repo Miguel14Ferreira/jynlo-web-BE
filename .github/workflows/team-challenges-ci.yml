@@ -1,19 +1,7 @@
 name: Jynlo direct team challenges CI
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/team-challenges-ci.yml'
-      - 'src/main/java/com/example/desporto24/model/team/SportsTeamChallenge.java'
-      - 'src/main/java/com/example/desporto24/repository/team/SportsTeamChallengeRepository.java'
-      - 'src/main/java/com/example/desporto24/service/SportsTeamChallengeService.java'
-      - 'src/main/java/com/example/desporto24/controllers/SportsTeamChallengeController.java'
-      - 'src/main/java/com/example/desporto24/service/SportsTeamDeletionService.java'
-      - 'src/test/java/com/example/desporto24/service/SportsTeamChallengeServiceTest.java'
-      - 'src/test/java/com/example/desporto24/service/SportsTeamDeletionServiceTest.java'
-      - 'src/main/resources/db/changelog/changes/2026-11-17-team-challenges.yaml'
-      - 'src/main/resources/db/changelog/db.changelog-master.yaml'
   workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

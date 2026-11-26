@@ -1,14 +1,6 @@
 name: Braganca pavilion DRAFT Liquibase PG16 safety
 
 on:
-  pull_request:
-    branches: [feature/desporto24-preview-deploy]
-    paths:
-      - 'src/main/resources/db/changelog/venue-imports/drafts/2026-10-28-braganca-two-pavilions-OPT-IN.sql'
-      - 'src/main/resources/db/changelog/venue-imports/drafts/2026-10-28-braganca-two-pavilions-OPT-IN.yaml'
-      - 'src/main/resources/db/changelog/venue-imports/preflight-braganca-two-pavilions-READONLY.sql'
-      - 'docs/venue-imports/braganca-two-pavilions-opt-in-draft-20261028.md'
-      - '.github/workflows/braganca-pavilions-draft-pg16.yml'
   workflow_dispatch:
 
 permissions:

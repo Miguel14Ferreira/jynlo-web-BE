@@ -2,13 +2,8 @@ name: Venue moderation authenticated HTTP on isolated PostgreSQL 16
 # Opt-in test of real JWT, Spring Security, controllers, JPA and PG16.
 # Never use production DB, credentials or email delivery.
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [feature/desporto24-preview-deploy]
-    paths:
-      - 'src/test/java/com/example/desporto24/service/VenueModerationAuthenticatedPgIT.java'
-      - '.github/workflows/venue-moderation-authenticated-pg16.yml'
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:

@@ -1,22 +1,8 @@
 name: Olympic Sprint isolated PostgreSQL 16 QA
 # Disposable PG16 service; never Render or production credentials.
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [feature/desporto24-preview-deploy]
-    paths:
-      - 'src/test/java/com/example/desporto24/service/CommunityTrackSprintPostgres16Test.java'
-      - 'src/main/resources/db/changelog/changes/2026-10-24-track-sprint-series-v1.yaml'
-      - 'src/main/resources/db/changelog/changes/2026-10-25-community-track-sprint-bracket8.yaml'
-      - 'src/main/resources/db/changelog/changes/2026-10-25-track-sprint-qualification16.yaml'
-      - 'src/main/resources/db/changelog/changes/2026-10-25-sprint-official-200m-tie-decisions.yaml'
-      - 'src/main/resources/db/changelog/changes/2026-10-25-track-sprint-incident-decisions.yaml'
-      - 'src/main/resources/db/changelog/changes/2026-10-25-track-sprint-disciplinary-rulings.yaml'
-      - 'src/main/resources/db/changelog/changes/2026-10-25-sprint-three-up-rerun-approval.yaml'
-      - 'src/main/resources/db/changelog/changes/2026-10-25-track-sprint-final-interruption.yaml'
-      - 'src/main/resources/db/changelog/changes/2026-10-25-sprint-official-two-up-award.yaml'
-      - '.github/workflows/track-sprint-postgres16-qa.yml'
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:

@@ -1,15 +1,5 @@
 name: Jynlo public session map CI
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/session-public-map-ci.yml'
-      - 'pom.xml'
-      - 'src/main/java/com/example/desporto24/model/dto/session/SessionSummaryResponse.java'
-      - 'src/main/java/com/example/desporto24/service/impl/SessionServiceImpl.java'
-      - 'src/main/java/com/example/desporto24/service/SessionDiscoveryLocationGrid.java'
-      - 'src/test/java/com/example/desporto24/service/SessionDiscoveryServiceTest.java'
-      - 'src/test/java/com/example/desporto24/service/SessionDiscoveryLocationGridTest.java'
   workflow_dispatch:
 
 permissions:

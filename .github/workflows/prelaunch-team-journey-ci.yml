@@ -1,24 +1,6 @@
 name: Jynlo prelaunch team journey CI
 
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/prelaunch-team-journey-ci.yml'
-      - 'src/main/java/com/example/desporto24/service/CommunityTournamentTeamService.java'
-      - 'src/main/java/com/example/desporto24/service/CommunityChampionshipTeamsService.java'
-      - 'src/main/java/com/example/desporto24/service/SportsTeamCompetitionEnrollmentService.java'
-      - 'src/main/java/com/example/desporto24/service/SportsTeamCompetitionInvitationService.java'
-      - 'src/main/java/com/example/desporto24/service/SportsTeamCompetitionApplicationService.java'
-      - 'src/main/java/com/example/desporto24/service/SportsTeamChampionshipHonoursService.java'
-      - 'src/main/java/com/example/desporto24/service/SportsTeamHonoursService.java'
-      - 'src/test/java/com/example/desporto24/service/CommunityTournamentTeamServiceTest.java'
-      - 'src/test/java/com/example/desporto24/service/CommunityChampionshipTeamsServiceTest.java'
-      - 'src/test/java/com/example/desporto24/service/SportsTeamCompetitionEnrollmentServiceTest.java'
-      - 'src/test/java/com/example/desporto24/service/SportsTeamCompetitionInvitationServiceTest.java'
-      - 'src/test/java/com/example/desporto24/service/SportsTeamCompetitionApplicationServiceTest.java'
-      - 'src/test/java/com/example/desporto24/service/SportsTeamChampionshipHonoursServiceTest.java'
-      - 'src/test/java/com/example/desporto24/service/SportsTeamHonoursServiceTest.java'
   workflow_dispatch:
 
 permissions:

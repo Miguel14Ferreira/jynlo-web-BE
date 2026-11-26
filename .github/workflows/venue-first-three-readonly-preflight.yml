@@ -1,12 +1,7 @@
 name: Jynlo first 3 municipal pilot offline (no DB)
 on:
-  push:
-    branches: ['feature/jynlo-first-three-verified-seed-preflight-20261021']
-    paths:
-      - 'scripts/prepare_official_venue_pilot.py'
-      - 'scripts/test_prepare_official_venue_pilot.py'
-      - 'docs/venue-imports/first-three-official-pilot-20261021.json'
-      - '.github/workflows/venue-first-three-readonly-preflight.yml'
+  workflow_dispatch:
+
 permissions:
   contents: read
   actions: read

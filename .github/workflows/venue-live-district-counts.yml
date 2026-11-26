@@ -1,12 +1,6 @@
 name: Jynlo LIVE venue district count read-only audit
 
 on:
-  pull_request:
-    branches: ['feature/desporto24-preview-deploy']
-    paths:
-      - 'scripts/audit_live_venue_district_coverage.py'
-      - 'scripts/test_audit_live_venue_district_coverage.py'
-      - '.github/workflows/venue-live-district-counts.yml'
   workflow_dispatch:
 
 permissions:

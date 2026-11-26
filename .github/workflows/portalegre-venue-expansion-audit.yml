@@ -1,15 +1,6 @@
 name: Portalegre 33-venue catalogue gap audit
 
 on:
-  pull_request:
-    branches: ['feature/desporto24-preview-deploy']
-    paths:
-      - 'scripts/audit_portalegre_expansion_candidates.py'
-      - 'scripts/test_audit_portalegre_expansion_candidates.py'
-      - 'docs/venue-imports/portalegre-2026-10-19-batch2-corroborated.json'
-      - 'docs/venue-imports/portalegre-11-municipal-sources-20261019.json'
-      - 'docs/venue-imports/portalegre-2026-10-19-source-review.json'
-      - '.github/workflows/portalegre-venue-expansion-audit.yml'
   workflow_dispatch:
 
 permissions:

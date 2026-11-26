@@ -1,11 +1,7 @@
 name: SNID mainland source audit (read-only)
 on:
-  push:
-    branches: ['feature/venues-snid-district-audit-20261021']
-    paths:
-      - 'scripts/snid_district_source_audit.py'
-      - 'scripts/test_snid_district_source_audit.py'
-      - '.github/workflows/snid-source-audit-ci.yml'
+  workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

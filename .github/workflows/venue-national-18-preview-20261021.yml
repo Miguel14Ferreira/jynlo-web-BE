@@ -1,12 +1,6 @@
 name: Jynlo national 18-district OSM + CAOP2025 preview (NO DB WRITE)
 # One-off run on this audit branch. On develop, opt-in workflow_dispatch only.
 on:
-  push:
-    branches: ['audit/national-18-districts-20261021']
-    paths:
-      - '.github/workflows/venue-national-18-preview-20261021.yml'
-      - 'scripts/audit_national_stage.py'
-      - 'scripts/test_audit_national_stage.py'
   workflow_dispatch:
 
 permissions:

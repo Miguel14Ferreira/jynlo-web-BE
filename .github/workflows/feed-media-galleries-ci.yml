@@ -1,28 +1,7 @@
 name: Jynlo feed photo video gallery CI
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/feed-media-galleries-ci.yml'
-      - 'src/main/java/com/example/desporto24/model/social/PublicPostMedia.java'
-      - 'src/main/java/com/example/desporto24/model/social/SocialPost.java'
-      - 'src/main/java/com/example/desporto24/model/community/CommunityTimelineEntry.java'
-      - 'src/main/java/com/example/desporto24/model/dto/social/FeedItemResponse.java'
-      - 'src/main/java/com/example/desporto24/model/dto/social/PublicPostMediaResponse.java'
-      - 'src/main/java/com/example/desporto24/model/dto/community/CommunityTimelineEntryResponse.java'
-      - 'src/main/java/com/example/desporto24/service/SocialFeedService.java'
-      - 'src/main/java/com/example/desporto24/service/CommunityTimelineService.java'
-      - 'src/main/java/com/example/desporto24/controllers/SocialFeedController.java'
-      - 'src/main/java/com/example/desporto24/controllers/CommunityTimelineController.java'
-      - 'src/test/java/com/example/desporto24/service/CommunityTimelineServiceTest.java'
-      - 'src/test/java/com/example/desporto24/controllers/CommunityTimelineMultipartControllerTest.java'
-      - 'src/test/java/com/example/desporto24/service/SocialPostNotificationLinkTest.java'
-      - 'src/test/java/com/example/desporto24/service/SocialFeedPostDeepLinkTest.java'
-      - 'src/main/java/com/example/desporto24/model/dto/social/CreateSocialPostRequest.java'
-      - 'src/main/resources/db/changelog/changes/2026-11-13-social-post-location-label.yaml'
-      - 'src/main/resources/db/changelog/changes/2026-11-12-public-feed-galleries.yaml'
-      - 'src/main/resources/db/changelog/db.changelog-master.yaml'
   workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

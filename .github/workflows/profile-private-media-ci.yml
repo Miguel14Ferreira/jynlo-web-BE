@@ -1,29 +1,7 @@
 name: Jynlo protected profile media CI
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/profile-private-media-ci.yml'
-      - 'pom.xml'
-      - 'src/main/java/com/example/desporto24/storage/PrivateProfileMediaStorage.java'
-      - 'src/main/java/com/example/desporto24/controllers/PrivateProfileMediaController.java'
-      - 'src/main/java/com/example/desporto24/controllers/ProfilePrivacyController.java'
-      - 'src/main/java/com/example/desporto24/service/ProfilePrivacyService.java'
-      - 'src/main/java/com/example/desporto24/service/ProfileMediaDeletionOutbox.java'
-      - 'src/main/resources/db/changelog/changes/2026-11-14-profile-media-deletion-outbox.yaml'
-      - 'src/main/resources/db/changelog/db.changelog-master.yaml'
-      - 'src/main/java/com/example/desporto24/service/ProfileMediaReadinessService.java'
-      - 'src/main/java/com/example/desporto24/service/SocialFeedService.java'
-      - 'src/main/java/com/example/desporto24/service/SocialStoryService.java'
-      - 'src/main/java/com/example/desporto24/repository/social/SocialStoryRepository.java'
-      - 'src/test/java/com/example/desporto24/controllers/PrivateProfileMediaControllerTest.java'
-      - 'src/test/java/com/example/desporto24/storage/PrivateProfileMediaStorageTest.java'
-      - 'src/test/java/com/example/desporto24/service/ProfileMediaReadinessServiceTest.java'
-      - 'src/test/java/com/example/desporto24/service/ProfilePrivacyServiceTest.java'
-      - 'src/test/java/com/example/desporto24/service/SocialFeedMediaDeletionTransactionTest.java'
-      - 'src/test/java/com/example/desporto24/service/ProfileMediaDeletionOutboxTest.java'
-      - 'src/test/java/com/example/desporto24/service/SocialStoryServiceTest.java'
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:

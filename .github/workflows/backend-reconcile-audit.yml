@@ -1,9 +1,7 @@
 name: Backend develop reconciliation audit
 on:
-  push:
-    branches:
-      - chore/reconcile-develop-production-20261030
   workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

@@ -1,13 +1,6 @@
 name: Municipal venue expansion read-only deduplication
 
 on:
-  pull_request:
-    branches: ['feature/desporto24-preview-deploy']
-    paths:
-      - 'scripts/audit_municipal_expansion_candidates.py'
-      - 'scripts/test_audit_municipal_expansion_candidates.py'
-      - 'docs/venue-imports/other-districts-13-official-facilities-20261019.json'
-      - '.github/workflows/municipal-venue-expansion-audit.yml'
   workflow_dispatch:
 
 permissions:

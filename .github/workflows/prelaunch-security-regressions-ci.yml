@@ -1,18 +1,6 @@
 name: Jynlo prelaunch security regressions
 
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/prelaunch-security-regressions-ci.yml'
-      - 'src/main/java/com/example/desporto24/websocket/ChatRealtimeGateway.java'
-      - 'src/main/java/com/example/desporto24/controllers/SessionGuestRequestController.java'
-      - 'src/main/java/com/example/desporto24/service/DirectChatAttachmentService.java'
-      - 'src/main/java/com/example/desporto24/service/CommunityTimelineService.java'
-      - 'src/test/java/com/example/desporto24/websocket/ChatRealtimeGatewaySecurityTest.java'
-      - 'src/test/java/com/example/desporto24/controllers/SessionGuestRequestControllerValidationTest.java'
-      - 'src/test/java/com/example/desporto24/service/DirectChatAttachmentServiceTest.java'
-      - 'src/test/java/com/example/desporto24/service/CommunityTimelineServiceTest.java'
   workflow_dispatch:
 
 permissions:

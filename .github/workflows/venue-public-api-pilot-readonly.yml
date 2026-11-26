@@ -1,12 +1,5 @@
 name: Jynlo public live venue pilot check (GET only)
 on:
-  push:
-    branches:
-      - audit/venue-pilot-public-api-preflight-20261021
-    paths:
-      - scripts/live_public_venue_pilot_preflight.py
-      - scripts/test_live_public_venue_pilot_preflight.py
-      - .github/workflows/venue-public-api-pilot-readonly.yml
   workflow_dispatch:
 
 permissions:

@@ -1,14 +1,6 @@
 name: Jynlo first three LIVE SQL preflight fixture (PG16)
 on:
-  pull_request:
-    branches: [develop]
-    paths:
-      - 'src/main/resources/db/changelog/venue-imports/preflight-first-three-municipal-live-READONLY.sql'
-      - 'scripts/test_first_three_final_readonly_preflight.py'
-      - 'docs/venue-imports/first-three-operator-preflight-result-20261022.json'
-      - 'scripts/validate_first_three_operator_preflight.py'
-      - 'scripts/test_validate_first_three_operator_preflight.py'
-      - '.github/workflows/venue-first-three-final-sql-preflight-pg16.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read

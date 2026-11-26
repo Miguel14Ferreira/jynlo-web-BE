@@ -1,14 +1,6 @@
 name: National venues offline catalogue review
 
 on:
-  pull_request:
-    branches: [feature/desporto24-preview-deploy]
-    paths:
-      - 'scripts/plan_national_venue_coverage.py'
-      - 'scripts/test_plan_national_venue_coverage.py'
-      - 'scripts/audit_live_venue_district_coverage.py'
-      - 'scripts/test_audit_live_venue_district_coverage.py'
-      - '.github/workflows/national-venues-offline-review.yml'
   workflow_dispatch:
 
 permissions:

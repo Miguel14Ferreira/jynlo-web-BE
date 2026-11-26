@@ -1,12 +1,7 @@
 name: National OSM detail recovery (read-only)
 on:
-  push:
-    branches: ['audit/jynlo-national-detail-recovery-20261021']
-    paths:
-      - '.github/workflows/venue-national-detail-recovery.yml'
-      - 'scripts/recover_national_venue_details.py'
-      - 'scripts/test_recover_national_venue_details.py'
   workflow_dispatch:
+
 permissions:
   contents: read
   actions: read

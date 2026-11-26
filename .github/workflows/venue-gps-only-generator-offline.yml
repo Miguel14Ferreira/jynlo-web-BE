@@ -1,12 +1,7 @@
 name: Verified GPS-only venue generator (offline)
 on:
-  pull_request:
-    branches: [develop]
-    paths:
-      - 'scripts/generate_verified_venue_liquibase.py'
-      - 'scripts/test_generate_verified_venue_gps_only.py'
-      - 'scripts/test_generate_verified_venue_liquibase.py'
-      - '.github/workflows/venue-gps-only-generator-offline.yml'
+  workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

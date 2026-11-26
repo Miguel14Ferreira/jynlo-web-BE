@@ -2,13 +2,7 @@ name: Community tournaments real Angular Chromium JWT and disposable PG16
 
 # Isolated QA only. FE pinned to a verified branch SHA; all traffic loopback.
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [feature/desporto24-preview-deploy]
-    paths:
-      - 'src/test/java/com/example/desporto24/service/CommunityTournamentRoleAuthenticatedPgIT.java'
-      - 'scripts/qa/community-tournament-role-browser-real.cjs'
-      - '.github/workflows/community-tournament-role-browser-pg16.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read

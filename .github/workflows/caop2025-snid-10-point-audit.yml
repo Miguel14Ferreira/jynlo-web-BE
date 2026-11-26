@@ -1,12 +1,7 @@
 name: CAOP2025 SNID GPS - read-only audit
 on:
-  push:
-    branches: ['audit/venues-caop2025-point-check-20261021']
-    paths:
-      - 'scripts/check_caop2025_snid_points.py'
-      - 'scripts/test_check_caop2025_snid_points.py'
-      - 'docs/venue-imports/snid-10-points-for-caop2025.json'
-      - '.github/workflows/caop2025-snid-10-point-audit.yml'
+  workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

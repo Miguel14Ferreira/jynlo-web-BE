@@ -1,14 +1,7 @@
 name: Jynlo private chat rich media CI
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/chat-private-rich-media-ci.yml'
-      - 'src/main/java/com/example/desporto24/storage/PrivateChatFileStorage.java'
-      - 'src/main/java/com/example/desporto24/storage/MediaStorageSupport.java'
-      - 'src/main/resources/application.properties'
-      - 'src/test/java/com/example/desporto24/storage/PrivateChatFileStorageTest.java'
   workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

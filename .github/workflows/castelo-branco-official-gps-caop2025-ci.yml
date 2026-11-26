@@ -1,12 +1,7 @@
 name: Castelo Branco official GPS - CAOP2025 validation
 on:
-  push:
-    branches: ['audit/venue-castelo-branco-official-gps-20261021']
-    paths:
-      - 'scripts/check_caop2025_snid_points.py'
-      - 'scripts/test_check_caop2025_snid_points.py'
-      - 'docs/venue-imports/castelo-branco-official-gps-caop2025-review.json'
-      - '.github/workflows/castelo-branco-official-gps-caop2025-ci.yml'
+  workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

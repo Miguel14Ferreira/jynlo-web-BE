@@ -1,16 +1,7 @@
 name: Jynlo three venue Liquibase approval gate (offline)
 on:
-  pull_request:
-    branches: [develop]
-    paths:
-      - 'scripts/finalize_official_venue_pilot.py'
-      - 'scripts/generate_verified_venue_liquibase.py'
-      - 'scripts/test_generate_verified_venue_liquibase.py'
-      - 'scripts/test_generate_verified_venue_gps_only.py'
-      - 'scripts/test_finalize_official_venue_pilot.py'
-      - 'docs/venue-imports/first-three-proposals-unapproved-20261021.jsonl'
-      - 'docs/venue-imports/first-three-decisions-pending-20261021.json'
-      - '.github/workflows/venue-three-liquibase-approval-gate.yml'
+  workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

@@ -1,13 +1,6 @@
 name: Six official island venues sources and read-only Jynlo LIVE check
 
 on:
-  pull_request:
-    branches: ['feature/desporto24-preview-deploy']
-    paths:
-      - 'docs/venue-imports/islands-first-six-official-sources-20261026.json'
-      - 'scripts/audit_islands_official_pilot.py'
-      - 'scripts/test_audit_islands_official_pilot.py'
-      - '.github/workflows/islands-first-six-sources-audit.yml'
   workflow_dispatch:
 
 permissions:

@@ -2,14 +2,8 @@ name: World Skate 2026 authenticated HTTP - isolated PostgreSQL 16
 # Actual backend and JWT filter, all entities mapped to a disposable PG16 instance.
 # Neither Render nor existing user accounts or infrastructure are accessed.
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [feature/desporto24-preview-deploy]
-    paths:
-      - 'src/test/java/com/example/desporto24/service/CommunityInlineSpeedAuthenticatedPgIT.java'
-      - 'src/main/java/com/example/desporto24/model/dto/community/CreateCommunityRoundRequest.java'
-      - '.github/workflows/inline-speed-authenticated-http-pg16.yml'
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:

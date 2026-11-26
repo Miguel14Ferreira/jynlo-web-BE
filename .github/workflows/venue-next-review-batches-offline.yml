@@ -1,11 +1,7 @@
 name: Next 50 national venue review queue (offline)
 on:
-  push:
-    branches: ['feature/jynlo-national-next-review-batches-20261021']
-    paths:
-      - 'scripts/prepare_subsequent_venue_review_batches.py'
-      - 'scripts/test_prepare_subsequent_venue_review_batches.py'
-      - '.github/workflows/venue-next-review-batches-offline.yml'
+  workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

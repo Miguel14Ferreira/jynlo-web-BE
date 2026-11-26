@@ -1,14 +1,7 @@
 name: Jynlo community round homonym safety CI
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/community-round-homonyms-ci.yml'
-      - 'src/main/java/com/example/desporto24/service/CommunityPlayerIdentityNames.java'
-      - 'src/main/java/com/example/desporto24/service/CommunityCompetitionService.java'
-      - 'src/test/java/com/example/desporto24/service/CommunityPlayerIdentityNamesTest.java'
-      - 'src/test/java/com/example/desporto24/service/CommunityCompetitionServiceTest.java'
   workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

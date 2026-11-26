@@ -1,24 +1,6 @@
 name: Jynlo distributed auth throttle - isolated PostgreSQL 16
 
 on:
-  push:
-    branches: [develop]
-    paths:
-      - 'src/main/java/com/example/desporto24/security/DistributedAuthRateLimiter.java'
-      - 'src/test/java/com/example/desporto24/security/DistributedAuthRateLimiterPostgresTest.java'
-      - '.github/workflows/auth-rate-limit-postgres-ci.yml'
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [feature/desporto24-preview-deploy]
-    paths:
-      - 'src/main/java/com/example/desporto24/security/DistributedAuthRateLimiter.java'
-      - 'src/main/java/com/example/desporto24/service/LoginAttemptService.java'
-      - 'src/main/java/com/example/desporto24/security/MfaSettingsAttemptLimiter.java'
-      - 'src/main/java/com/example/desporto24/security/SensitiveActionRateLimiter.java'
-      - 'src/main/java/com/example/desporto24/service/impl/AuthenticationServiceImpl.java'
-      - 'src/main/resources/db/changelog/changes/2026-10-24-auth-rate-limit-v1.yaml'
-      - 'src/test/java/com/example/desporto24/security/DistributedAuthRateLimiterPostgresTest.java'
-      - '.github/workflows/auth-rate-limit-postgres-ci.yml'
   workflow_dispatch:
 
 permissions:

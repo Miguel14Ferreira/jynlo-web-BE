@@ -1,12 +1,6 @@
 name: Jynlo live public venue coverage snapshot (read-only)
 
 on:
-  pull_request:
-    branches: [feature/desporto24-preview-deploy]
-    paths:
-      - '.github/workflows/public-venue-coverage-snapshot.yml'
-      - 'scripts/audit_live_venue_district_coverage.py'
-      - 'scripts/plan_national_venue_coverage.py'
   workflow_dispatch:
 
 permissions:

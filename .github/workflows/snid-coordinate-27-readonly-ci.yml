@@ -1,12 +1,7 @@
 name: SNID 27 venue coordinates - read-only review
 on:
-  push:
-    branches: ['audit/venues-snid-coordinate-match-27-20261021']
-    paths:
-      - 'scripts/match_snid_venue_coordinates.py'
-      - 'scripts/test_match_snid_venue_coordinates.py'
-      - 'docs/venue-imports/snid-coordinate-candidates-27.json'
-      - '.github/workflows/snid-coordinate-27-readonly-ci.yml'
+  workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

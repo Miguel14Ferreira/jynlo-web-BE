@@ -1,13 +1,6 @@
 name: National map Liquibase release contract (opt-in)
 on:
-  pull_request:
-    branches:
-      - feature/desporto24-preview-deploy
-    paths:
-      - 'src/main/resources/db/changelog/db.changelog-master.yaml'
-      - 'src/main/resources/db/changelog/venue-imports/drafts/national-20261022/**'
-      - 'scripts/validate_national_map_release_contract.py'
-      - '.github/workflows/national-map-release-contract.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read

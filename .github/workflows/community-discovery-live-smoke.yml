@@ -1,10 +1,6 @@
 name: Jynlo community discovery live smoke
 
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/community-discovery-live-smoke.yml'
   workflow_dispatch:
 
 permissions:

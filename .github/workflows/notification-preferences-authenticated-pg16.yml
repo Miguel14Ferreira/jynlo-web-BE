@@ -1,13 +1,8 @@
 name: Notification preferences real JWT and HTTP - isolated PostgreSQL 16
 # Opt-in, scoped QA. Never uses production accounts, database or Resend.
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [feature/desporto24-preview-deploy]
-    paths:
-      - 'src/test/java/com/example/desporto24/service/NotificationPreferencesAuthenticatedPgIT.java'
-      - '.github/workflows/notification-preferences-authenticated-pg16.yml'
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:

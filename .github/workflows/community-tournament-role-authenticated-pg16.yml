@@ -3,12 +3,7 @@ name: Community tournament roles signed JWT HTTP - isolated PostgreSQL 16
 # Full Spring Security JWT + actual controllers/services/JPA, never Render.
 # Trigger only when this integration test/workflow changes.
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [feature/desporto24-preview-deploy]
-    paths:
-      - 'src/test/java/com/example/desporto24/service/CommunityTournamentRoleAuthenticatedPgIT.java'
-      - '.github/workflows/community-tournament-role-authenticated-pg16.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read

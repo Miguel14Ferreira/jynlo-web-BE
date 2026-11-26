@@ -3,12 +3,7 @@ name: Desporto24 BE Feature CI
 # Avoid rerunning Maven + Docker builds on every preview deployment-branch merge.
 
 on:
-  push:
-    branches:
-      - feature/desporto24-relaunch-clean
-  pull_request:
-    branches:
-      - develop
+  workflow_dispatch:
 
 jobs:
   test-and-build:

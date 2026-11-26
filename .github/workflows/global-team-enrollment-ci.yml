@@ -1,24 +1,6 @@
 name: Jynlo global team enrollment CI
 
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/global-team-enrollment-ci.yml'
-      - 'src/main/java/com/example/desporto24/service/SportsTeamCompetitionEnrollmentService.java'
-      - 'src/main/java/com/example/desporto24/controllers/SportsTeamCompetitionEnrollmentController.java'
-      - 'src/main/java/com/example/desporto24/model/community/CommunityTournamentTeam.java'
-      - 'src/main/java/com/example/desporto24/model/community/CommunityChampionshipTeam.java'
-      - 'src/main/java/com/example/desporto24/repository/community/CommunityTournamentTeamRepository.java'
-      - 'src/main/java/com/example/desporto24/repository/community/CommunityChampionshipTeamRepository.java'
-      - 'src/main/java/com/example/desporto24/service/SportsTeamChampionshipHonoursService.java'
-      - 'src/main/java/com/example/desporto24/service/SportsTeamService.java'
-      - 'src/main/java/com/example/desporto24/controllers/SportsTeamController.java'
-      - 'src/test/java/com/example/desporto24/service/SportsTeamChampionshipHonoursServiceTest.java'
-      - 'src/test/java/com/example/desporto24/service/SportsTeamHonoursServiceTest.java'
-      - 'src/main/resources/db/changelog/changes/2026-11-15-global-team-competition-entry-links.yaml'
-      - 'src/main/resources/db/changelog/db.changelog-master.yaml'
-      - 'src/test/java/com/example/desporto24/service/SportsTeamCompetitionEnrollmentServiceTest.java'
   workflow_dispatch:
 
 permissions:

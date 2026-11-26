@@ -1,11 +1,7 @@
 name: National GPS-only 18-district review (offline)
 on:
-  push:
-    branches: ['feature/jynlo-gps-only-national-review-18-districts-20261021']
-    paths:
-      - 'scripts/prepare_national_gps_only_review.py'
-      - 'scripts/test_prepare_national_gps_only_review.py'
-      - '.github/workflows/venue-national-gps-only-review-offline.yml'
+  workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

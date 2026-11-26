@@ -1,12 +1,6 @@
 name: Generate national OSM venue map batches (18 districts, opt-in only)
 on:
-  push:
-    branches:
-      - feat/venues-national-bulk-map-backed-18-districts-20261022
-    paths:
-      - scripts/generate_national_map_venue_batches.py
-      - scripts/test_generate_national_map_venue_batches.py
-      - .github/workflows/venue-national-bulk-18-districts.yml
+  workflow_dispatch:
 
 permissions:
   contents: write

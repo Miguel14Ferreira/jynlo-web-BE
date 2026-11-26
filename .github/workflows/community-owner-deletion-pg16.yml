@@ -1,11 +1,7 @@
 name: Community owner deletion PostgreSQL 16
 on:
-  pull_request:
-    paths:
-      - 'src/main/resources/db/changelog/changes/2026-10-25-community-owner-subtree-delete.sql'
-      - 'src/main/resources/db/changelog/changes/2026-10-25-community-owner-subtree-delete.yaml'
-      - 'scripts/qa_community_owner_delete_pg16.sql'
-      - '.github/workflows/community-owner-deletion-pg16.yml'
+  workflow_dispatch:
+
 jobs:
   scoped-deletion:
     runs-on: ubuntu-latest

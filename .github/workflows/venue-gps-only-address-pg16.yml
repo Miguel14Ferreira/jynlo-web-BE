@@ -1,11 +1,7 @@
 name: Venue nullable postal address PostgreSQL16 safety
 on:
-  push:
-    branches: ['feature/jynlo-venue-address-nullable-with-gps-20261021']
-    paths:
-      - 'src/main/resources/db/changelog/changes/2026-10-21-venue-gps-only-address-nullable.sql'
-      - 'src/main/resources/db/changelog/changes/2026-10-21-venue-gps-only-address-nullable.yaml'
-      - '.github/workflows/venue-gps-only-address-pg16.yml'
+  workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

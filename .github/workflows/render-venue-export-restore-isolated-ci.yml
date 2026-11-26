@@ -1,12 +1,6 @@
 name: Verify Render export restore into offline PostgreSQL 16
 
 on:
-  pull_request:
-    branches: ['feature/desporto24-preview-deploy']
-    paths:
-      - 'scripts/verify_render_venue_export_restore.sh'
-      - '.github/workflows/render-venue-export-restore-isolated-ci.yml'
-      - 'docs/venue-imports/render-export-restore-runbook-20261026.md'
   workflow_dispatch:
 
 permissions:

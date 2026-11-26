@@ -1,17 +1,6 @@
 name: Official Braganca Guarda venue shortlist (read-only)
 
 on:
-  pull_request:
-    branches: [feature/desporto24-preview-deploy]
-    paths:
-      - 'scripts/preflight_municipal_venues_20261028.py'
-      - 'scripts/test_preflight_municipal_venues_20261028.py'
-      - 'docs/venue-imports/municipal-braganca-guarda-shortlist-20261028.json'
-      - 'docs/venue-imports/official-braganca-guarda-preflight-20261028.md'
-      - 'docs/venue-imports/guarda-municipal-historical-gps-evidence-20261028.json'
-      - 'docs/venue-imports/guarda-2017-gps-2026-crosscheck-20261028.md'
-      - 'scripts/test_guarda_municipal_historical_gps_20261028.py'
-      - '.github/workflows/official-municipal-venue-preflight.yml'
   workflow_dispatch:
 
 permissions:

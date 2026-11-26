@@ -1,14 +1,6 @@
 name: Braganca three rural pavilions historic-source audit (read-only)
 
 on:
-  pull_request:
-    branches: [feature/desporto24-preview-deploy]
-    paths:
-      - 'docs/venue-imports/braganca-three-municipal-pavilions-review-20261028.json'
-      - 'docs/venue-imports/braganca-three-municipal-pavilions-20261028.md'
-      - 'scripts/audit_braganca_three_municipal_pavilions_20261028.py'
-      - 'scripts/test_audit_braganca_three_municipal_pavilions_20261028.py'
-      - '.github/workflows/braganca-three-rural-pavilions-readonly.yml'
   workflow_dispatch:
 
 permissions:

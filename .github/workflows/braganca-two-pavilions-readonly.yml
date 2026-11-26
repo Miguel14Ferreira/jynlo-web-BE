@@ -1,14 +1,6 @@
 name: Braganca two pavilion site preflight (read-only)
 
 on:
-  pull_request:
-    branches: [feature/desporto24-preview-deploy]
-    paths:
-      - 'scripts/audit_braganca_two_pavilions_20261028.py'
-      - 'scripts/test_audit_braganca_two_pavilions_20261028.py'
-      - 'docs/venue-imports/braganca-pavilions-two-sites-review-20261028.json'
-      - 'docs/venue-imports/braganca-pavilions-two-sites-runbook-20261028.md'
-      - '.github/workflows/braganca-two-pavilions-readonly.yml'
   workflow_dispatch:
 
 permissions:

@@ -1,17 +1,6 @@
 name: Venue public contact read-only audit
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [feature/desporto24-preview-deploy]
-    paths:
-      - 'scripts/audit_venue_public_contacts.py'
-      - 'scripts/test_audit_venue_public_contacts.py'
-      - 'scripts/pilot_porto_public_contact_sources.py'
-      - 'scripts/test_pilot_porto_public_contact_sources.py'
-      - 'docs/venue-imports/porto-municipal-contact-sources-20261025.json'
-      - 'docs/venue-imports/public-contact-readonly-audit.md'
-      - '.github/workflows/venue-public-contact-audit.yml'
   workflow_dispatch:
 
 permissions:
