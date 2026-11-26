@@ -51,4 +51,15 @@ class AppleIdentityServiceTest {
         assertThrows(Exception.class, () -> service.verifyWith(
                 token(other, AppleIdentityService.ISSUER, "com.jynlo.app", Instant.now().plusSeconds(600)), key));
     }
+
+    @Test
+    void websiteServicesIdIsAcceptedOnlyWhenConfigured() throws Exception {
+        KeyPair kp = keys();
+        RSAPublicKey key = (RSAPublicKey) kp.getPublic();
+        String webToken = token(kp, AppleIdentityService.ISSUER, "com.jynlo.web", Instant.now().plusSeconds(600));
+        assertThrows(Exception.class, () -> new AppleIdentityService("com.jynlo.app").verifyWith(webToken, key));
+        var service = new AppleIdentityService("com.jynlo.app", "com.jynlo.web");
+        assertEquals("com.jynlo.web", service.webClientId());
+        assertEquals("001234.abc", service.verifyWith(webToken, key).subject());
+    }
 }

@@ -44,8 +44,28 @@ public class AppleIdentityService {
     private final Map<String, RSAPublicKey> keys = new ConcurrentHashMap<>();
     private volatile Instant keysLoadedAt = Instant.EPOCH;
 
-    public AppleIdentityService(@Value("${desporto.apple.client-ids:com.jynlo.app}") String clientIds) {
-        this.audiences = Arrays.stream(clientIds.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
+    private final String webClientId;
+
+    public AppleIdentityService(String clientIds) {
+        this(clientIds, "");
+    }
+
+    /**
+     * clientIds: the iPhone bundle id(s). webClientId: the Apple "Services ID" used by
+     * "Sign in with Apple" on the website (empty = the web button stays hidden).
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    public AppleIdentityService(@Value("${desporto.apple.client-ids:com.jynlo.app}") String clientIds,
+                                @Value("${desporto.apple.web-client-id:}") String webClientId) {
+        this.webClientId = webClientId == null ? "" : webClientId.trim();
+        java.util.List<String> all = new java.util.ArrayList<>(
+                Arrays.stream(clientIds.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList());
+        if (!this.webClientId.isEmpty() && !all.contains(this.webClientId)) all.add(this.webClientId);
+        this.audiences = List.copyOf(all);
+    }
+
+    public String webClientId() {
+        return webClientId;
     }
 
     public record AppleIdentity(String subject, String email, boolean privateEmail) {}

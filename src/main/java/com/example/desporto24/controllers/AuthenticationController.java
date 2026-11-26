@@ -101,6 +101,16 @@ public class AuthenticationController {
         return googleRegister(request, null);
     }
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.security.AppleIdentityService appleIdentityService;
+
+    /** Website "Sign in with Apple": shown only when APPLE_WEB_CLIENT_ID (Services ID) is set. */
+    @GetMapping("/apple/config")
+    public ResponseEntity<java.util.Map<String, String>> appleConfig() {
+        return ResponseEntity.ok(java.util.Map.of("webClientId",
+                appleIdentityService == null ? "" : appleIdentityService.webClientId()));
+    }
+
     /** "Sign in with Apple" (iPhone): same flow and response as Google. */
     @PostMapping("/apple/login")
     public ResponseEntity<GoogleAuthResponse> appleLogin(
