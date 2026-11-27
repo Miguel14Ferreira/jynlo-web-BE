@@ -45,6 +45,13 @@ public interface SessionParticipantRepository extends JpaRepository<SessionParti
             Long sessionId,
             AttendanceStatus attendanceStatus);
 
+    /** Friends' places in these games, newest first (for "João e mais 2 amigos vão"). */
+    @Query("select p from SessionParticipant p join fetch p.profile join fetch p.session where p.session.id in :sessionIds and p.profile.id in :profileIds and p.state = :state order by p.joinedAt desc")
+    List<SessionParticipant> findWithProfilesBySessionIdsAndProfileIds(
+            @Param("sessionIds") Set<Long> sessionIds,
+            @Param("profileIds") Set<Long> profileIds,
+            @Param("state") ParticipantState state);
+
     @Query("select p.session.id from SessionParticipant p where p.session.id in :sessionIds and p.profile.id = :profileId and p.state = :state")
     Set<Long> findSessionIdsByProfileAndState(
             @Param("sessionIds") Set<Long> sessionIds,
