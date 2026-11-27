@@ -169,6 +169,7 @@ public class MobilePushDeliveryService {
             JsonNode tickets = json.readTree(response.body()).path("data");
             JsonNode ticket = tickets.isArray() && !tickets.isEmpty() ? tickets.get(0) : tickets;
             if ("ok".equals(ticket.path("status").asText())) {
+                log.info("JYNLO_PUSH_SENT category={}", safeCode(category == null ? "" : category.replace("_", "")));
                 String ticketId=ticket.path("id").asText("");
                 if(ticketId.matches("[A-Za-z0-9_-]{8,80}")) {
                     var pending=new com.example.desporto24.model.MobilePushReceipt();
