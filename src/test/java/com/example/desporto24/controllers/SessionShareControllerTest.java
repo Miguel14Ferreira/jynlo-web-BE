@@ -32,7 +32,7 @@ class SessionShareControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new SessionShareController(sessionService, "https://d24sports.com/");
+        controller = new SessionShareController(sessionService, "https://d24sports.com/", "https://api.d24sports.com/");
         controller.setCommunities(communityRepository);
     }
 
@@ -54,7 +54,7 @@ class SessionShareControllerTest {
 
         assertTrue(body.contains("og:title\" content=\"Padel &lt;Porto&gt; · comunidade na Jynlo\""));
         assertTrue(body.contains("og:description\" content=\"Jogos todas as semanas\""));
-        assertTrue(body.contains("og:url\" content=\"https://d24sports.com/menu/communities/5\""));
+        assertTrue(body.contains("og:url\" content=\"https://api.d24sports.com/api/share/communities/5\""));
         assertTrue(body.contains("og:image\" content=\"https://d24sports.com/media/communities/5.jpg\""));
         assertFalse(body.contains("og:image:width"));
     }
@@ -93,7 +93,7 @@ class SessionShareControllerTest {
         String body = controller.profile("joao.silva").getBody();
 
         assertTrue(body.contains("og:title\" content=\"@joao.silva na Jynlo\""));
-        assertTrue(body.contains("og:url\" content=\"https://d24sports.com/menu/profiles/joao.silva\""));
+        assertTrue(body.contains("og:url\" content=\"https://api.d24sports.com/api/share/profiles/joao.silva\""));
     }
 
     @Test
@@ -101,7 +101,9 @@ class SessionShareControllerTest {
         String body = controller.profile("<script>").getBody();
 
         assertTrue(body.contains("<title>Jynlo — Join the game.</title>"));
-        assertFalse(body.contains("<script>") || body.contains("&lt;script"));
+        assertFalse(body.contains("&lt;script"));
+        // Only the page's own redirect script, never the username.
+        assertEquals(1, body.split("<script>", -1).length - 1);
     }
 
     private static SessionPublicPreviewResponse preview(String sport, String city, int max, int taken,
@@ -176,5 +178,13 @@ class SessionShareControllerTest {
 
         assertTrue(body.contains("og:title\" content=\"Jogo\""));
         assertTrue(body.contains("Junta-te a este jogo na Jynlo."));
+    }
+
+    @Test
+    void peopleAreSentOnToTheSiteWhileCrawlersReadTheCard() {
+        String body = controller.profile("joao.silva").getBody();
+        assertTrue(body.contains("http-equiv=\"refresh\" content=\"0; url=https://d24sports.com/menu/profiles/joao.silva\""));
+        assertTrue(body.contains("rel=\"canonical\" href=\"https://d24sports.com/menu/profiles/joao.silva\""));
+        assertTrue(body.contains("location.replace("));
     }
 }

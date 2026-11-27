@@ -56,14 +56,17 @@ public class SessionShareController {
 
     private final SessionService sessionService;
     private final String siteUrl;
+    private final String apiUrl;
     @Autowired(required = false)
     private CommunityRepository communities;
 
     public SessionShareController(
             SessionService sessionService,
-            @Value("${desporto.public-site-url:https://jynlosports.com}") String siteUrl) {
+            @Value("${desporto.public-site-url:https://jynlosports.com}") String siteUrl,
+            @Value("${desporto.public-api-url:https://api.jynlosports.com}") String apiUrl) {
         this.sessionService = sessionService;
         this.siteUrl = siteUrl.replaceAll("/+$", "");
+        this.apiUrl = apiUrl.replaceAll("/+$", "");
     }
 
     @GetMapping(value = "/sessions/{id}", produces = MediaType.TEXT_HTML_VALUE)
@@ -74,7 +77,7 @@ public class SessionShareController {
         } catch (SessionNotFound notPreviewable) {
             card = new Card(GENERIC_TITLE, GENERIC_DESCRIPTION);
         }
-        return html(siteUrl + "/sessions/" + id, card, null);
+        return html(siteUrl + "/sessions/" + id, apiUrl + "/api/share/sessions/" + id, card, null);
     }
 
     /**
@@ -87,7 +90,7 @@ public class SessionShareController {
         Community community = communities == null ? null : communities.findWithSportsById(id).orElse(null);
         Card card = community == null ? new Card(GENERIC_TITLE, GENERIC_DESCRIPTION) : cardFor(community);
         String image = community == null ? null : mediaUrl(community.getPhotoUrl());
-        return html(siteUrl + "/menu/communities/" + id, card, image);
+        return html(siteUrl + "/menu/communities/" + id, apiUrl + "/api/share/communities/" + id, card, image);
     }
 
     /**
@@ -99,18 +102,18 @@ public class SessionShareController {
     public ResponseEntity<String> profile(@PathVariable String username) {
         String handle = username == null ? "" : username.trim();
         if (!USERNAME.matcher(handle).matches()) {
-            return html(siteUrl + "/", new Card(GENERIC_TITLE, GENERIC_DESCRIPTION), null);
+            return html(siteUrl + "/", null, new Card(GENERIC_TITLE, GENERIC_DESCRIPTION), null);
         }
         Card card = new Card("@" + handle + " na Jynlo",
                 "Vê o perfil de @" + handle + " e combina um jogo na Jynlo.");
-        return html(siteUrl + "/menu/profiles/" + handle, card, null);
+        return html(siteUrl + "/menu/profiles/" + handle, apiUrl + "/api/share/profiles/" + handle, card, null);
     }
 
-    private ResponseEntity<String> html(String url, Card card, String image) {
+    private ResponseEntity<String> html(String url, String shareUrl, Card card, String image) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
                 .header("X-Robots-Tag", "noindex")
-                .body(page(url, card, image));
+                .body(page(url, shareUrl, card, image));
     }
 
     private static Card cardFor(Community community) {
@@ -167,10 +170,16 @@ public class SessionShareController {
         return "Junta-te a este jogo na Jynlo.";
     }
 
-    private String page(String url, Card card, String customImage) {
+    /**
+     * The card is read by WhatsApp, Facebook and others from this address, so og:url points here (Facebook
+     * would otherwise re-read the site's generic page). People are sent straight on to the site, where the
+     * app takes over through its universal/app links when it is installed.
+     */
+    private String page(String url, String shareUrl, Card card, String customImage) {
         String title = escape(card.title());
         String description = escape(card.description());
         String canonical = escape(url);
+        String ogUrl = escape(shareUrl == null ? url : shareUrl);
         String image = escape(customImage == null ? siteUrl + "/assets/og-default.png" : customImage);
         // The default image's size is known; a community photo's is not, so it is not declared.
         String imageMeta = customImage == null
@@ -190,7 +199,8 @@ public class SessionShareController {
                 <meta property="og:type" content="website">
                 <meta property="og:title" content="%1$s">
                 <meta property="og:description" content="%2$s">
-                <meta property="og:url" content="%3$s">
+                <meta property="og:url" content="%6$s">
+                <meta http-equiv="refresh" content="0; url=%3$s">
                 <meta property="og:image" content="%4$s">
                 %5$s
                 <meta name="twitter:card" content="summary_large_image">
@@ -200,9 +210,10 @@ public class SessionShareController {
                 </head>
                 <body>
                 <p><a href="%3$s">Abrir na Jynlo</a></p>
+                <script>location.replace(document.querySelector('link[rel=canonical]').href);</script>
                 </body>
                 </html>
-                """.formatted(title, description, canonical, image, imageMeta);
+                """.formatted(title, description, canonical, image, imageMeta, ogUrl);
     }
 
     /**
