@@ -29,6 +29,8 @@ public class SlowRequestLogFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         long start = System.nanoTime();
+        // Lets the website see where a slow request spent its time (queue, connect, wait), for freeze reports.
+        response.setHeader("Timing-Allow-Origin", "https://jynlosports.com, https://www.jynlosports.com");
         try {
             chain.doFilter(request, response);
         } finally {
