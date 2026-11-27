@@ -56,6 +56,7 @@ public class VenueBookingService {
     private final NotificationsRepository notifications;
     private final NotificationPreferencesService preferences;
     private final ApplicationEventPublisher events;
+    private final VenuePlayerBlockRepository blocks;
     private final com.example.desporto24.service.payment.VenueOnlinePaymentService onlinePayments;
 
     // ---- Views -------------------------------------------------------------------------
@@ -81,6 +82,7 @@ public class VenueBookingService {
                               Instant paidClaimedAt, Instant paidConfirmedAt) {}
     public record VenueAvailability(Long venueId, String name, String city, String district, Double latitude,
                                     Double longitude, String paymentMethod, List<CourtSlots> courts) {}
+    public record BlockView(Long id, String username, String reason, Instant createdAt, String createdBy) {}
     public record ManagedVenue(Long venueId, String name, String city, long pendingRequests, boolean acceptsBookings) {}
 
     public record CourtInput(Long id, String name, String sport, Integer priceCents, Integer slotMinutes, Boolean active) {}
@@ -323,6 +325,63 @@ public class VenueBookingService {
         return managerOffer(venueId, username);
     }
 
+    /**
+     * Manager: this player can no longer request bookings here (e.g. did not pay). Their pending requests are
+     * declined. Private to the venue, like an organiser's exclusion; the player is not told why.
+     */
+    @Transactional
+    public BlockView blockRequester(Long bookingId, String username, String reason) {
+        VenueBookingRequest b = booking(bookingId);
+        requireManager(b.getVenueId(), username);
+        String player = b.getRequesterUsername();
+        if (player.equalsIgnoreCase(username) || managers.existsByVenueIdAndUsernameIgnoreCase(b.getVenueId(), player)) {
+            throw bad("Não podes bloquear quem gere o recinto.");
+        }
+        VenuePlayerBlock.Reason why;
+        try {
+            why = VenuePlayerBlock.Reason.valueOf(reason == null ? "" : reason.strip().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw bad("Escolhe o motivo.");
+        }
+        VenuePlayerBlock block = blocks.findFirstByVenueIdAndUsernameIgnoreCase(b.getVenueId(), player).orElseGet(() -> {
+            VenuePlayerBlock fresh = new VenuePlayerBlock();
+            fresh.setVenueId(b.getVenueId());
+            fresh.setUsername(player);
+            fresh.setBookingId(b.getId());
+            fresh.setCreatedBy(username);
+            fresh.setCreatedAt(Instant.now());
+            return fresh;
+        });
+        block.setReason(why);
+        VenuePlayerBlock saved = blocks.save(block);
+        Instant now = Instant.now();
+        for (VenueBookingRequest pending : bookings.findTop200ByVenueIdAndStartAtAfterOrderByStartAtAsc(b.getVenueId(), now)) {
+            if (pending.getStatus() == VenueBookingRequest.Status.PENDING && pending.getRequesterUsername().equalsIgnoreCase(player)) {
+                pending.setStatus(VenueBookingRequest.Status.DECLINED);
+                pending.setDecidedAt(now);
+                bookings.save(pending);
+            }
+        }
+        return blockView(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<BlockView> blocked(Long venueId, String username) {
+        requireManager(venueId, username);
+        return blocks.findTop200ByVenueIdOrderByCreatedAtDesc(venueId).stream().map(VenueBookingService::blockView).toList();
+    }
+
+    @Transactional
+    public List<BlockView> unblock(Long venueId, Long blockId, String username) {
+        requireManager(venueId, username);
+        blocks.findById(blockId).filter(x -> x.getVenueId().equals(venueId)).ifPresent(blocks::delete);
+        return blocked(venueId, username);
+    }
+
+    private static BlockView blockView(VenuePlayerBlock x) {
+        return new BlockView(x.getId(), x.getUsername(), x.getReason().name(), x.getCreatedAt(), x.getCreatedBy());
+    }
+
     /** Player: "Já paguei" on a confirmed booking (or undo it). */
     @Transactional
     public BookingView markPaid(Long bookingId, String username, boolean paid) {
@@ -470,6 +529,9 @@ public class VenueBookingService {
     public BookingView request(Long venueId, String username, Long courtId, String startAt, Long sessionId, String note) {
         Venue venue = venue(venueId);
         if (!accepts(venueId)) throw conflict("Este recinto ainda não aceita reservas na Jynlo.");
+        if (username != null && blocks.existsByVenueIdAndUsernameIgnoreCase(venueId, username)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Este recinto não aceita pedidos de reserva teus.");
+        }
         if (courtId == null) throw bad("Escolhe um campo.");
         VenueCourt court = courts.lockById(courtId)
                 .orElseThrow(() -> bad("Campo desconhecido."));

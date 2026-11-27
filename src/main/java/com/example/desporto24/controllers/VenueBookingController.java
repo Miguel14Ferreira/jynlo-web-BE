@@ -22,6 +22,7 @@ public class VenueBookingController {
     public record PaymentSetupBody(String method, String phone) {}
     public record PaidBody(Boolean paid) {}
     public record LinkSessionBody(Long sessionId) {}
+    public record BlockBody(String reason) {}
 
     // Public reads (listed in SecurityConstant.PUBLIC_GET_URLS).
     @GetMapping("/venues/{id}/booking-offer")
@@ -97,6 +98,21 @@ public class VenueBookingController {
     @PostMapping("/venue-bookings/{id}/checkout")
     public com.example.desporto24.service.payment.OnlinePaymentService.Link checkout(@PathVariable Long id, Authentication auth) {
         return onlinePayments.checkout(id, auth.getName());
+    }
+
+    @PostMapping("/venue-bookings/{id}/block-requester")
+    public BlockView blockRequester(@PathVariable Long id, @RequestBody(required = false) BlockBody body, Authentication auth) {
+        return service.blockRequester(id, auth.getName(), body == null ? null : body.reason());
+    }
+
+    @GetMapping("/venues/{id}/management/blocked")
+    public List<BlockView> blocked(@PathVariable Long id, Authentication auth) {
+        return service.blocked(id, auth.getName());
+    }
+
+    @DeleteMapping("/venues/{id}/management/blocked/{blockId}")
+    public List<BlockView> unblock(@PathVariable Long id, @PathVariable Long blockId, Authentication auth) {
+        return service.unblock(id, blockId, auth.getName());
     }
 
     @PostMapping("/venue-bookings/{id}/paid")

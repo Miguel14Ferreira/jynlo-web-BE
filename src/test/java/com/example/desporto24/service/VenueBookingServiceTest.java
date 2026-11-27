@@ -35,10 +35,11 @@ class VenueBookingServiceTest {
     private final NotificationsRepository notifications = mock(NotificationsRepository.class);
     private final NotificationPreferencesService preferences = mock(NotificationPreferencesService.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+    private final VenuePlayerBlockRepository blocks = mock(VenuePlayerBlockRepository.class);
     private final com.example.desporto24.service.payment.VenueOnlinePaymentService venueOnline =
             mock(com.example.desporto24.service.payment.VenueOnlinePaymentService.class);
     private final VenueBookingService service = new VenueBookingService(venues, claims, managers, courts, hours,
-            bookings, paymentSetups, profiles, sessions, sessionCourts, notifications, preferences, events, venueOnline);
+            bookings, paymentSetups, profiles, sessions, sessionCourts, notifications, preferences, events, blocks, venueOnline);
 
     private VenueCourt court;
     private LocalDate tomorrow;
@@ -144,6 +145,34 @@ class VenueBookingServiceTest {
         assertEquals("PENDING", view.status());
         assertEquals(2400, view.priceCents());
         verify(notifications).save(argThat(n -> "ana".equals(n.getUsername())));
+    }
+
+    @Test
+    void aManagerCanStopAPlayerBookingAgainAndTheirPendingRequestsAreDeclined() {
+        VenueBookingRequest unpaid = new VenueBookingRequest();
+        unpaid.setId(80L);
+        unpaid.setVenueId(5L);
+        unpaid.setCourtId(9L);
+        unpaid.setRequesterUsername("rui");
+        unpaid.setStatus(VenueBookingRequest.Status.CONFIRMED);
+        VenueBookingRequest pending = new VenueBookingRequest();
+        pending.setId(81L);
+        pending.setVenueId(5L);
+        pending.setRequesterUsername("rui");
+        pending.setStatus(VenueBookingRequest.Status.PENDING);
+        when(bookings.findById(80L)).thenReturn(Optional.of(unpaid));
+        when(bookings.findTop200ByVenueIdAndStartAtAfterOrderByStartAtAsc(eq(5L), any())).thenReturn(List.of(pending));
+        when(blocks.findFirstByVenueIdAndUsernameIgnoreCase(5L, "rui")).thenReturn(Optional.empty());
+        when(blocks.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        assertThrows(ResponseStatusException.class, () -> service.blockRequester(80L, "rui", "NOT_PAID"));
+        assertThrows(ResponseStatusException.class, () -> service.blockRequester(80L, "ana", "nada"));
+        assertEquals("NOT_PAID", service.blockRequester(80L, "ana", "not_paid").reason());
+        assertEquals(VenueBookingRequest.Status.DECLINED, pending.getStatus());
+
+        when(blocks.existsByVenueIdAndUsernameIgnoreCase(5L, "rui")).thenReturn(true);
+        assertThrows(ResponseStatusException.class,
+                () -> service.request(5L, "rui", 9L, at(tomorrow, 9).toString(), null, null));
     }
 
     @Test
