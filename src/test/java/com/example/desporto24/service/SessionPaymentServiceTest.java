@@ -172,4 +172,42 @@ class SessionPaymentServiceTest {
         previous.setPriceAmount(BigDecimal.ZERO);
         assertTrue(service.previousUnpaid(7L, "ana").unpaid().isEmpty(), "free games owe nothing");
     }
+
+    @Test
+    void afterTheGameOnlyUnpaidPlayersAreRemindedOnce() {
+        var notifications = mock(com.example.desporto24.repository.NotificationsRepository.class);
+        when(notifications.save(any())).thenAnswer(i -> i.getArgument(0));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "notifications", notifications);
+        service.setMethod(7L, "ana", "MBWAY", "912345678");
+        service.claim(7L, "rui", true);
+        clearInvocations(notifications);
+
+        assertEquals(1, service.sendPostGameReminder(7L, java.time.Instant.now()));
+        var captor = org.mockito.ArgumentCaptor.forClass(com.example.desporto24.register.Notifications.Notifications.class);
+        verify(notifications, times(1)).save(captor.capture());
+        assertEquals("bea", captor.getValue().getUsername());
+        assertTrue(captor.getValue().getMessage().contains("4,00 € por MB WAY"), captor.getValue().getMessage());
+        assertEquals(0, service.sendPostGameReminder(7L, java.time.Instant.now()), "only once per game");
+    }
+
+    @Test
+    void theOrganiserHearsWhenAPlayerSaysTheyPaid() {
+        var notifications = mock(com.example.desporto24.repository.NotificationsRepository.class);
+        when(notifications.save(any())).thenAnswer(i -> i.getArgument(0));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "notifications", notifications);
+        service.claim(7L, "rui", true);
+        service.claim(7L, "rui", true);
+        var captor = org.mockito.ArgumentCaptor.forClass(com.example.desporto24.register.Notifications.Notifications.class);
+        verify(notifications, times(1)).save(captor.capture());
+        assertEquals("ana", captor.getValue().getUsername());
+        assertTrue(captor.getValue().getSubject().contains("@rui diz que pagou"));
+    }
+
+    @Test
+    void remindersWaitForTheMorning() {
+        assertFalse(PostGamePaymentReminderJob.daytime(java.time.Instant.parse("2026-11-27T23:30:00Z")));
+        assertFalse(PostGamePaymentReminderJob.daytime(java.time.Instant.parse("2026-11-28T08:59:00Z")));
+        assertTrue(PostGamePaymentReminderJob.daytime(java.time.Instant.parse("2026-11-28T09:00:00Z")));
+        assertTrue(PostGamePaymentReminderJob.daytime(java.time.Instant.parse("2026-11-28T22:59:00Z")));
+    }
 }

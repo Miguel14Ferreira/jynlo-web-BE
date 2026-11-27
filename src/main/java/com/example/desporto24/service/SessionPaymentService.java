@@ -152,6 +152,35 @@ public class SessionPaymentService {
         return view(access);
     }
 
+    /**
+     * After the game: one notification to every player who has not paid yet, pointing to the
+     * organiser's MB WAY number. Sent once per game (postGameReminderAt).
+     */
+    @Transactional
+    public int sendPostGameReminder(Long sessionId, Instant now) {
+        SessionPaymentSetup setup = setups.findById(sessionId).orElse(null);
+        Session session = sessions.findById(sessionId).orElse(null);
+        if (setup == null || session == null || setup.getPostGameReminderAt() != null) return 0;
+        setup.setPostGameReminderAt(now);
+        setups.save(setup);
+        if (!MBWAY.equals(setup.getMethod()) || setup.getMbwayPhone() == null) return 0;
+        List<SessionParticipant> players = active(sessionId).stream()
+                .filter(p -> p.getProfile() != null && !isOrganiser(session, p.getProfile()))
+                .toList();
+        Map<Long, SessionParticipantPayment> rows = payments
+                .findAllById(players.stream().map(SessionParticipant::getId).toList())
+                .stream().collect(Collectors.toMap(SessionParticipantPayment::getParticipantId, Function.identity()));
+        int sent = 0;
+        for (SessionParticipant player : players) {
+            SessionParticipantPayment row = rows.get(player.getId());
+            if (row != null && (row.getClaimedAt() != null || row.getConfirmedAt() != null)) continue;
+            notify(player.getProfile(), session, "Falta pagar o jogo de " + sport(session),
+                    "Toca aqui para pagar " + amountLabel(session.getPriceAmount()) + " por MB WAY ao organizador.");
+            sent++;
+        }
+        return sent;
+    }
+
     /** Player: "já paguei" (true) or undo (false). Never confirms the payment. */
     @Transactional
     public Payments claim(Long sessionId, String username, boolean paid) {
@@ -162,8 +191,16 @@ public class SessionPaymentService {
             fresh.setParticipantId(access.mine().getId());
             return fresh;
         });
+        boolean newClaim = paid && row.getClaimedAt() == null && row.getConfirmedAt() == null;
         row.setClaimedAt(paid ? (row.getClaimedAt() == null ? Instant.now() : row.getClaimedAt()) : null);
         save(row);
+        // Tell the organiser right away, so confirming is one tap from the notification.
+        if (newClaim && access.session().getProfile() != null) {
+            notify(access.session().getProfile(), access.session(),
+                    "@" + access.actor().getUsername() + " diz que pagou",
+                    "@" + access.actor().getUsername() + " diz que já pagou " + amountLabel(access.session().getPriceAmount())
+                            + " do jogo de " + sport(access.session()) + ". Confirma quando vires o dinheiro.");
+        }
         return view(access);
     }
 

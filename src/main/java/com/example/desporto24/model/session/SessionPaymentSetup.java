@@ -25,6 +25,10 @@ public class SessionPaymentSetup {
     @Column(name = "last_reminder_at")
     private Instant lastReminderAt;
 
+    /** When unpaid players got the after-the-game "falta pagar" notification (sent once per game). */
+    @Column(name = "post_game_reminder_at")
+    private Instant postGameReminderAt;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 }
