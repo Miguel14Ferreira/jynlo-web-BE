@@ -160,6 +160,10 @@ public class Venue {
     private String bookingUrl;
 
     /** Public space with free access (no booking needed); null = unknown. */
+    /** Venue meant for adults (snooker, darts, bars…): hidden from visitors without an adult account. */
+    @Column(name = "adults_only", nullable = false)
+    private boolean adultsOnly;
+
     @Column(name = "free_access")
     private Boolean freeAccess;
 

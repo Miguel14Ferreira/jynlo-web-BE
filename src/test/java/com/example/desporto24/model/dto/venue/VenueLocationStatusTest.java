@@ -30,7 +30,7 @@ class VenueLocationStatusTest {
 
     @Test
     void jsonHasLocationStatusWithoutChangingExistingResponseFields() throws Exception {
-        var response = new VenueService(null, null, null).toResponse(Venue.builder()
+        var response = new VenueService(null, null, null, null).toResponse(Venue.builder()
                 .id(11L).name("Campo de Teste").city("Coimbra")
                 .address("Localização no mapa: 40.2, -8.4 (morada por confirmar)")
                 .latitude(40.2).longitude(-8.4).build());

@@ -477,7 +477,9 @@ public class SessionServiceImpl implements SessionService {
                 || (session.getAudience() == null && session.getCommunity() == null);
         if (!publicAudience
                 || Boolean.TRUE.equals(session.getPrivateGame())
-                || Boolean.FALSE.equals(session.getEnabled())) {
+                || Boolean.FALSE.equals(session.getEnabled())
+                // Visitors without an account never see games at adults-only venues.
+                || (session.getVenue() != null && session.getVenue().isAdultsOnly())) {
             throw new SessionNotFound("Session not found");
         }
 
@@ -661,7 +663,11 @@ public class SessionServiceImpl implements SessionService {
                 ? Set.of()
                 : waitlistRepository.findSessionIdsByProfile(sessionIds, viewer.getId());
 
+        boolean viewerIsAdult = viewer != null && com.example.desporto24.service.AdultVenueAccess
+                .isAdult(viewer.getDateOfBirth(), java.time.LocalDate.now());
         List<SessionSummaryResponse> matching = filteredCandidates.stream()
+                // Games at adults-only venues (snooker, darts, bars…) are hidden from visitors.
+                .filter(s -> viewerIsAdult || s.getVenue() == null || !s.getVenue().isAdultsOnly())
                 // Private games never appear in Explorar except to their organizer and players.
                 .filter(s -> !Boolean.TRUE.equals(s.getPrivateGame())
                         || (viewer != null && ((s.getProfile() != null && viewer.getId().equals(s.getProfile().getId()))

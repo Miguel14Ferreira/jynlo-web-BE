@@ -28,6 +28,7 @@ class VenueServiceTest {
 
     @Mock private VenueRepository venueRepository;
     @Mock private ProfileRepository profileRepository;
+    @Mock private AdultVenueAccess adultVenueAccess;
     @Spy private SessionDistanceCalculator distanceCalculator = new SessionDistanceCalculator();
 
     @InjectMocks

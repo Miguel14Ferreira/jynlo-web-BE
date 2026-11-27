@@ -12,6 +12,7 @@ import org.springframework.test.context.TestPropertySource;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -36,19 +37,19 @@ class VenuePagedSearchRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        var first = repository.suggest("pavilhao", "lisboa", "futsal", "", PageRequest.of(0, 1));
-        var second = repository.suggest("pavilhao", "lisboa", "futsal", "", PageRequest.of(1, 1));
+        var first = repository.suggest("pavilhao", "lisboa", "futsal", "", true, PageRequest.of(0, 1));
+        var second = repository.suggest("pavilhao", "lisboa", "futsal", "", true, PageRequest.of(1, 1));
         assertEquals(1, first.getContent().size());
         assertTrue(first.hasNext());
         assertEquals(1, second.getContent().size());
         assertFalse(second.hasNext());
         assertNotEquals(first.getContent().get(0).getId(), second.getContent().get(0).getId());
 
-        var football = repository.suggest("", "", "futebol", "", PageRequest.of(0, 40));
+        var football = repository.suggest("", "", "futebol", "", true, PageRequest.of(0, 40));
         assertEquals(1, football.getContent().size());
         assertEquals("Pavilhão Norte", football.getContent().get(0).getName());
 
-        var tennis = repository.suggest("tenis", "porto", "tenis", "", PageRequest.of(0, 40));
+        var tennis = repository.suggest("tenis", "porto", "tenis", "", true, PageRequest.of(0, 40));
         assertEquals("Campo do Ténis", tennis.getContent().get(0).getName());
     }
 
@@ -66,10 +67,10 @@ class VenuePagedSearchRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        var district = repository.suggest("", "", "padel", "Lisboa", PageRequest.of(0, 40));
+        var district = repository.suggest("", "", "padel", "Lisboa", true, PageRequest.of(0, 40));
         assertEquals(1, district.getContent().size());
         assertEquals("Lisboa", district.getContent().getFirst().getDistrict());
-        var fallback = repository.suggest("campo antigo", "", "padel", "", PageRequest.of(0, 40));
+        var fallback = repository.suggest("campo antigo", "", "padel", "", true, PageRequest.of(0, 40));
         assertEquals(1, fallback.getContent().size());
     }
 
@@ -82,9 +83,9 @@ class VenuePagedSearchRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        var first = repository.suggest("campo", "", "futsal", "", PageRequest.of(0, 1));
-        var second = repository.suggest("campo", "", "futsal", "", PageRequest.of(1, 1));
-        var third = repository.suggest("campo", "", "futsal", "", PageRequest.of(2, 1));
+        var first = repository.suggest("campo", "", "futsal", "", true, PageRequest.of(0, 1));
+        var second = repository.suggest("campo", "", "futsal", "", true, PageRequest.of(1, 1));
+        var third = repository.suggest("campo", "", "futsal", "", true, PageRequest.of(2, 1));
 
         assertEquals("Campo", first.getContent().getFirst().getName());
         assertEquals("Campo Norte", second.getContent().getFirst().getName());
@@ -105,7 +106,7 @@ class VenuePagedSearchRepositoryTest {
         entityManager.clear();
 
         var ordered = java.util.stream.IntStream.range(0, 5)
-                .mapToObj(page -> repository.suggest("", "lisboa", "", "", PageRequest.of(page, 1)))
+                .mapToObj(page -> repository.suggest("", "lisboa", "", "", true, PageRequest.of(page, 1)))
                 .toList();
 
         assertEquals(java.util.List.of(
@@ -126,9 +127,9 @@ class VenuePagedSearchRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        var first = repository.suggest("", "", "", "", PageRequest.of(0, 1));
-        var middle = repository.suggest("", "", "", "", PageRequest.of(1, 1));
-        var last = repository.suggest("", "", "", "", PageRequest.of(2, 1));
+        var first = repository.suggest("", "", "", "", true, PageRequest.of(0, 1));
+        var middle = repository.suggest("", "", "", "", true, PageRequest.of(1, 1));
+        var last = repository.suggest("", "", "", "", true, PageRequest.of(2, 1));
         assertTrue(first.hasNext());
         assertTrue(middle.hasNext());
         assertFalse(last.hasNext());
@@ -166,9 +167,9 @@ class VenuePagedSearchRepositoryTest {
         persistWithInfo("C Com GPS", "Sintra", "Padel", "Rua C", 38.7, -9.2, "Campo");
         entityManager.flush();
         entityManager.clear();
-        var first = repository.missingGpsReview("", PageRequest.of(0, 1));
-        var next = repository.missingGpsReview("", PageRequest.of(1, 1));
-        var last = repository.missingGpsReview("", PageRequest.of(2, 1));
+        var first = repository.missingGpsReview("", true, PageRequest.of(0, 1));
+        var next = repository.missingGpsReview("", true, PageRequest.of(1, 1));
+        var last = repository.missingGpsReview("", true, PageRequest.of(2, 1));
         assertEquals("A Com Morada", first.getContent().getFirst().getName());
         assertEquals("B Com Morada", next.getContent().getFirst().getName());
         assertEquals("Z Sem Morada", last.getContent().getFirst().getName());
@@ -177,7 +178,7 @@ class VenuePagedSearchRepositoryTest {
         assertFalse(last.hasNext());
         assertEquals(3, java.util.stream.Stream.of(first, next, last)
                 .flatMap(p -> p.getContent().stream()).map(Venue::getId).distinct().count());
-        assertEquals(0, repository.missingGpsReview("Porto", PageRequest.of(0, 20)).getContent().size());
+        assertEquals(0, repository.missingGpsReview("Porto", true, PageRequest.of(0, 20)).getContent().size());
     }
 
     @Test
@@ -192,13 +193,13 @@ class VenuePagedSearchRepositoryTest {
         entityManager.clear();
 
         var exact = repository.suggest("complexo desportivo de evora", "evora",
-                "atletismo", "", PageRequest.of(0, 36));
+                "atletismo", "", true, PageRequest.of(0, 36));
         assertEquals(1, exact.getContent().size());
         assertEquals("Complexo Desportivo de Évora", exact.getContent().getFirst().getName());
         assertEquals("Évora", exact.getContent().getFirst().getCity());
 
-        var first = repository.suggest("evora", "evora", "", "", PageRequest.of(0, 1));
-        var second = repository.suggest("evora", "evora", "", "", PageRequest.of(1, 1));
+        var first = repository.suggest("evora", "evora", "", "", true, PageRequest.of(0, 1));
+        var second = repository.suggest("evora", "evora", "", "", true, PageRequest.of(1, 1));
         assertEquals(1, first.getContent().size());
         assertEquals(1, second.getContent().size());
         assertNotEquals(first.getContent().getFirst().getId(), second.getContent().getFirst().getId());
@@ -213,7 +214,7 @@ class VenuePagedSearchRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        var swim = repository.suggest("", "evora", "natacao", "", PageRequest.of(0, 36));
+        var swim = repository.suggest("", "evora", "natacao", "", true, PageRequest.of(0, 36));
         assertEquals(1, swim.getContent().size());
         assertEquals("Piscina de Évora", swim.getContent().getFirst().getName());
 
@@ -229,6 +230,24 @@ class VenuePagedSearchRepositoryTest {
                 .address(address).latitude(latitude).longitude(longitude).venueType(type)
                 .informationSource(Venue.InformationSource.COMMUNITY)
                 .createdAt(Instant.now()).build());
+    }
+
+    @Test
+    void hidesAdultsOnlyVenuesFromSuggestionsAndSitemapUnlessAllowed() {
+        persist("Clube de Snooker", "Lisboa", "Snooker");
+        persist("Pavilhão do Bairro", "Lisboa", "Futsal");
+        entityManager.flush();
+        var snooker = repository.suggest("clube de snooker", "", "", "", true, PageRequest.of(0, 10))
+                .getContent().getFirst();
+        snooker.setAdultsOnly(true);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(repository.suggest("", "lisboa", "", "", false, PageRequest.of(0, 10)).getContent())
+                .extracting(Venue::getName).containsExactly("Pavilhão do Bairro");
+        assertThat(repository.suggest("", "lisboa", "", "", true, PageRequest.of(0, 10)).getContent())
+                .extracting(Venue::getName).contains("Clube de Snooker", "Pavilhão do Bairro");
+        assertThat(repository.findAllIdsForSitemap(PageRequest.of(0, 10))).doesNotContain(snooker.getId());
     }
 
     private void persist(String name, String city, String sports) {

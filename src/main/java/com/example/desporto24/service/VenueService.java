@@ -38,6 +38,7 @@ public class VenueService {
     private final VenueRepository venueRepository;
     private final ProfileRepository profileRepository;
     private final SessionDistanceCalculator distanceCalculator;
+    private final AdultVenueAccess adultVenueAccess;
 
     @Transactional(readOnly = true)
     public List<VenueResponse> search(String city, String sport) {
@@ -53,7 +54,9 @@ public class VenueService {
             validateGeoSearch(latitude, longitude, radiusKm);
             double radius = radiusKm == null ? 25.0 : radiusKm;
             // When coordinates are provided, the radius replaces the textual city filter.
+            boolean adult = adultVenueAccess.viewerIsAdult();
             return nearbyCandidates(latitude, longitude, radius).stream()
+                    .filter(venue -> adult || !venue.isAdultsOnly())
                     .filter(venue -> sportQuery == null
                             || (venue.getSports() != null && hasSport(venue.getSports(), sportQuery)))
                     .filter(venue -> venue.getLatitude() != null && venue.getLongitude() != null)
@@ -71,7 +74,9 @@ public class VenueService {
                 ? venueRepository.findAllByOrderByNameAsc()
                 : venueRepository.findByCityContainingIgnoreCaseOrderByNameAsc(cityQuery);
 
+        boolean adult = adultVenueAccess.viewerIsAdult();
         return venues.stream()
+                .filter(venue -> adult || !venue.isAdultsOnly())
                 .filter(venue -> sportQuery == null
                         || (venue.getSports() != null && hasSport(venue.getSports(), sportQuery)))
                 .map(this::toResponse)
@@ -95,6 +100,7 @@ public class VenueService {
                 escapeSearchPattern(normalizeSearchFilter(city)),
                 escapeSearchPattern(sportFilter),
                 ContinentalDistricts.normalizeFilter(district),
+                adultVenueAccess.viewerIsAdult(),
                 PageRequest.of(page, VENUE_SUGGEST_PAGE_SIZE));
         return new VenueSearchPageResponse(
                 venues.getContent().stream().map(this::toResponse).toList(),
@@ -129,7 +135,9 @@ public class VenueService {
         double latitude = ((Number) origin[0]).doubleValue();
         double longitude = ((Number) origin[1]).doubleValue();
         validateGeoSearch(latitude, longitude, radiusKm);
+        boolean adult = adultVenueAccess.viewerIsAdult();
         var candidates = nearbyCandidates(latitude, longitude, radiusKm).stream()
+                .filter(v -> adult || !v.isAdultsOnly())
                 // Never present the reference locality as a neighbouring locality.
                 .filter(v -> !normalizeSearchFilter(v.getCity()).equals(normalizedCity))
                 .filter(v -> v.getLatitude() != null && v.getLongitude() != null
@@ -225,7 +233,12 @@ public class VenueService {
 
     @Transactional(readOnly = true)
     public VenueResponse get(Long id) {
-        return toResponse(venue(id));
+        Venue venue = venue(id);
+        // A shared link must not reveal an adults-only venue to a visitor without an adult account.
+        if (venue.isAdultsOnly() && !adultVenueAccess.viewerIsAdult()) {
+            throw new IllegalArgumentException("Recinto não encontrado");
+        }
+        return toResponse(venue);
     }
 
     public List<VenueResponse> importOpenStreetMapVenues(
@@ -337,6 +350,7 @@ public class VenueService {
         venue.setAddress(normalizedAddress);
         venue.setSports(trimToNull(sports));
         venue.setVenueType(trimToNull(venueType));
+        if (AdultVenueAccess.detect(venue.getSports(), venue.getVenueType())) venue.setAdultsOnly(true);
         venue.setEnvironmentType(environmentType);
         venue.setIndoor(environmentType == Venue.EnvironmentType.INDOOR
                 || environmentType == Venue.EnvironmentType.BOTH);
@@ -400,6 +414,7 @@ public class VenueService {
                 .address(normalizedAddress)
                 .sports(trimToNull(request.sports()))
                 .venueType(trimToNull(request.venueType()))
+                .adultsOnly(AdultVenueAccess.detect(request.sports(), request.venueType()))
                 .ownershipType(request.ownershipType())
                 .surfaceType(trimToNull(request.surfaceType()))
                 .environmentType(request.environmentType())
@@ -504,7 +519,8 @@ public class VenueService {
                 venue.getDistrict(),
                 venue.getBookingUrl(),
                 venue.getFreeAccess(),
-                venue.getSourceReference()
+                venue.getSourceReference(),
+                venue.isAdultsOnly()
         );
     }
 

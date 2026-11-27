@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-27-venue-adults-only
+      author: jynlo
+      dbms: postgresql
+      runInTransaction: true
+      preConditions:
+        - onFail: MARK_RAN
+        - tableExists:
+            schemaName: desporto24
+            tableName: venue
+      changes:
+        - sqlFile:
+            path: 2026-11-27-venue-adults-only.sql
+            relativeToChangelogFile: true
+            encoding: UTF-8
+            splitStatements: true
+            endDelimiter: ;

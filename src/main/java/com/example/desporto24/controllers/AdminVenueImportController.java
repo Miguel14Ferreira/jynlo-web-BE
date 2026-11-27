@@ -15,6 +15,8 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,6 +45,20 @@ public class AdminVenueImportController {
     private volatile Instant snidImportStartedAt;
     private volatile Instant snidImportFinishedAt;
     private volatile SnidVenueImportData.ImportResult snidImportResult;
+
+    public record AdultsOnlyRequest(boolean adultsOnly) {}
+
+    /** Admins mark or unmark a venue as adults-only (snooker, darts, bars…). */
+    @PutMapping("/{id}/adults-only")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @org.springframework.transaction.annotation.Transactional
+    public Map<String, Object> setAdultsOnly(@PathVariable Long id, @RequestBody AdultsOnlyRequest request) {
+        var venue = venueRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Recinto não encontrado"));
+        venue.setAdultsOnly(request.adultsOnly());
+        venueRepository.save(venue);
+        return Map.of("id", venue.getId(), "adultsOnly", venue.isAdultsOnly());
+    }
 
     @GetMapping("/coverage")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")

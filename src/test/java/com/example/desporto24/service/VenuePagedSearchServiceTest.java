@@ -15,31 +15,32 @@ import static org.mockito.Mockito.*;
 class VenuePagedSearchServiceTest {
     private final VenueRepository repository = mock(VenueRepository.class);
     private final VenueService service = new VenueService(
-            repository, mock(ProfileRepository.class), mock(SessionDistanceCalculator.class));
+            repository, mock(ProfileRepository.class), mock(SessionDistanceCalculator.class),
+            mock(AdultVenueAccess.class));
 
     @Test
     void normalizesAccentsAndReturnsASmallPageInsteadOfReadingEverything() {
         Venue venue = Venue.builder().id(7L).name("Pavilhão da Estação")
                 .city("Lisboa").address("Rua A").sports("Futsal").build();
         when(repository.suggest("pavilhao", "estacao", "futsal", "",
-                PageRequest.of(1, 36)))
+                false, PageRequest.of(1, 36)))
                 .thenReturn(new SliceImpl<>(List.of(venue), PageRequest.of(1, 36), true));
         var page = service.suggest("PAVILHÃO", "Estação", "Futsal", 1);
 
         assertEquals(1, page.page());
         assertTrue(page.hasMore());
         assertEquals(List.of(7L), page.venues().stream().map(v -> v.id()).toList());
-        verify(repository).suggest("pavilhao", "estacao", "futsal", "", PageRequest.of(1, 36));
+        verify(repository).suggest("pavilhao", "estacao", "futsal", "", false, PageRequest.of(1, 36));
         verify(repository, never()).findAllByOrderByNameAsc();
     }
 
     @Test
     void treatsLikeWildcardsAsLiteralText() {
         when(repository.suggest("campo!_!%", "", "", "",
-                PageRequest.of(0, 36)))
+                false, PageRequest.of(0, 36)))
                 .thenReturn(new SliceImpl<>(List.of()));
         service.suggest("Campo_%", null, null, 0);
-        verify(repository).suggest("campo!_!%", "", "", "", PageRequest.of(0, 36));
+        verify(repository).suggest("campo!_!%", "", "", "", false, PageRequest.of(0, 36));
     }
 
     @Test
@@ -54,23 +55,23 @@ class VenuePagedSearchServiceTest {
 
     @Test
     void passesBothAutonomousRegionsToPaginatedRepositoryWithoutReadingAllVenues() {
-        when(repository.suggest("", "", "", "Açores", PageRequest.of(0, 36)))
+        when(repository.suggest("", "", "", "Açores", false, PageRequest.of(0, 36)))
                 .thenReturn(new SliceImpl<>(List.of()));
-        when(repository.suggest("", "", "", "Madeira", PageRequest.of(0, 36)))
+        when(repository.suggest("", "", "", "Madeira", false, PageRequest.of(0, 36)))
                 .thenReturn(new SliceImpl<>(List.of()));
         service.suggest(null, null, null, 0, "ACORES");
         service.suggest(null, null, null, 0, "madeira");
-        verify(repository).suggest("", "", "", "Açores", PageRequest.of(0, 36));
-        verify(repository).suggest("", "", "", "Madeira", PageRequest.of(0, 36));
+        verify(repository).suggest("", "", "", "Açores", false, PageRequest.of(0, 36));
+        verify(repository).suggest("", "", "", "Madeira", false, PageRequest.of(0, 36));
         verify(repository, never()).findAllByOrderByNameAsc();
     }
 
     @Test
     void normalizesAccentedDistrictAndFiltersInTheDatabase() {
-        when(repository.suggest("", "", "padel", "Évora", PageRequest.of(0, 36)))
+        when(repository.suggest("", "", "padel", "Évora", false, PageRequest.of(0, 36)))
                 .thenReturn(new SliceImpl<>(List.of()));
         service.suggest("", "", "Padel", 0, "ÉVORA");
-        verify(repository).suggest("", "", "padel", "Évora", PageRequest.of(0, 36));
+        verify(repository).suggest("", "", "padel", "Évora", false, PageRequest.of(0, 36));
         verify(repository, never()).findAllByOrderByNameAsc();
     }
 }

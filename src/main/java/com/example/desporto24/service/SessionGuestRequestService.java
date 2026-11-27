@@ -675,7 +675,9 @@ public class SessionGuestRequestService {
                 || session.getGameDate()==null
                 || !session.getGameDate().toInstant().isAfter(Instant.now())
                 || session.getStatus()==SessionStatus.CANCELLED
-                || session.getStatus()==SessionStatus.COMPLETED)
+                || session.getStatus()==SessionStatus.COMPLETED
+                // Guests without an account have no verified age: never at adults-only venues.
+                || (session.getVenue()!=null && session.getVenue().isAdultsOnly()))
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Ligação indisponível");
     }
     private void verifyToken(Session session,String token){

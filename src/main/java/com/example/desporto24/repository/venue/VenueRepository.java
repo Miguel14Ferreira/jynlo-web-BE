@@ -16,7 +16,7 @@ public interface VenueRepository extends JpaRepository<Venue, Long> {
     List<Venue> findAllByOrderByNameAsc();
 
     /** Ids only, for the public sitemap. */
-    @org.springframework.data.jpa.repository.Query("select v.id from Venue v order by v.id")
+    @org.springframework.data.jpa.repository.Query("select v.id from Venue v where v.adultsOnly = false order by v.id")
     List<Long> findAllIdsForSitemap(org.springframework.data.domain.Pageable page);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -41,6 +41,7 @@ public interface VenueRepository extends JpaRepository<Venue, Long> {
                     'áàâãäéèêëíìîïóòôõöúùûüç',
                     'aaaaaeeeeiiiiooooouuuuc')) LIKE CONCAT('%', :city, '%') ESCAPE '!')
              AND (:district = '' OR v.district = :district)
+             AND (:includeAdultsOnly = TRUE OR v.adultsOnly = FALSE)
              AND (:sport = '' OR
                   LOWER(FUNCTION('translate',
                     CONCAT(';', REPLACE(REPLACE(LOWER(COALESCE(v.sports, '')), ' ', ''), ',', ';'), ';'),
@@ -79,6 +80,7 @@ public interface VenueRepository extends JpaRepository<Venue, Long> {
             @Param("city") String city,
             @Param("sport") String sport,
             @Param("district") String district,
+            @Param("includeAdultsOnly") boolean includeAdultsOnly,
             Pageable pageable);
 
     /**
