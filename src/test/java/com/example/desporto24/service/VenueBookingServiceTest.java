@@ -1,5 +1,6 @@
 package com.example.desporto24.service;
 
+import com.example.desporto24.model.Profile;
 import com.example.desporto24.model.venue.*;
 import com.example.desporto24.register.Notifications.Notifications;
 import com.example.desporto24.repository.NotificationsRepository;
@@ -248,5 +249,44 @@ class VenueBookingServiceTest {
         when(bookings.findById(40L)).thenReturn(Optional.of(b));
         assertThrows(ResponseStatusException.class, () -> service.linkSession(40L, "maria", 3L));
         verify(bookings, never()).save(any());
+    }
+
+    private void profile(String username, String role) {
+        Profile p = new Profile();
+        p.setUsername(username);
+        p.setRole(role);
+        p.setEnabled(true);
+        p.setNotLocked(true);
+        when(profiles.findUserByUsernameIgnoreCase(username)).thenReturn(Optional.of(p));
+    }
+
+    @Test
+    void anAdminCanSetUpAVenueOnItsBehalfButNotDecideBookings() {
+        profile("equipa", "ROLE_ADMIN");
+        when(courts.findByVenueIdOrderByIdAsc(5L)).thenReturn(List.of(court));
+        assertDoesNotThrow(() -> service.managerOffer(5L, "equipa"));
+        assertDoesNotThrow(() -> service.venueRequests(5L, "equipa"));
+        VenueBookingService.ManagementStatus status = service.status(5L, "equipa");
+        assertFalse(status.manager());
+        assertTrue(status.adminSetup());
+        VenueBookingRequest b = new VenueBookingRequest();
+        b.setId(77L);
+        b.setVenueId(5L);
+        b.setStatus(VenueBookingRequest.Status.PENDING);
+        when(bookings.findById(77L)).thenReturn(Optional.of(b));
+        assertThrows(ResponseStatusException.class, () -> service.decide(77L, "equipa", true, null));
+    }
+
+    @Test
+    void aPlayerWhoIsNotAManagerCannotSetUpAVenue() {
+        profile("rui", "ROLE_USER");
+        assertThrows(ResponseStatusException.class, () -> service.managerOffer(5L, "rui"));
+        assertFalse(service.status(5L, "rui").adminSetup());
+    }
+
+    @Test
+    void aVenueSetUpByAnAdminOnlyAcceptsBookingsOnceItHasAManager() {
+        when(managers.findByVenueId(5L)).thenReturn(List.of());
+        assertFalse(service.accepts(5L));
     }
 }

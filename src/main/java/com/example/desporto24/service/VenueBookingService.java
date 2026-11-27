@@ -59,7 +59,9 @@ public class VenueBookingService {
 
     // ---- Views -------------------------------------------------------------------------
 
-    public record ManagementStatus(boolean manager, String claimStatus, String decisionNote, boolean acceptsBookings) {}
+    /** adminSetup: a Jynlo administrator who is not a manager may still set up courts, hours and payment for the venue. */
+    public record ManagementStatus(boolean manager, String claimStatus, String decisionNote, boolean acceptsBookings,
+                                   boolean adminSetup) {}
     public record ClaimView(Long id, Long venueId, String venueName, String venueCity, String username,
                             String roleDescription, String contactPhone, String status, Instant createdAt,
                             Instant decidedAt, String decidedBy, String decisionNote) {}
@@ -120,7 +122,8 @@ public class VenueBookingService {
         Optional<VenueOwnershipClaim> last = username == null ? Optional.empty()
                 : claims.findFirstByVenueIdAndUsernameIgnoreCaseOrderByCreatedAtDesc(venueId, username);
         return new ManagementStatus(manager, last.map(c -> c.getStatus().name()).orElse(null),
-                last.map(VenueOwnershipClaim::getDecisionNote).orElse(null), accepts(venueId));
+                last.map(VenueOwnershipClaim::getDecisionNote).orElse(null), accepts(venueId),
+                !manager && admin(username));
     }
 
     @Transactional(readOnly = true)
@@ -204,7 +207,7 @@ public class VenueBookingService {
 
     @Transactional(readOnly = true)
     public Offer managerOffer(Long venueId, String username) {
-        requireManager(venueId, username);
+        requireSetupAccess(venueId, username);
         Optional<VenuePaymentSetup> setup = paymentSetups.findById(venueId);
         return new Offer(venueId, accepts(venueId),
                 courts.findByVenueIdOrderByIdAsc(venueId).stream().map(VenueBookingService::courtView).toList(),
@@ -214,7 +217,7 @@ public class VenueBookingService {
 
     @Transactional
     public Offer saveCourts(Long venueId, String username, List<CourtInput> input) {
-        requireManager(venueId, username);
+        requireSetupAccess(venueId, username);
         List<CourtInput> list = input == null ? List.of() : input;
         if (list.size() > MAX_COURTS) throw bad("Podes ter até " + MAX_COURTS + " campos.");
         Map<Long, VenueCourt> existing = new HashMap<>();
@@ -261,7 +264,7 @@ public class VenueBookingService {
 
     @Transactional
     public Offer saveHours(Long venueId, String username, List<HoursInput> input) {
-        requireManager(venueId, username);
+        requireSetupAccess(venueId, username);
         List<HoursInput> list = input == null ? List.of() : input;
         Map<Integer, List<LocalTime[]>> byDay = new HashMap<>();
         List<VenueOpeningHours> rows = new ArrayList<>();
@@ -294,7 +297,7 @@ public class VenueBookingService {
     /** Manager: how players pay bookings. MBWAY needs a Portuguese mobile number; null clears it (pay at the venue). */
     @Transactional
     public Offer savePayment(Long venueId, String username, String method, String phone) {
-        requireManager(venueId, username);
+        requireSetupAccess(venueId, username);
         if (method == null || method.isBlank()) {
             if (paymentSetups.existsById(venueId)) paymentSetups.deleteById(venueId);
             return managerOffer(venueId, username);
@@ -508,7 +511,7 @@ public class VenueBookingService {
 
     @Transactional(readOnly = true)
     public List<BookingView> venueRequests(Long venueId, String username) {
-        requireManager(venueId, username);
+        requireSetupAccess(venueId, username);
         return bookings.findTop200ByVenueIdAndStartAtAfterOrderByStartAtAsc(venueId, Instant.now().minus(Duration.ofDays(1)))
                 .stream().map(this::bookingView).toList();
     }
@@ -631,6 +634,27 @@ public class VenueBookingService {
             events.publishEvent(new MobilePushDeliveryService.StoredNotification(
                     saved.getUsername(), saved.getId(), NotificationType.VENUE_BOOKING.name(), null, null, null, true));
         }
+    }
+
+    /**
+     * Courts, opening hours and payment can also be filled in by a Jynlo administrator, so the team can set a venue
+     * up on its behalf. Bookings still only open once the venue has an approved manager (see {@link #accepts}),
+     * and only managers confirm or decline requests.
+     */
+    private void requireSetupAccess(Long venueId, String username) {
+        venue(venueId);
+        if (username != null && (managers.existsByVenueIdAndUsernameIgnoreCase(venueId, username) || admin(username))) return;
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Só quem gere o recinto pode fazer isto.");
+    }
+
+    /** Checked in the database on each call, like AdminCurrentRoleGuard. */
+    private boolean admin(String username) {
+        if (username == null || username.isBlank()) return false;
+        return profiles.findUserByUsernameIgnoreCase(username)
+                .filter(p -> Boolean.TRUE.equals(p.getEnabled()) && Boolean.TRUE.equals(p.getNotLocked())
+                        && p.getModerationSuspendedAt() == null
+                        && ("ROLE_ADMIN".equals(p.getRole()) || "ROLE_SUPER_ADMIN".equals(p.getRole())))
+                .isPresent();
     }
 
     private void requireManager(Long venueId, String username) {
