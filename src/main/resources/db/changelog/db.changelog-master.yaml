@@ -600,3 +600,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-27-venue-online-payments.yaml
   - include:
       file: db/changelog/changes/2026-11-27-venue-player-block.yaml
+  - include:
+      file: db/changelog/changes/2026-11-27-venue-name-cleanup.yaml

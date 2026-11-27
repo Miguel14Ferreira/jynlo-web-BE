@@ -277,7 +277,7 @@ public class VenueService {
             String sports, String venueType, Venue.EnvironmentType environmentType,
             Double latitude, Double longitude, String district) {
         String normalizedSourceReference = requireText(sourceReference, "Referência externa obrigatória");
-        String normalizedName = requireText(name, "Nome do recinto obrigatório");
+        String normalizedName = cleanImportedName(requireText(name, "Nome do recinto obrigatório"));
         String normalizedCity = requireText(city, "Cidade do recinto obrigatória");
         String normalizedAddress = trimToNull(address);
 
@@ -579,5 +579,11 @@ public class VenueService {
         if (value == null) return null;
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /** Public map data sometimes prefixes names with a list number, e.g. "(11) Pavilhão…": drop it. */
+    static String cleanImportedName(String name) {
+        String cleaned = name.replaceFirst("^\\s*\\(\\d{1,4}\\)\\s*", "").strip();
+        return cleaned.isEmpty() ? name.strip() : cleaned;
     }
 }

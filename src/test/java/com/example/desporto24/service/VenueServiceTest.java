@@ -525,4 +525,11 @@ class VenueServiceTest {
                         longitude
                 );
     }
+
+    @org.junit.jupiter.api.Test
+    void importedNamesLoseTheirListNumber() {
+        org.junit.jupiter.api.Assertions.assertEquals("Pavilhão Municipal", VenueService.cleanImportedName("(11) Pavilhão Municipal"));
+        org.junit.jupiter.api.Assertions.assertEquals("Campo 5 de Outubro", VenueService.cleanImportedName("Campo 5 de Outubro"));
+        org.junit.jupiter.api.Assertions.assertEquals("(12)", VenueService.cleanImportedName("(12)"));
+    }
 }
