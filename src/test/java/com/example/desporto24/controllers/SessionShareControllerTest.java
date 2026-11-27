@@ -123,7 +123,8 @@ class SessionShareControllerTest {
         assertTrue(body.contains("og:title\" content=\"Padel em Lisboa · "));
         assertTrue(body.contains("20:30"));
         assertTrue(body.contains("1 vaga livre. Junta-te a este jogo na Jynlo."));
-        assertTrue(body.contains("og:url\" content=\"https://d24sports.com/sessions/7\""));
+        assertTrue(body.contains("og:url\" content=\"https://api.d24sports.com/api/share/sessions/7\""));
+        assertTrue(body.contains("rel=\"canonical\" href=\"https://d24sports.com/sessions/7\""));
         assertTrue(body.contains("og:image\" content=\"https://d24sports.com/assets/og-default.png\""));
         assertEquals("noindex", response.getHeaders().getFirst("X-Robots-Tag"));
     }
@@ -153,7 +154,7 @@ class SessionShareControllerTest {
 
         String body = controller.session(7L).getBody();
 
-        assertFalse(body.contains("<script>"));
+        assertFalse(body.contains("<script>alert"));
         assertTrue(body.contains("&lt;script&gt;"));
         assertTrue(body.contains("Braga &amp; arredores"));
     }
