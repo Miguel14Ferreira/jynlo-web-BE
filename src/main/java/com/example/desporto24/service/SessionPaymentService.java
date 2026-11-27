@@ -55,6 +55,8 @@ public class SessionPaymentService {
 
     public static final String MBWAY = "MBWAY";
     public static final String IN_PERSON = "IN_PERSON";
+    /** Paid inside Jynlo (MB WAY or card, through the organiser's Stripe account): marked paid on its own. */
+    public static final String ONLINE = "ONLINE";
     static final java.time.Duration REMINDER_GAP = java.time.Duration.ofHours(12);
 
     private final SessionRepository sessions;
@@ -71,6 +73,10 @@ public class SessionPaymentService {
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private org.springframework.context.ApplicationEventPublisher pushEvents;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    @org.springframework.context.annotation.Lazy
+    private com.example.desporto24.service.payment.OnlinePaymentService online;
 
     @Transactional(readOnly = true)
     public Payments get(Long sessionId, String username) {
@@ -90,8 +96,11 @@ public class SessionPaymentService {
             if (setups.existsById(sessionId)) setups.deleteById(sessionId);
             return view(access);
         }
-        if (!MBWAY.equals(method) && !IN_PERSON.equals(method)) {
+        if (!MBWAY.equals(method) && !IN_PERSON.equals(method) && !ONLINE.equals(method)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Forma de pagamento inválida");
+        }
+        if (ONLINE.equals(method) && (online == null || !online.organiserCanReceive(username))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ativa primeiro os pagamentos na app");
         }
         SessionPaymentSetup setup = setups.findById(sessionId).orElseGet(() -> {
             SessionPaymentSetup fresh = new SessionPaymentSetup();
@@ -126,14 +135,17 @@ public class SessionPaymentService {
                 .findAllById(players.stream().map(SessionParticipant::getId).toList())
                 .stream().collect(Collectors.toMap(SessionParticipantPayment::getParticipantId, Function.identity()));
         String amount = amountLabel(access.session().getPriceAmount());
-        String how = MBWAY.equals(setup.getMethod()) && setup.getMbwayPhone() != null
+        String how = ONLINE.equals(setup.getMethod()) ? " na app, por MB WAY ou cartão"
+                : MBWAY.equals(setup.getMethod()) && setup.getMbwayPhone() != null
                 ? " por MB WAY para " + setup.getMbwayPhone()
                 : " ao organizador";
         for (SessionParticipant player : players) {
             SessionParticipantPayment row = rows.get(player.getId());
             if (row != null && row.getConfirmedAt() != null) continue;
             notify(player.getProfile(), access.session(), "Falta pagar o jogo de " + sport(access.session()),
-                    "Paga " + amount + how + ". Quando pagares, marca \"Já paguei\" na sessão.");
+                    "Paga " + amount + how + (ONLINE.equals(setup.getMethod())
+                            ? ". Fica marcado como pago automaticamente."
+                            : ". Quando pagares, marca \"Já paguei\" na sessão."));
         }
         setup.setLastReminderAt(now);
         setups.save(setup);

@@ -61,6 +61,7 @@ public final class SecurityConstant {
             "/api/auth/mfa/confirm",
             "/api/auth/mfa/resend",
             "/api/client-errors",
+            "/api/payments/online/stripe-webhook",
             "/api/ideas/submit",
             "/api/ideas/submit-with-attachment",
             "/api/pilot/events/access",
