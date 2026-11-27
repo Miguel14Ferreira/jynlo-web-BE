@@ -56,6 +56,7 @@ public class VenueBookingService {
     private final NotificationsRepository notifications;
     private final NotificationPreferencesService preferences;
     private final ApplicationEventPublisher events;
+    private final com.example.desporto24.service.payment.VenueOnlinePaymentService onlinePayments;
 
     // ---- Views -------------------------------------------------------------------------
 
@@ -67,7 +68,7 @@ public class VenueBookingService {
                             Instant decidedAt, String decidedBy, String decisionNote) {}
     public record CourtView(Long id, String name, String sport, Integer priceCents, int slotMinutes, boolean active) {}
     public record HoursView(int dayOfWeek, String openTime, String closeTime) {}
-    /** paymentMethod: MBWAY or IN_PERSON (null = not set, pay at the venue); mbwayPhone only for its managers. */
+    /** paymentMethod: MBWAY, IN_PERSON or ONLINE (null = not set, pay at the venue); mbwayPhone only for its managers. */
     public record Offer(Long venueId, boolean acceptsBookings, List<CourtView> courts, List<HoursView> hours,
                         String paymentMethod, String mbwayPhone) {}
     public record Slot(Instant start, Instant end, boolean free) {}
@@ -302,8 +303,12 @@ public class VenueBookingService {
             if (paymentSetups.existsById(venueId)) paymentSetups.deleteById(venueId);
             return managerOffer(venueId, username);
         }
-        if (!SessionPaymentService.MBWAY.equals(method) && !SessionPaymentService.IN_PERSON.equals(method)) {
+        if (!SessionPaymentService.MBWAY.equals(method) && !SessionPaymentService.IN_PERSON.equals(method)
+                && !SessionPaymentService.ONLINE.equals(method)) {
             throw bad("Forma de pagamento inválida");
+        }
+        if (SessionPaymentService.ONLINE.equals(method) && !onlinePayments.venueCanReceive(venueId)) {
+            throw conflict("Ativa primeiro os pagamentos automáticos com a conta Stripe do recinto.");
         }
         VenuePaymentSetup setup = paymentSetups.findById(venueId).orElseGet(() -> {
             VenuePaymentSetup fresh = new VenuePaymentSetup();
@@ -641,7 +646,7 @@ public class VenueBookingService {
      * up on its behalf. Bookings still only open once the venue has an approved manager (see {@link #accepts}),
      * and only managers confirm or decline requests.
      */
-    private void requireSetupAccess(Long venueId, String username) {
+    public void requireSetupAccess(Long venueId, String username) {
         venue(venueId);
         if (username != null && (managers.existsByVenueIdAndUsernameIgnoreCase(venueId, username) || admin(username))) return;
         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Só quem gere o recinto pode fazer isto.");
@@ -657,7 +662,7 @@ public class VenueBookingService {
                 .isPresent();
     }
 
-    private void requireManager(Long venueId, String username) {
+    public void requireManager(Long venueId, String username) {
         venue(venueId);
         if (username == null || !managers.existsByVenueIdAndUsernameIgnoreCase(venueId, username)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Só quem gere o recinto pode fazer isto.");

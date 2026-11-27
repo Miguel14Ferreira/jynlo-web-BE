@@ -14,6 +14,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class VenueBookingController {
     private final VenueBookingService service;
+    private final com.example.desporto24.service.payment.VenueOnlinePaymentService onlinePayments;
 
     public record ClaimRequest(String roleDescription, String contactPhone) {}
     public record BookingRequestBody(Long courtId, String startAt, Long sessionId, String note) {}
@@ -77,6 +78,25 @@ public class VenueBookingController {
     @PutMapping("/venues/{id}/management/payment")
     public Offer savePayment(@PathVariable Long id, @RequestBody(required = false) PaymentSetupBody body, Authentication auth) {
         return service.savePayment(id, auth.getName(), body == null ? null : body.method(), body == null ? null : body.phone());
+    }
+
+    /** Automatic payments: is the venue's own Stripe account connected and able to receive? */
+    @GetMapping("/venues/{id}/management/online-payments")
+    public com.example.desporto24.service.payment.VenueOnlinePaymentService.Status onlineStatus(@PathVariable Long id, Authentication auth) {
+        service.requireSetupAccess(id, auth.getName());
+        return onlinePayments.status(id);
+    }
+
+    /** Only a real manager opens the venue's Stripe sign-up (an admin cannot sign a company up). */
+    @PostMapping("/venues/{id}/management/online-payments/onboarding")
+    public com.example.desporto24.service.payment.OnlinePaymentService.Link onlineOnboarding(@PathVariable Long id, Authentication auth) {
+        service.requireManager(id, auth.getName());
+        return onlinePayments.onboarding(id, auth.getName());
+    }
+
+    @PostMapping("/venue-bookings/{id}/checkout")
+    public com.example.desporto24.service.payment.OnlinePaymentService.Link checkout(@PathVariable Long id, Authentication auth) {
+        return onlinePayments.checkout(id, auth.getName());
     }
 
     @PostMapping("/venue-bookings/{id}/paid")

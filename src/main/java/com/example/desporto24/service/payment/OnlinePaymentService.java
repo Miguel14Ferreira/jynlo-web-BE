@@ -45,6 +45,7 @@ public class OnlinePaymentService {
     private final SessionParticipantPaymentRepository participantPayments;
     private final SessionPaymentSetupRepository setups;
     private final ProfileRepository profiles;
+    private final VenueOnlinePaymentService venuePayments;
     private final String siteUrl;
 
     public OnlinePaymentService(StripeClient stripe, StripeConnectedAccountRepository accounts,
@@ -52,6 +53,7 @@ public class OnlinePaymentService {
                                 SessionParticipantRepository participants,
                                 SessionParticipantPaymentRepository participantPayments,
                                 SessionPaymentSetupRepository setups, ProfileRepository profiles,
+                                VenueOnlinePaymentService venuePayments,
                                 @Value("${desporto.public-site-url:https://jynlosports.com}") String siteUrl) {
         this.stripe = stripe;
         this.accounts = accounts;
@@ -61,6 +63,7 @@ public class OnlinePaymentService {
         this.participantPayments = participantPayments;
         this.setups = setups;
         this.profiles = profiles;
+        this.venuePayments = venuePayments;
         this.siteUrl = siteUrl.replaceAll("/+$", "");
     }
 
@@ -144,13 +147,19 @@ public class OnlinePaymentService {
         switch (type) {
             case "checkout.session.completed", "checkout.session.async_payment_succeeded" -> {
                 if (!"paid".equals(object.path("payment_status").asText())) return;
-                markPaid(object.path("id").asText(), event.path("account").asText(null));
+                String checkoutId = object.path("id").asText();
+                String account = event.path("account").asText(null);
+                if (!venuePayments.markPaid(checkoutId, account)) markPaid(checkoutId, account);
             }
-            case "account.updated" -> accounts.findByStripeAccountId(object.path("id").asText()).ifPresent(a -> {
-                a.setChargesEnabled(object.path("charges_enabled").asBoolean(false));
-                a.setUpdatedAt(Instant.now());
-                accounts.save(a);
-            });
+            case "account.updated" -> {
+                boolean enabled = object.path("charges_enabled").asBoolean(false);
+                accounts.findByStripeAccountId(object.path("id").asText()).ifPresent(a -> {
+                    a.setChargesEnabled(enabled);
+                    a.setUpdatedAt(Instant.now());
+                    accounts.save(a);
+                });
+                venuePayments.accountUpdated(object.path("id").asText(), enabled);
+            }
             default -> { /* not used */ }
         }
     }

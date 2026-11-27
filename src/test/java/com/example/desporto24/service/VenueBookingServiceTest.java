@@ -35,8 +35,10 @@ class VenueBookingServiceTest {
     private final NotificationsRepository notifications = mock(NotificationsRepository.class);
     private final NotificationPreferencesService preferences = mock(NotificationPreferencesService.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+    private final com.example.desporto24.service.payment.VenueOnlinePaymentService venueOnline =
+            mock(com.example.desporto24.service.payment.VenueOnlinePaymentService.class);
     private final VenueBookingService service = new VenueBookingService(venues, claims, managers, courts, hours,
-            bookings, paymentSetups, profiles, sessions, sessionCourts, notifications, preferences, events);
+            bookings, paymentSetups, profiles, sessions, sessionCourts, notifications, preferences, events, venueOnline);
 
     private VenueCourt court;
     private LocalDate tomorrow;
@@ -181,6 +183,14 @@ class VenueBookingServiceTest {
                 List.of(new VenueBookingService.HoursInput(1, "9h", "12:00"))));
         assertThrows(ResponseStatusException.class, () -> service.saveHours(5L, "rui",
                 List.of(new VenueBookingService.HoursInput(1, "09:00", "12:00"))));
+    }
+
+    @Test
+    void automaticPaymentsNeedTheVenuesOwnStripeAccount() {
+        assertThrows(ResponseStatusException.class, () -> service.savePayment(5L, "ana", "ONLINE", null));
+        when(venueOnline.venueCanReceive(5L)).thenReturn(true);
+        service.savePayment(5L, "ana", "ONLINE", null);
+        verify(paymentSetups).save(argThat(p -> "ONLINE".equals(p.getMethod()) && p.getMbwayPhone() == null));
     }
 
     @Test

@@ -596,3 +596,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-27-online-payments.yaml
   - include:
       file: db/changelog/changes/2026-11-27-post-game-payment-reminder.yaml
+  - include:
+      file: db/changelog/changes/2026-11-27-venue-online-payments.yaml

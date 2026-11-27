@@ -26,7 +26,8 @@ class OnlinePaymentServiceTest {
     private final SessionParticipantPaymentRepository participantPayments = mock(SessionParticipantPaymentRepository.class);
     private final OnlinePaymentService service = new OnlinePaymentService(stripe, accounts, online,
             mock(SessionRepository.class), mock(SessionParticipantRepository.class), participantPayments,
-            mock(SessionPaymentSetupRepository.class), mock(ProfileRepository.class), "https://jynlosports.com/");
+            mock(SessionPaymentSetupRepository.class), mock(ProfileRepository.class),
+            mock(VenueOnlinePaymentService.class), "https://jynlosports.com/");
 
     private SessionOnlinePayment pending() {
         SessionOnlinePayment row = new SessionOnlinePayment();
