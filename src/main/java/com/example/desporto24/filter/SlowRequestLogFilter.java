@@ -22,6 +22,8 @@ import java.io.IOException;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class SlowRequestLogFilter extends OncePerRequestFilter {
     static final long SLOW_MS = 1500;
+    /** Path words that are followed by a username. */
+    private static final java.util.Set<String> USER_SEGMENT_BEFORE = java.util.Set.of("me", "profiles", "players", "users", "user", "members");
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -45,8 +47,9 @@ public class SlowRequestLogFilter extends OncePerRequestFilter {
         for (int i = 0; i < parts.length; i++) {
             String part = parts[i];
             if (i > 0) out.append('/');
+            String previous = i > 0 ? parts[i - 1] : "";
             if (part.matches("\\d+")) out.append("{n}");
-            else if (i >= 4 && !part.matches("[a-z-]+")) out.append("{x}");
+            else if (USER_SEGMENT_BEFORE.contains(previous) || (i >= 4 && !part.matches("[a-z-]+"))) out.append("{x}");
             else out.append(part);
         }
         return out.length() > 160 ? out.substring(0, 160) : out.toString();
