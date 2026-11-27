@@ -26,6 +26,7 @@ import java.util.Map;
 /** Durable, read-only receipt lookup; never resends the original push notification. */
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class MobilePushReceiptPoller {
     private static final URI RECEIPTS = URI.create("https://exp.host/--/api/v2/push/getReceipts");
     private static final Duration MAX_AGE = Duration.ofHours(24);
@@ -113,6 +114,12 @@ public class MobilePushReceiptPoller {
         for(var item:due){
             try {
                 JsonNode receipt=results.path(item.getTicketId());
+                if ("error".equals(receipt.path("status").asText(""))) {
+                    // Only Expo's error code (e.g. InvalidCredentials), never tokens or message data.
+                    log.warn("JYNLO_PUSH_RECEIPT_ERROR code={}", MobilePushDeliveryService.safeCode(receipt.path("details").path("error").asText("")));
+                } else if ("ok".equals(receipt.path("status").asText(""))) {
+                    log.info("JYNLO_PUSH_RECEIPT_OK");
+                }
                 switch (MobilePushReceiptPolicy.classify(receipt)) {
                     case CONFIRMED, FAILED -> receipts.delete(item);
                     case REVOKE_DEVICE -> {

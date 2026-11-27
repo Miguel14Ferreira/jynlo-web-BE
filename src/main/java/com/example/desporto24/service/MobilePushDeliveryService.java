@@ -26,6 +26,7 @@ import java.util.Map;
  */
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class MobilePushDeliveryService {
     private static final URI EXPO_SEND = URI.create("https://exp.host/--/api/v2/push/send");
     private final MobilePushDeviceRepository devices;
@@ -161,7 +162,10 @@ public class MobilePushDeliveryService {
                     .header("Authorization", "Bearer " + accessToken)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(body)).build();
             var response = http.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() != 200) return;
+            if (response.statusCode() != 200) {
+                log.warn("JYNLO_PUSH_SEND_HTTP status={}", response.statusCode());
+                return;
+            }
             JsonNode tickets = json.readTree(response.body()).path("data");
             JsonNode ticket = tickets.isArray() && !tickets.isEmpty() ? tickets.get(0) : tickets;
             if ("ok".equals(ticket.path("status").asText())) {
@@ -177,16 +181,34 @@ public class MobilePushDeliveryService {
                     receipts.save(pending);
                 }
             }
+            if ("error".equals(ticket.path("status").asText())) {
+                log.warn("JYNLO_PUSH_TICKET_ERROR code={}", safeCode(ticket.path("details").path("error").asText("")));
+            }
             if ("error".equals(ticket.path("status").asText())
                     && "DeviceNotRegistered".equals(ticket.path("details").path("error").asText())) {
                 devices.findByPushToken(token).ifPresent(devices::delete);
             }
             // Expo receipt collection and permanent-error handling are a separate
             // required step before treating push delivery as production-ready.
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.warn("JYNLO_PUSH_SEND_FAILED type={}", e.getClass().getSimpleName());
             // Push delivery must never make a successful notification transaction fail.
             // Do not log tokens, external errors or private message metadata.
         }
+    }
+
+    /** Expo error codes are short words; anything else is not logged. */
+    static String safeCode(String code) {
+        return code != null && code.matches("[A-Za-z]{1,40}") ? code : "unknown";
+    }
+
+    /** One line at start-up so a missing setting is visible in the logs (never the token itself). */
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    public void logConfiguration() {
+        long registered = -1;
+        try { registered = devices.count(); } catch (Exception ignored) { /* the line still says if push is on */ }
+        log.info("JYNLO_PUSH_CONFIG enabled={} accessTokenSet={} registeredDevices={}",
+                enabled, accessToken != null && !accessToken.isBlank(), registered);
     }
 
     /**
