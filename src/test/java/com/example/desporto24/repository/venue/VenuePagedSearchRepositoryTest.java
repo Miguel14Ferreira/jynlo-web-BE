@@ -167,9 +167,9 @@ class VenuePagedSearchRepositoryTest {
         persistWithInfo("C Com GPS", "Sintra", "Padel", "Rua C", 38.7, -9.2, "Campo");
         entityManager.flush();
         entityManager.clear();
-        var first = repository.missingGpsReview("", true, PageRequest.of(0, 1));
-        var next = repository.missingGpsReview("", true, PageRequest.of(1, 1));
-        var last = repository.missingGpsReview("", true, PageRequest.of(2, 1));
+        var first = repository.missingGpsReview("", PageRequest.of(0, 1));
+        var next = repository.missingGpsReview("", PageRequest.of(1, 1));
+        var last = repository.missingGpsReview("", PageRequest.of(2, 1));
         assertEquals("A Com Morada", first.getContent().getFirst().getName());
         assertEquals("B Com Morada", next.getContent().getFirst().getName());
         assertEquals("Z Sem Morada", last.getContent().getFirst().getName());
@@ -178,7 +178,7 @@ class VenuePagedSearchRepositoryTest {
         assertFalse(last.hasNext());
         assertEquals(3, java.util.stream.Stream.of(first, next, last)
                 .flatMap(p -> p.getContent().stream()).map(Venue::getId).distinct().count());
-        assertEquals(0, repository.missingGpsReview("Porto", true, PageRequest.of(0, 20)).getContent().size());
+        assertEquals(0, repository.missingGpsReview("Porto", PageRequest.of(0, 20)).getContent().size());
     }
 
     @Test
