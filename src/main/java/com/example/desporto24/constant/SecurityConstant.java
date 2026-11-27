@@ -33,6 +33,7 @@ public final class SecurityConstant {
             // Link-preview page for chat and social crawlers; same data as public-preview.
             "/api/share/sessions/*",
             "/api/public/sitemap.xml",
+            "/api/public/venues/prerender",
             "/api/share/communities/*",
             "/api/share/profiles/*",
             "/api/venues",

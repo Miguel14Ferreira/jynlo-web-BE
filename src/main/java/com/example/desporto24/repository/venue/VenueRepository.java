@@ -19,6 +19,10 @@ public interface VenueRepository extends JpaRepository<Venue, Long> {
     @org.springframework.data.jpa.repository.Query("select v.id from Venue v where v.adultsOnly = false order by v.id")
     List<Long> findAllIdsForSitemap(org.springframework.data.domain.Pageable page);
 
+    /** Every public venue, for the pre-built pages search engines read. */
+    @org.springframework.data.jpa.repository.Query("select v from Venue v where v.adultsOnly = false order by v.id")
+    List<com.example.desporto24.model.venue.Venue> findAllForPrerender(org.springframework.data.domain.Pageable page);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT v FROM Venue v WHERE v.id = :id")
     Optional<Venue> findForEditReview(@Param("id") Long id);

@@ -56,6 +56,24 @@ public class SitemapController {
                 .body(xml.toString());
     }
 
+    /** What a pre-built venue page shows: public facts only (no contacts of people, no managers). */
+    public record PrerenderVenue(Long id, String name, String city, String district, String address, String sports,
+                                 String venueType, String surfaceType, String environment, Double latitude, Double longitude,
+                                 String openingHours, String priceInfo, boolean parking, boolean lighting, String bookingUrl) {}
+
+    /** Read at build time by the website to write one ready-made page per venue for search engines. */
+    @GetMapping("/api/public/venues/prerender")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public ResponseEntity<List<PrerenderVenue>> prerenderVenues() {
+        List<PrerenderVenue> list = venues.findAllForPrerender(PageRequest.of(0, MAX_VENUES)).stream()
+                .map(v -> new PrerenderVenue(v.getId(), v.getName(), v.getCity(), v.getDistrict(), v.getAddress(), v.getSports(),
+                        v.getVenueType(), v.getSurfaceType(), v.getEnvironmentType() == null ? null : v.getEnvironmentType().name(),
+                        v.getLatitude(), v.getLongitude(), v.getOpeningHours(), v.getPriceInfo(), v.isParking(), v.isLighting(),
+                        v.getBookingUrl()))
+                .toList();
+        return ResponseEntity.ok().cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic()).body(list);
+    }
+
     private static void url(StringBuilder xml, String loc, String changefreq, String priority) {
         xml.append("  <url><loc>").append(loc).append("</loc><changefreq>").append(changefreq)
                 .append("</changefreq><priority>").append(priority).append("</priority></url>\n");

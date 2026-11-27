@@ -30,4 +30,20 @@ class SitemapControllerTest {
         assertEquals(8, xml.split("<url>").length - 1);
         assertTrue(response.getHeaders().getCacheControl().contains("max-age=21600"));
     }
+
+    @Test
+    void prerenderListGivesPublicFactsOfEachVenue() {
+        VenueRepository venues = mock(VenueRepository.class);
+        com.example.desporto24.model.venue.Venue v = new com.example.desporto24.model.venue.Venue();
+        v.setId(5L);
+        v.setName("Clube Padel Lisboa");
+        v.setCity("Lisboa");
+        v.setSports("Padel");
+        when(venues.findAllForPrerender(PageRequest.of(0, SitemapController.MAX_VENUES))).thenReturn(List.of(v));
+
+        var list = new SitemapController(venues, "https://jynlosports.com").prerenderVenues().getBody();
+        assertEquals(1, list.size());
+        assertEquals("Clube Padel Lisboa", list.get(0).name());
+        assertEquals("Padel", list.get(0).sports());
+    }
 }
