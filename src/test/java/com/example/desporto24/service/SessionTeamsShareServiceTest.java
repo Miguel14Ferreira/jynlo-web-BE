@@ -45,6 +45,8 @@ class SessionTeamsShareServiceTest {
         var page = service.page(9L, link.token());
         assertEquals(List.of("Vasquinho"), page.teamA().stream().map(SessionTeamsShareService.Player::name).toList());
         assertEquals(List.of("@tmf14"), page.teamB().stream().map(SessionTeamsShareService.Player::name).toList());
+        assertEquals("tmf14", page.teamB().get(0).username());
+        assertNull(page.teamA().get(0).username(), "players without an account have no handle");
         assertThrows(ResponseStatusException.class, () -> service.page(9L, "errado"));
     }
 
