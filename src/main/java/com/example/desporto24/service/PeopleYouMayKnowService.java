@@ -52,6 +52,6 @@ public class PeopleYouMayKnowService {
             List<String> names = via == null ? List.of() : new ArrayList<>(Arrays.asList(via.split(",")));
             return new Suggestion(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4),
                     rs.getInt(5), names.subList(0, Math.min(2, names.size())));
-        }, viewer, size);
+        }, viewer, size).stream().filter(suggestion -> !QaAccounts.isHidden(suggestion.username())).toList();
     }
 }

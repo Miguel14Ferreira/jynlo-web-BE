@@ -421,22 +421,15 @@ public class ProfileServiceImpl implements ProfileService {
                 )
                 .stream()
                 .filter(profile -> !blockedProfileIds.contains(profile.getId()))
+                .filter(profile -> !isQaDiscoveryAccount(profile))
                 .filter(profile -> matchesAge(profile, minAge, maxAge))
                 .limit(50)
                 .map(this::toPublicProfile)
                 .toList();
     }
 
-    // These two accounts are retained for end-to-end QA; they must not
-    // appear in automated public player discovery. Explicit profile links
-    // and login remain available so test workflows are not disrupted.
-    private static final Set<String> NON_DISCOVERABLE_QA_USERNAMES =
-            Set.of("jynloteste01", "jynloteste02");
-
     private boolean isQaDiscoveryAccount(Profile candidate) {
-        return candidate.getUsername() != null
-                && NON_DISCOVERABLE_QA_USERNAMES.contains(
-                        candidate.getUsername().trim().toLowerCase(Locale.ROOT));
+        return com.example.desporto24.service.QaAccounts.isHidden(candidate.getUsername());
     }
 
     @Override
