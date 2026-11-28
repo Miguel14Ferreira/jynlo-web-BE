@@ -29,7 +29,7 @@ public class SessionGuestTeamBalancer {
 
     public SessionTeamSuggestionResponse suggest(Session session,List<SessionParticipant> registered,
                                                  List<SessionGuestRequest> guests) {
-        Long communityId=session.getCommunity().getId();
+        Long communityId=TeamBalancingSportPolicy.rankingCommunity(session).getId();
         var archive=archives.findFirstByCommunityIdAndEntryTypeOrderByCreatedAtDescIdDesc(
                 communityId,"INDIVIDUAL").orElseThrow(()->new ResponseStatusException(
                 HttpStatus.CONFLICT,"Importa primeiro uma classificação individual Excel"));

@@ -59,6 +59,19 @@ class TeamBalancingSportPolicyTest {
         assertFalse(TeamBalancingSportPolicy.isEligibleWithGuests(session, 8),
                 "an anonymous extra seat still blocks balanced teams");
     }
+
+    @Test
+    void aSeasonGameFromMyCommunitiesUsesTheSeasonCommunityTable() {
+        Session session = new Session();
+        session.setSport("Futebol");
+        session.setMaxParticipants(10);
+        Community group = mock(Community.class);
+        session.setSeasonCompetition(com.example.desporto24.model.community.CommunitySeason.builder().community(group).active(true).build());
+        assertSame(group, TeamBalancingSportPolicy.rankingCommunity(session));
+        assertTrue(TeamBalancingSportPolicy.isEligible(session));
+        session.setExternalConfirmedParticipants(9);
+        assertTrue(TeamBalancingSportPolicy.isEligibleWithGuests(session, 9));
+    }
     @Test
     void explicitDoublesSupportsFourPlayersNotSixOrSingles() {
         for (String sport : new String[]{"Padel", "Ténis", "Badminton",

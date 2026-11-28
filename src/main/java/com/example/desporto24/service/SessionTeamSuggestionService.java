@@ -135,7 +135,7 @@ public class SessionTeamSuggestionService {
         if (session.getProfile() == null || !session.getProfile().getId().equals(actor.getId())) {
             throw new AccessDeniedException("Só o criador pode gerar equipas");
         }
-        if (session.getCommunity() == null
+        if (TeamBalancingSportPolicy.rankingCommunity(session) == null
                 && !"RANDOM".equals(source) && !"MANUAL".equals(source)) {
             throw new IllegalStateException("É necessária uma comunidade para equilibrar por classificação");
         }
@@ -178,7 +178,7 @@ public class SessionTeamSuggestionService {
         // Automatically use the selected community's active season, falling back to
         // an existing imported ranking only when that season has no recorded results.
         // Never mix historic rounds into the active season's player strength.
-        Long communityId = session.getCommunity().getId();
+        Long communityId = TeamBalancingSportPolicy.rankingCommunity(session).getId();
         var activeSeason = seasonRepository.findByCommunityIdAndActiveTrueOrderByCreatedAtDesc(communityId)
                 .stream().filter(season -> season.getSport() == null
                         || season.getSport().equalsIgnoreCase(session.getSport()))

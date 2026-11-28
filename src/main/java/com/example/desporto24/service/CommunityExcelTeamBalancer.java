@@ -47,7 +47,7 @@ public class CommunityExcelTeamBalancer {
     private final CommunityPlayerRepository communityPlayers;
 
     public SessionTeamSuggestionResponse suggest(Session session, List<SessionParticipant> confirmed) {
-        Long communityId = session.getCommunity().getId();
+        Long communityId = TeamBalancingSportPolicy.rankingCommunity(session).getId();
         CommunityStandingsArchive archive = archives
                 .findFirstByCommunityIdAndEntryTypeOrderByCreatedAtDescIdDesc(communityId, "INDIVIDUAL")
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,

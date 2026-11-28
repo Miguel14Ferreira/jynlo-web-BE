@@ -23,6 +23,16 @@ public final class TeamBalancingSportPolicy {
 
     private TeamBalancingSportPolicy() {}
 
+    /**
+     * The community whose table balances this game. Games created from "Jogo para as minhas comunidades"
+     * keep the community on the season ("Jogo de época") rather than on the game itself.
+     */
+    public static com.example.desporto24.model.community.Community rankingCommunity(Session session) {
+        if (session == null) return null;
+        if (session.getCommunity() != null) return session.getCommunity();
+        return session.getSeasonCompetition() == null ? null : session.getSeasonCompetition().getCommunity();
+    }
+
     public static boolean isKnownTeamSport(String sport) {
         return TEAM_SPORTS.contains(sport);
     }
@@ -39,12 +49,12 @@ public final class TeamBalancingSportPolicy {
         if (session == null) return false;
         int external = session.getExternalConfirmedParticipants() == null ? 0 : session.getExternalConfirmedParticipants();
         if (external > Math.max(0, identifiedGuests)) return false;
-        return isEligible(session, true) && session.getCommunity() != null;
+        return isEligible(session, true) && rankingCommunity(session) != null;
     }
 
     /** Random teams may include approved named guests; ranked teams keep their existing restrictions. */
     public static boolean isEligible(Session session, boolean allowExternal) {
-        if (session == null || (!allowExternal && session.getCommunity() == null) ||
+        if (session == null || (!allowExternal && rankingCommunity(session) == null) ||
                 session.getMaxParticipants() == null ||
                 (!allowExternal && session.getExternalConfirmedParticipants() != null &&
                         session.getExternalConfirmedParticipants() > 0)) {

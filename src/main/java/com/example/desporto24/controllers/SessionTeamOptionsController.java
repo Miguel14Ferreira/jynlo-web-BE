@@ -55,15 +55,15 @@ public class SessionTeamOptionsController {
                 || !Objects.equals(session.getProfile().getId(), actor.getId())) {
             throw new AccessDeniedException("Só o organizador pode consultar as opções de equipas");
         }
-        if (session.getCommunity() == null) {
-            return new TeamOptions(false, false, false);
-        }
         boolean random = TeamBalancingSportPolicy.isEligible(session, true);
+        if (TeamBalancingSportPolicy.rankingCommunity(session) == null) {
+            return new TeamOptions(random, false, false);
+        }
         boolean ranked = TeamBalancingSportPolicy.isEligible(session, false)
                 || (guestRequests != null && TeamBalancingSportPolicy.isEligibleWithGuests(session,
                 (int) guestRequests.countBySessionIdAndStatus(session.getId(),
                         com.example.desporto24.model.session.SessionGuestRequest.State.APPROVED)));
-        Long communityId = session.getCommunity().getId();
+        Long communityId = TeamBalancingSportPolicy.rankingCommunity(session).getId();
         if (!ranked) return new TeamOptions(random, false, false);
 
         boolean hasCommunityResults = rounds.existsByRoundCommunityId(communityId);
