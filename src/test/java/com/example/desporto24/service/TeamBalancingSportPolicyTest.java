@@ -53,6 +53,11 @@ class TeamBalancingSportPolicyTest {
         session.setExternalConfirmedParticipants(1);
         assertFalse(TeamBalancingSportPolicy.isEligible(session),
                 "external confirmed players cannot be assigned to a Jynlo team");
+        session.setExternalConfirmedParticipants(9);
+        assertTrue(TeamBalancingSportPolicy.isEligibleWithGuests(session, 9),
+                "players who confirmed through the WhatsApp link are named and can be balanced");
+        assertFalse(TeamBalancingSportPolicy.isEligibleWithGuests(session, 8),
+                "an anonymous extra seat still blocks balanced teams");
     }
     @Test
     void explicitDoublesSupportsFourPlayersNotSixOrSingles() {

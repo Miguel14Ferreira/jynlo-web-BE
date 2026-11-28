@@ -33,6 +33,9 @@ public class SessionTeamOptionsController {
     private final ProfileRepository profiles;
     private final CommunityRoundEntryRepository rounds;
     private final CommunityStandingsArchiveRepository archives;
+    /** Optional so tests can build the controller without it. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.session.SessionGuestRequestRepository guestRequests;
 
     public record TeamOptions(boolean randomAvailable,
                               boolean communityRankingAvailable,
@@ -56,7 +59,10 @@ public class SessionTeamOptionsController {
             return new TeamOptions(false, false, false);
         }
         boolean random = TeamBalancingSportPolicy.isEligible(session, true);
-        boolean ranked = TeamBalancingSportPolicy.isEligible(session, false);
+        boolean ranked = TeamBalancingSportPolicy.isEligible(session, false)
+                || (guestRequests != null && TeamBalancingSportPolicy.isEligibleWithGuests(session,
+                (int) guestRequests.countBySessionIdAndStatus(session.getId(),
+                        com.example.desporto24.model.session.SessionGuestRequest.State.APPROVED)));
         Long communityId = session.getCommunity().getId();
         if (!ranked) return new TeamOptions(random, false, false);
 

@@ -27,6 +27,10 @@ public class SessionViewMapper {
     private final SessionWaitlistRepository waitlistRepository;
     private final VenueService venueService;
 
+    /** Optional so tests can build the mapper without it: named WhatsApp guests may be balanced. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.session.SessionGuestRequestRepository guestRequests;
+
     /** Optional so tests can build the mapper without payments. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.repository.session.SessionPaymentSetupRepository paymentSetups;
@@ -176,7 +180,11 @@ public class SessionViewMapper {
                         ? com.example.desporto24.enumeration.RegistrationOpeningMode.IMMEDIATE
                         : session.getRegistrationOpeningMode(),
                 session.getRegistrationOpensAt(),
-                TeamBalancingSportPolicy.isEligible(session),
+                TeamBalancingSportPolicy.isEligible(session)
+                        || (guestRequests != null && session.getId() != null
+                        && TeamBalancingSportPolicy.isEligibleWithGuests(session, (int) guestRequests
+                        .countBySessionIdAndStatus(session.getId(),
+                                com.example.desporto24.model.session.SessionGuestRequest.State.APPROVED))),
                 session.getPlayFormat(),
                 // This may specify an entry gate, so keep it private just like
                 // the precise street and nested venue GPS coordinates.

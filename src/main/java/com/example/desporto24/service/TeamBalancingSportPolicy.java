@@ -31,6 +31,17 @@ public final class TeamBalancingSportPolicy {
         return isEligible(session, false);
     }
 
+    /**
+     * Ranked balance with players confirmed through the WhatsApp guest link: those seats are counted as
+     * "external" but are named and tied to the community table. Only anonymous extra seats block balance.
+     */
+    public static boolean isEligibleWithGuests(Session session, int identifiedGuests) {
+        if (session == null) return false;
+        int external = session.getExternalConfirmedParticipants() == null ? 0 : session.getExternalConfirmedParticipants();
+        if (external > Math.max(0, identifiedGuests)) return false;
+        return isEligible(session, true) && session.getCommunity() != null;
+    }
+
     /** Random teams may include approved named guests; ranked teams keep their existing restrictions. */
     public static boolean isEligible(Session session, boolean allowExternal) {
         if (session == null || (!allowExternal && session.getCommunity() == null) ||

@@ -12,6 +12,7 @@ import com.example.desporto24.model.dto.session.ConfirmRandomSessionTeamsRequest
 import com.example.desporto24.model.dto.session.SessionTeamSuggestionResponse;
 import com.example.desporto24.model.session.SessionParticipant;
 import com.example.desporto24.model.session.SessionGuestRequest;
+import com.example.desporto24.model.community.CommunityPlayer;
 import com.example.desporto24.repository.session.SessionGuestRequestRepository;
 import com.example.desporto24.repository.ProfileRepository;
 import com.example.desporto24.repository.SessionRepository;
@@ -139,7 +140,10 @@ public class SessionTeamSuggestionService {
             throw new IllegalStateException("É necessária uma comunidade para equilibrar por classificação");
         }
 
-        if (!TeamBalancingSportPolicy.isEligible(session, "RANDOM".equals(source) || "MANUAL".equals(source))) {
+        boolean anyoneMayPlay = "RANDOM".equals(source) || "MANUAL".equals(source);
+        int approvedGuests = (int) guestRequests.countBySessionIdAndStatus(sessionId, SessionGuestRequest.State.APPROVED);
+        if (!TeamBalancingSportPolicy.isEligible(session, anyoneMayPlay)
+                && !(!anyoneMayPlay && TeamBalancingSportPolicy.isEligibleWithGuests(session, approvedGuests))) {
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.CONFLICT,
                     "A modalidade ou o número de participantes não permite duas equipas equilibradas");
@@ -184,7 +188,8 @@ public class SessionTeamSuggestionService {
                 .orElseGet(List::of);
         String rankingSource = source;
         if ("AUTO".equals(source)) {
-            if (!seasonEntries.isEmpty() && guests.isEmpty()) {
+            if (!seasonEntries.isEmpty()) {
+                // The season table also knows players invited through the WhatsApp link.
                 rankingSource = "FORM";
             } else if (standingsArchiveRepository.findFirstByCommunityIdAndEntryTypeOrderByCreatedAtDescIdDesc(
                     communityId, "INDIVIDUAL").isPresent()) {
@@ -195,7 +200,7 @@ public class SessionTeamSuggestionService {
                         "A comunidade ainda não tem classificações disponíveis para equilibrar equipas");
             }
         }
-        if (!guests.isEmpty()) {
+        if (!guests.isEmpty() && !"FORM".equals(rankingSource)) {
             if (!"EXCEL_POINTS".equals(rankingSource)) {
                 throw new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.CONFLICT,
@@ -208,7 +213,12 @@ public class SessionTeamSuggestionService {
         }
 
         Map<Long, PlayerStats> statsByProfile = new HashMap<>();
+        Map<Long, PlayerStats> statsByCommunityPlayer = new HashMap<>();
         for (CommunityRoundEntry entry : seasonEntries) {
+            if (entry.getCommunityPlayer() != null && entry.getCommunityPlayer().getId() != null) {
+                statsByCommunityPlayer.computeIfAbsent(entry.getCommunityPlayer().getId(),
+                        ignored -> new PlayerStats()).add(entry);
+            }
             Profile profile = entry.getProfile() != null
                     ? entry.getProfile()
                     : entry.getCommunityPlayer() == null ? null : entry.getCommunityPlayer().getProfile();
@@ -224,13 +234,30 @@ public class SessionTeamSuggestionService {
 
         for (SessionParticipant participant : participants) {
             PlayerStats stats = statsByProfile.get(participant.getProfile().getId());
+            String username = participant.getProfile().getUsername();
             if (stats != null && stats.games > 0) {
                 double score = stats.strength();
                 knownScoreTotal += score;
                 knownCount++;
-                seeds.add(new PlayerSeed(participant, stats, score, true));
+                seeds.add(new PlayerSeed(username, username, false, stats, score, true));
             } else {
-                seeds.add(new PlayerSeed(participant, null, 0.0, false));
+                seeds.add(new PlayerSeed(username, username, false, null, 0.0, false));
+            }
+        }
+        for (SessionGuestRequest guest : guests) {
+            CommunityPlayer player = guest.getCommunityPlayer();
+            PlayerStats stats = player == null ? null
+                    : player.getId() != null && statsByCommunityPlayer.containsKey(player.getId())
+                    ? statsByCommunityPlayer.get(player.getId())
+                    : player.getProfile() == null ? null : statsByProfile.get(player.getProfile().getId());
+            String key = "guest:" + guest.getId();
+            if (stats != null && stats.games > 0) {
+                double score = stats.strength();
+                knownScoreTotal += score;
+                knownCount++;
+                seeds.add(new PlayerSeed(key, guest.getDisplayName(), true, stats, score, true));
+            } else {
+                seeds.add(new PlayerSeed(key, guest.getDisplayName(), true, null, 0.0, false));
             }
         }
 
@@ -238,7 +265,7 @@ public class SessionTeamSuggestionService {
         List<PlayerSeed> normalized = seeds.stream()
                 .map(seed -> seed.statsAvailable
                         ? seed
-                        : new PlayerSeed(seed.participant, null, neutralScore, false))
+                        : new PlayerSeed(seed.key, seed.displayName, seed.guest, null, neutralScore, false))
                 .sorted(Comparator.comparingDouble(PlayerSeed::score).reversed())
                 .toList();
 
@@ -273,20 +300,22 @@ public class SessionTeamSuggestionService {
                 round(scoreA),
                 round(scoreB),
                 knownCount,
-                participants.size()
+                participants.size() + guests.size()
         );
     }
 
     private SessionTeamPlayerResponse toResponse(PlayerSeed seed) {
         PlayerStats stats = seed.stats;
         return new SessionTeamPlayerResponse(
-                seed.participant.getProfile().getUsername(),
+                seed.key,
                 round(seed.score),
                 seed.statsAvailable,
                 stats == null ? 0 : stats.games,
                 stats == null ? 0 : stats.wins,
                 stats == null ? 0 : stats.goals,
-                stats == null ? 0 : stats.assists
+                stats == null ? 0 : stats.assists,
+                seed.displayName,
+                seed.guest
         );
     }
 
@@ -295,7 +324,9 @@ public class SessionTeamSuggestionService {
     }
 
     private record PlayerSeed(
-            SessionParticipant participant,
+            String key,
+            String displayName,
+            boolean guest,
             PlayerStats stats,
             double score,
             boolean statsAvailable
