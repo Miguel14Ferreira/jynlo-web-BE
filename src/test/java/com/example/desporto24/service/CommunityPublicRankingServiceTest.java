@@ -65,20 +65,36 @@ class CommunityPublicRankingServiceTest {
         assertTrue(service.setting(5L, "rui").enabled());
     }
 
+    private Profile account(long id, String username, String fullName) {
+        Profile p = new Profile();
+        p.setId(id);
+        p.setUsername(username);
+        p.setFullName(fullName);
+        when(profiles.findById(id)).thenReturn(Optional.of(p));
+        return p;
+    }
+
     @Test
-    void publicTableUsesHandlesAndHidesPlayersWithoutGames() {
+    void publicTableShowsTheSpreadsheetNamesButNeverAccountFullNames() {
         community.setPublicRankingEnabled(true);
+        account(1L, "rui", "Rui Real Silva");
+        account(2L, "ana", "Ana Real");
+        CommunityStandingResponse guest = new CommunityStandingResponse(3, null, null, "Zé Guarda-Redes", null, 8, 4,
+                0, 4, 12, 0, 0, 0, 0, 50.0, "W1", 2);
         when(competition.publicOverview(5L, null)).thenReturn(new CommunityCompetitionOverviewResponse(
                 null, List.of(new CommunitySeasonResponse(3L, "Época 25/26", null, null, true, null, null, null, "Futebol")),
                 null, 3L, List.of(),
-                List.of(row(1, "rui", "Rui Real Silva", 10, 7), row(2, "ana", "Ana Real", 10, 5), row(3, "bea", "Bea", 0, 0)),
+                List.of(row(1, "rui", "Rui Real Silva", 10, 7), row(2, "ana", "Aninhas", 10, 5), guest,
+                        row(4, "bea", "Bea", 0, 0)),
                 List.of(), List.of()));
         var page = service.page(5L, null);
         assertEquals(3L, page.selectedSeasonId());
-        assertEquals(2, page.table().size(), "players without games are left out");
-        assertEquals("rui", page.table().getFirst().name());
+        assertEquals(3, page.table().size(), "players without games are left out");
+        assertEquals("rui", page.table().get(0).name(), "an account known only by its full name shows its handle");
+        assertEquals("Aninhas", page.table().get(1).name(), "the name used in the table wins over the handle");
+        assertEquals("Zé Guarda-Redes", page.table().get(2).name(), "players imported without an account keep their name");
         assertEquals(70.0, page.table().getFirst().winRate());
-        assertFalse(page.toString().contains("Real"), "full names never leave the app");
+        assertFalse(page.toString().contains("Real"), "account full names never leave the app");
         assertFalse(page.toString().contains("https://pic"), "no photos");
     }
 }

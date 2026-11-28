@@ -18,7 +18,7 @@ import java.util.List;
 
 /**
  * Shareable season ranking of a community ("quem tem mais vitórias esta época"),
- * opt-in by an Owner/Admin. Shows public handles and results only: no full names,
+ * opt-in by an Owner/Admin. Shows the table's own player names (or public handles) and results only: no account full names,
  * photos, emails, member lists or private data. Disabled answers 404.
  */
 @Service
@@ -69,12 +69,26 @@ public class CommunityPublicRankingService {
         }
         List<Row> table = standings.stream()
                 .filter(row -> row.games() > 0)
-                .map(row -> new Row(row.position(), clean(row.username() != null ? row.username() : "Jogador"),
+                .map(row -> new Row(row.position(), clean(publicName(row)),
                         row.games(), row.wins(), row.draws(), row.losses(), row.points(),
                         Math.round(row.winRate() * 10.0) / 10.0, row.currentStreak()))
                 .toList();
         return new Page(community.getId(), clean(community.getName()), clean(community.getSport()),
                 seasons, selected, table);
+    }
+
+    /**
+     * The name the organiser uses in the table (the one imported from the spreadsheet or typed in the
+     * community). A registered account with no such name shows its @handle, never its private full name.
+     */
+    String publicName(CommunityStandingResponse row) {
+        String shown = row.fullName() == null ? "" : row.fullName().trim();
+        if (row.profileId() == null) return shown.isEmpty() ? "Jogador" : shown;
+        String handle = row.username() == null ? "Jogador" : row.username();
+        if (shown.isEmpty()) return handle;
+        String accountName = profiles.findById(row.profileId())
+                .map(p -> p.getFullName() == null ? "" : p.getFullName().trim()).orElse("");
+        return !accountName.isEmpty() && accountName.equalsIgnoreCase(shown) ? handle : shown;
     }
 
     private Community manageable(Long communityId, String username, boolean write) {
