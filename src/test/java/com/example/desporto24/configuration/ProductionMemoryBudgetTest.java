@@ -26,8 +26,9 @@ class ProductionMemoryBudgetTest {
         assertEquals("${JYNLO_DB_POOL_MIN_IDLE:2}",
                 properties.getProperty("spring.datasource.hikari.minimum-idle"));
         assertEquals("300000", properties.getProperty("spring.datasource.hikari.idle-timeout"));
-        // Eager startup: no slow first requests after a deploy (see application-prod.properties).
-        assertEquals("false", properties.getProperty("spring.main.lazy-initialization"));
+        // Lazy beans, warmed before the port opens (StartupWarmUp).
+        assertEquals("true", properties.getProperty("spring.main.lazy-initialization"));
+        assertEquals("true", properties.getProperty("jynlo.startup.warm-up"));
         assertEquals("1", properties.getProperty("spring.mvc.servlet.load-on-startup"));
     }
 

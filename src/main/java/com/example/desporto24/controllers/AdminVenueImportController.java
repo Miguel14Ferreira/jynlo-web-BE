@@ -7,8 +7,8 @@ import com.example.desporto24.model.venue.Venue;
 import com.example.desporto24.repository.venue.VenueRepository;
 import com.example.desporto24.service.VenueService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.core.task.TaskExecutor;
@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @RestController
-@RequiredArgsConstructor
 @RequestMapping("/api/admin/venues")
 public class AdminVenueImportController {
 
@@ -36,6 +35,16 @@ public class AdminVenueImportController {
     private final SnidVenueImportData snidVenueImportData;
     private final TaskExecutor taskExecutor;
     private final AtomicBoolean snidImportRunning = new AtomicBoolean(false);
+
+    // Stories scheduling also registers a TaskExecutor (taskScheduler): name the one for background work.
+    public AdminVenueImportController(VenueService venueService, VenueRepository venueRepository,
+                                      SnidVenueImportData snidVenueImportData,
+                                      @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor) {
+        this.venueService = venueService;
+        this.venueRepository = venueRepository;
+        this.snidVenueImportData = snidVenueImportData;
+        this.taskExecutor = taskExecutor;
+    }
 
     // Bulk inserts are release-controlled. Admin access alone cannot trigger
     // thousands of inserts before source quality and duplicates are reviewed.
