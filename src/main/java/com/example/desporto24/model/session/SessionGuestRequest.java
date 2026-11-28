@@ -44,4 +44,7 @@ public class SessionGuestRequest {
     private Instant createdAt;
     @Column(name="reviewed_at")
     private Instant reviewedAt;
+    /** The organiser marked this player's share as received (players without an account pay in person or MB WAY). */
+    @Column(name="paid_confirmed_at")
+    private Instant paidConfirmedAt;
 }

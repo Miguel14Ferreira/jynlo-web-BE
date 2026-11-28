@@ -210,4 +210,26 @@ class SessionPaymentServiceTest {
         assertTrue(PostGamePaymentReminderJob.daytime(java.time.Instant.parse("2026-11-28T09:00:00Z")));
         assertTrue(PostGamePaymentReminderJob.daytime(java.time.Instant.parse("2026-11-28T22:59:00Z")));
     }
+
+    @Test
+    void organiserMarksPlayersWhoConfirmedThroughWhatsAppAsPaid() {
+        var guestRepo = mock(com.example.desporto24.repository.session.SessionGuestRequestRepository.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "guestRequests", guestRepo);
+        var guest = new com.example.desporto24.model.session.SessionGuestRequest();
+        guest.setId(55L);
+        guest.setDisplayName("Vasquinho");
+        when(guestRepo.findBySessionIdAndStatusOrderByCreatedAtAsc(7L,
+                com.example.desporto24.model.session.SessionGuestRequest.State.APPROVED)).thenReturn(List.of(guest));
+
+        var before = service.get(7L, "ana");
+        org.junit.jupiter.api.Assertions.assertEquals(3, before.playerCount(), "rui, bea and the WhatsApp guest");
+        var row = before.players().stream().filter(p -> p.guest()).findFirst().orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals("Vasquinho", row.displayName());
+
+        var after = service.confirm(7L, "ana", "guest:55", true);
+        org.junit.jupiter.api.Assertions.assertEquals(1, after.confirmedCount());
+        org.junit.jupiter.api.Assertions.assertNotNull(guest.getPaidConfirmedAt());
+        org.junit.jupiter.api.Assertions.assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> service.confirm(7L, "ana", "guest:999", true));
+    }
 }

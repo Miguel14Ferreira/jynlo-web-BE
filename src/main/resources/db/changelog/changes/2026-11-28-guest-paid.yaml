@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-28-guest-paid
+      author: jynlo
+      dbms: postgresql
+      runInTransaction: true
+      preConditions:
+        - onFail: MARK_RAN
+        - tableExists:
+            schemaName: desporto24
+            tableName: session_guest_request
+      changes:
+        - sqlFile:
+            path: 2026-11-28-guest-paid.sql
+            relativeToChangelogFile: true
+            encoding: UTF-8
+            splitStatements: true
+            endDelimiter: ;

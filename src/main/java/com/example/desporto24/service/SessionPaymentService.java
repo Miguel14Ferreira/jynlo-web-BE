@@ -36,7 +36,13 @@ import java.util.stream.Collectors;
 public class SessionPaymentService {
 
     public record Mine(Instant claimedAt, Instant confirmedAt) {}
-    public record Player(String username, String profilePicUrl, Instant claimedAt, Instant confirmedAt) {}
+    /** Players who confirmed through the WhatsApp link have no account: username is "guest:<id>". */
+    public record Player(String username, String profilePicUrl, Instant claimedAt, Instant confirmedAt,
+                         String displayName, boolean guest) {
+        public Player(String username, String profilePicUrl, Instant claimedAt, Instant confirmedAt) {
+            this(username, profilePicUrl, claimedAt, confirmedAt, username, false);
+        }
+    }
     public record Payments(BigDecimal priceAmount, boolean organiser, String method, String mbwayPhone,
                            Mine me, int confirmedCount, int playerCount, List<Player> players,
                            Instant lastReminderAt, Payee payee) {
@@ -67,6 +73,10 @@ public class SessionPaymentService {
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.example.desporto24.repository.NotificationsRepository notifications;
+
+    /** Optional so tests can build the service without it. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.session.SessionGuestRequestRepository guestRequests;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private NotificationPreferencesService preferences;
@@ -209,6 +219,16 @@ public class SessionPaymentService {
     public Payments confirm(Long sessionId, String username, String playerUsername, boolean paid) {
         Access access = access(sessionId, username);
         if (!access.organiser()) throw forbidden("Só o organizador pode confirmar pagamentos");
+        if (playerUsername != null && playerUsername.startsWith("guest:")) {
+            Long guestId;
+            try { guestId = Long.valueOf(playerUsername.substring(6)); }
+            catch (NumberFormatException e) { throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogador não inscrito nesta sessão"); }
+            var guest = approvedGuests(sessionId).stream().filter(g -> guestId.equals(g.getId())).findFirst()
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jogador não inscrito nesta sessão"));
+            guest.setPaidConfirmedAt(paid ? (guest.getPaidConfirmedAt() == null ? Instant.now() : guest.getPaidConfirmedAt()) : null);
+            guestRequests.save(guest);
+            return view(access);
+        }
         SessionParticipant player = active(sessionId).stream()
                 .filter(p -> p.getProfile() != null && p.getProfile().getUsername() != null
                         && p.getProfile().getUsername().equalsIgnoreCase(playerUsername))
@@ -305,8 +325,10 @@ public class SessionPaymentService {
         Map<Long, SessionParticipantPayment> rows = payments
                 .findAllById(players.stream().map(SessionParticipant::getId).toList())
                 .stream().collect(Collectors.toMap(SessionParticipantPayment::getParticipantId, Function.identity()));
+        List<com.example.desporto24.model.session.SessionGuestRequest> guests = approvedGuests(sessionId);
         int confirmed = (int) players.stream()
-                .filter(p -> rows.containsKey(p.getId()) && rows.get(p.getId()).getConfirmedAt() != null).count();
+                .filter(p -> rows.containsKey(p.getId()) && rows.get(p.getId()).getConfirmedAt() != null).count()
+                + (int) guests.stream().filter(g -> g.getPaidConfirmedAt() != null).count();
         var setup = setups.findById(sessionId).orElse(null);
         String phone = setup == null ? null : setup.getMbwayPhone();
         Mine mine = null;
@@ -314,13 +336,14 @@ public class SessionPaymentService {
             SessionParticipantPayment row = rows.get(access.mine().getId());
             mine = new Mine(row == null ? null : row.getClaimedAt(), row == null ? null : row.getConfirmedAt());
         }
-        List<Player> list = !access.organiser() ? List.of() : players.stream().map(p -> {
+        List<Player> list = !access.organiser() ? List.of() : java.util.stream.Stream.concat(players.stream().map(p -> {
             SessionParticipantPayment row = rows.get(p.getId());
             return new Player(p.getProfile().getUsername(), p.getProfile().getProfilePicUrl(),
                     row == null ? null : row.getClaimedAt(), row == null ? null : row.getConfirmedAt());
-        }).toList();
+        }), guests.stream().map(g -> new Player("guest:" + g.getId(), null, null, g.getPaidConfirmedAt(),
+                g.getDisplayName(), true))).toList();
         return new Payments(access.session().getPriceAmount(), access.organiser(),
-                setup == null ? null : setup.getMethod(), phone, mine, confirmed, players.size(), list,
+                setup == null ? null : setup.getMethod(), phone, mine, confirmed, players.size() + guests.size(), list,
                 access.organiser() && setup != null ? setup.getLastReminderAt() : null,
                 payee(access.session()));
     }
@@ -359,6 +382,12 @@ public class SessionPaymentService {
     private static String sport(Session session) {
         String sport = session.getSport();
         return sport == null || sport.isBlank() ? "jogo" : sport.strip();
+    }
+
+    private List<com.example.desporto24.model.session.SessionGuestRequest> approvedGuests(Long sessionId) {
+        if (guestRequests == null) return List.of();
+        return guestRequests.findBySessionIdAndStatusOrderByCreatedAtAsc(sessionId,
+                com.example.desporto24.model.session.SessionGuestRequest.State.APPROVED);
     }
 
     private List<SessionParticipant> active(Long sessionId) {
