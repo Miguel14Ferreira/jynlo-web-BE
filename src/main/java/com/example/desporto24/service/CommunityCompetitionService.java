@@ -2460,37 +2460,48 @@ public class CommunityCompetitionService {
 
         List<CommunityRoundEntry> entries = new ArrayList<>();
         for (CommunityRoundEntryRequest requestEntry : request.entries()) {
-            Profile player = profile(requestEntry.username().trim());
+            Profile player;
+            CommunityPlayer communityPlayer;
+            String requested = requestEntry.username().trim();
+            if (requested.startsWith(TABLE_PLAYER_PREFIX)) {
+                // A name from this community's table without an account (e.g. confirmed through the
+                // WhatsApp link): the season still moves for them, exactly like an Excel import does.
+                communityPlayer = tablePlayer(communityId, requested);
+                player = communityPlayer.getProfile();
+            } else {
+                final Profile accountPlayer = profile(requestEntry.username().trim());
+                player = accountPlayer;
 
-            if (!memberRepository.existsByCommunityIdAndProfileId(communityId, player.getId())) {
-                throw new IllegalArgumentException(
-                        "O jogador @" + player.getUsername() + " não pertence à comunidade"
-                );
+                if (!memberRepository.existsByCommunityIdAndProfileId(communityId, accountPlayer.getId())) {
+                    throw new IllegalArgumentException(
+                            "O jogador @" + accountPlayer.getUsername() + " não pertence à comunidade"
+                    );
+                }
+
+                communityPlayer = playerRepository
+                        .findByCommunityIdAndProfileId(communityId, accountPlayer.getId())
+                        .orElseGet(() -> {
+                            var identity = CommunityPlayerIdentityNames.allocate(
+                                    playerDisplayName(accountPlayer), accountPlayer.getUsername(), accountPlayer.getId(),
+                                    normalized -> playerRepository
+                                            .findByCommunityIdAndNormalizedName(communityId, normalized)
+                                            .isPresent());
+                            try {
+                                return playerRepository.saveAndFlush(CommunityPlayer.builder()
+                                        .community(community)
+                                        .displayName(identity.display())
+                                        .normalizedName(identity.normalized())
+                                        .profile(accountPlayer)
+                                        .createdAt(Instant.now())
+                                        .build());
+                            } catch (org.springframework.dao.DataIntegrityViolationException conflict) {
+                                // Concurrent inserts may still win the unique key after our lookup.
+                                // Do not leak the DB constraint as HTTP 500 or merge identities.
+                                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                        "Identidade do jogador em conflito; tenta novamente", conflict);
+                            }
+                        });
             }
-
-            CommunityPlayer communityPlayer = playerRepository
-                    .findByCommunityIdAndProfileId(communityId, player.getId())
-                    .orElseGet(() -> {
-                        var identity = CommunityPlayerIdentityNames.allocate(
-                                playerDisplayName(player), player.getUsername(), player.getId(),
-                                normalized -> playerRepository
-                                        .findByCommunityIdAndNormalizedName(communityId, normalized)
-                                        .isPresent());
-                        try {
-                            return playerRepository.saveAndFlush(CommunityPlayer.builder()
-                                    .community(community)
-                                    .displayName(identity.display())
-                                    .normalizedName(identity.normalized())
-                                    .profile(player)
-                                    .createdAt(Instant.now())
-                                    .build());
-                        } catch (org.springframework.dao.DataIntegrityViolationException conflict) {
-                            // Concurrent inserts may still win the unique key after our lookup.
-                            // Do not leak the DB constraint as HTTP 500 or merge identities.
-                            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                                    "Identidade do jogador em conflito; tenta novamente", conflict);
-                        }
-                    });
 
             entries.add(CommunityRoundEntry.builder()
                     .round(round)
@@ -2514,6 +2525,18 @@ public class CommunityCompetitionService {
 
         entryRepository.saveAll(entries);
         return roundResponse(round, acceptedAliasProfiles(communityId));
+    }
+
+    /** Round entry key for a player from the community table: "player:<communityPlayerId>". */
+    public static final String TABLE_PLAYER_PREFIX = "player:";
+
+    private CommunityPlayer tablePlayer(Long communityId, String key) {
+        long id;
+        try { id = Long.parseLong(key.substring(TABLE_PLAYER_PREFIX.length())); }
+        catch (NumberFormatException e) { throw new IllegalArgumentException("Jogador da classificação inválido"); }
+        return playerRepository.findById(id)
+                .filter(p -> p.getCommunity() != null && communityId.equals(p.getCommunity().getId()))
+                .orElseThrow(() -> new IllegalArgumentException("O jogador não pertence à classificação desta comunidade"));
     }
 
     public void deleteRound(Long communityId, Long roundId, String username) {

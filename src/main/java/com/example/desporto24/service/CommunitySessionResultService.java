@@ -45,6 +45,41 @@ public class CommunitySessionResultService {
     private final CommunityRoundRepository rounds;
     private final CommunityCompetitionService competition;
 
+    /** Optional so tests can build the service without them: players from the WhatsApp link. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.session.SessionGuestRequestRepository guestRequests;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.community.CommunityPlayerRepository communityPlayers;
+
+    private List<com.example.desporto24.model.session.SessionGuestRequest> approvedGuests(Long sessionId) {
+        if (guestRequests == null) return List.of();
+        return guestRequests.findBySessionIdAndStatusOrderByCreatedAtAsc(sessionId,
+                com.example.desporto24.model.session.SessionGuestRequest.State.APPROVED);
+    }
+
+    /**
+     * The table name of a player who confirmed through the WhatsApp link. Someone who picked a name
+     * from the table keeps it; a new name becomes a new player of this community's table.
+     */
+    private com.example.desporto24.model.community.CommunityPlayer tablePlayerFor(
+            com.example.desporto24.model.community.Community community,
+            com.example.desporto24.model.session.SessionGuestRequest guest) {
+        if (guest.getCommunityPlayer() != null) return guest.getCommunityPlayer();
+        if (communityPlayers == null) throw new IllegalStateException("Jogadores da classificação indisponíveis");
+        String display = guest.getDisplayName() == null ? "" : guest.getDisplayName().trim();
+        if (display.isEmpty()) throw new IllegalArgumentException("Jogador convidado sem nome");
+        if (display.length() > 120) display = display.substring(0, 120);
+        String normalized = display.toLowerCase(Locale.ROOT);
+        var existing = communityPlayers.findByCommunityIdAndNormalizedName(community.getId(), normalized);
+        if (existing.isPresent()) return existing.get();
+        return communityPlayers.saveAndFlush(com.example.desporto24.model.community.CommunityPlayer.builder()
+                .community(community)
+                .displayName(display)
+                .normalizedName(normalized)
+                .createdAt(Instant.now())
+                .build());
+    }
+
     /** Roster for admins: the generic session roster API intentionally requires
      * session participation, but community admins may not have joined this match.
      */
@@ -67,12 +102,16 @@ public class CommunitySessionResultService {
                         && communityId.equals(s.getSeasonCompetition().getCommunity().getId()))
                 .isEmpty())
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sessão fora desta comunidade");
-        return participants.findBySessionIdAndStateOrderByJoinedAtAsc(sessionId, ParticipantState.ACTIVE)
+        var accounts = participants.findBySessionIdAndStateOrderByJoinedAtAsc(sessionId, ParticipantState.ACTIVE)
                 .stream()
                 .map(p -> new com.example.desporto24.model.dto.session.SessionParticipantResponse(
                         p.getId(), p.getProfile().getUsername(),
-                        p.getAttendanceStatus(), p.getJoinedAt(), p.getTeamCode()))
-                .toList();
+                        p.getAttendanceStatus(), p.getJoinedAt(), p.getTeamCode()));
+        var guests = approvedGuests(sessionId).stream()
+                .map(g -> new com.example.desporto24.model.dto.session.SessionParticipantResponse(
+                        null, "guest:" + g.getId(), null, g.getCreatedAt(), g.getTeamCode(), null,
+                        g.getDisplayName(), true));
+        return java.util.stream.Stream.concat(accounts, guests).toList();
     }
 
     /** Feature negotiation prevents older servers from silently dropping
@@ -154,6 +193,8 @@ public class CommunitySessionResultService {
                         " jogadores para validar resultados");
             }
         }
+        Map<String, com.example.desporto24.model.session.SessionGuestRequest> guestsByKey = new HashMap<>();
+        for (var guest : approvedGuests(sessionId)) guestsByKey.put("guest:" + guest.getId(), guest);
         Map<String, SessionParticipant> eligibleByName = new HashMap<>();
         for (var participant : eligible) {
             if (participant.getAttendanceStatus() != AttendanceStatus.NO_SHOW &&
@@ -192,7 +233,8 @@ public class CommunitySessionResultService {
                 throw new IllegalArgumentException("Cada participante precisa de uma equipa");
             String key = player.username().trim().toLowerCase(Locale.ROOT);
             SessionParticipant registered = eligibleByName.get(key);
-            if (registered == null || !unique.add(key)) {
+            var guest = guestsByKey.get(key);
+            if ((registered == null && guest == null) || !unique.add(key)) {
                 throw new IllegalArgumentException(
                         "Só os inscritos ativos e não repetidos podem contar para esta jornada");
             }
@@ -214,8 +256,11 @@ public class CommunitySessionResultService {
                         ? CommunityMatchResult.WIN : CommunityMatchResult.LOSS;
             // Null means unreported, preserved as the historical zero in
             // standings. Explicit numeric values are trusted only after validation.
+            // Without an account the player still counts: their name in the table moves, like an Excel import.
+            String entryKey = registered != null ? registered.getProfile().getUsername()
+                    : CommunityCompetitionService.TABLE_PLAYER_PREFIX + tablePlayerFor(community, guest).getId();
             entries.add(new CommunityRoundEntryRequest(
-                    registered.getProfile().getUsername(), player.team().name(),
+                    entryKey, player.team().name(),
                     result, player.goals() == null ? 0 : player.goals(),
                     player.assists() == null ? 0 : player.assists(), false, false));
         }

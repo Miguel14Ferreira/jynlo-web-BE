@@ -384,4 +384,49 @@ class CommunitySessionResultServiceTest {
         verifyNoInteractions(competition);
     }
 
+
+    @Test
+    void playersWithoutAccountFromTheWhatsAppLinkStillMoveTheTable() {
+        eligible(CommunityRole.ADMIN, true);
+        pastSession(SessionStatus.COMPLETED);
+        players();
+        var guestRepo = org.mockito.Mockito.mock(com.example.desporto24.repository.session.SessionGuestRequestRepository.class);
+        var playerRepo = org.mockito.Mockito.mock(com.example.desporto24.repository.community.CommunityPlayerRepository.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "guestRequests", guestRepo);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "communityPlayers", playerRepo);
+
+        var vasquinho = com.example.desporto24.model.community.CommunityPlayer.builder().id(31L).displayName("Vasquinho").build();
+        var fromTable = new com.example.desporto24.model.session.SessionGuestRequest();
+        fromTable.setId(5L); fromTable.setDisplayName("Vasquinho"); fromTable.setCommunityPlayer(vasquinho);
+        var newName = new com.example.desporto24.model.session.SessionGuestRequest();
+        newName.setId(6L); newName.setDisplayName("Tiago");
+        when(guestRepo.findBySessionIdAndStatusOrderByCreatedAtAsc(sessionId,
+                com.example.desporto24.model.session.SessionGuestRequest.State.APPROVED)).thenReturn(List.of(fromTable, newName));
+        when(playerRepo.findByCommunityIdAndNormalizedName(communityId, "tiago")).thenReturn(Optional.empty());
+        when(playerRepo.saveAndFlush(any())).thenAnswer(i -> {
+            com.example.desporto24.model.community.CommunityPlayer created = i.getArgument(0);
+            created.setId(77L);
+            return created;
+        });
+        var response = new CommunityRoundResponse(25L,"Sessão #63", Instant.now(), List.of(), "Futebol", null, null, null);
+        var round = new CommunityRound(); round.setId(25L);
+        when(competition.createRound(eq(communityId), eq("manager"), any(CreateCommunityRoundRequest.class))).thenReturn(response);
+        when(rounds.findById(25L)).thenReturn(Optional.of(round));
+
+        var result = new CommunitySessionResultRequest(CommunitySessionResultRequest.Outcome.A, List.of(
+                new CommunitySessionResultRequest.Player("ana", CommunitySessionResultRequest.Team.A),
+                new CommunitySessionResultRequest.Player("guest:5", CommunitySessionResultRequest.Team.A),
+                new CommunitySessionResultRequest.Player("bea", CommunitySessionResultRequest.Team.B),
+                new CommunitySessionResultRequest.Player("guest:6", CommunitySessionResultRequest.Team.B)));
+        service.record(communityId, sessionId, "manager", result);
+
+        var captor = ArgumentCaptor.forClass(CreateCommunityRoundRequest.class);
+        verify(competition).createRound(eq(communityId), eq("manager"), captor.capture());
+        var entries = captor.getValue().entries();
+        assertEquals(4, entries.size());
+        assertEquals("player:31", entries.get(1).username(), "a name picked from the table keeps its table row");
+        assertEquals("WIN", entries.get(1).result().name());
+        assertEquals("player:77", entries.get(3).username(), "a new name becomes a new table player");
+        assertEquals("LOSS", entries.get(3).result().name());
+    }
 }

@@ -10,8 +10,18 @@ public record SessionParticipantResponse(
         AttendanceStatus attendanceStatus,
         Instant joinedAt,
         String teamCode,
-        String profilePicUrl
+        String profilePicUrl,
+        /** Players who confirmed through the WhatsApp link (no account): username is "guest:<id>". */
+        String displayName,
+        boolean guest
 ) {
+    public SessionParticipantResponse(
+            Long id, String username, AttendanceStatus attendanceStatus,
+            Instant joinedAt, String teamCode, String profilePicUrl
+    ) {
+        this(id, username, attendanceStatus, joinedAt, teamCode, profilePicUrl, username, false);
+    }
+
     /** Preserve source compatibility for existing callers and tests. */
     public SessionParticipantResponse(
             Long id, String username, AttendanceStatus attendanceStatus,
