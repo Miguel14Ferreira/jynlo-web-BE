@@ -239,6 +239,7 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
             select s.id from Session s
             where s.minParticipants is not null
               and s.gameDate <= :cutoff
+              and s.gameDate >= :since
               and s.status in (
                 com.example.desporto24.enumeration.SessionStatus.OPEN,
                 com.example.desporto24.enumeration.SessionStatus.FULL)
@@ -248,7 +249,7 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
                      and p.state = com.example.desporto24.enumeration.ParticipantState.ACTIVE)
             order by s.gameDate asc, s.id asc
             """)
-    List<Long> findDueUnderMinimum(@Param("cutoff") Date cutoff, Pageable pageable);
+    List<Long> findDueUnderMinimum(@Param("since") Date since, @Param("cutoff") Date cutoff, Pageable pageable);
 
     /** Upcoming open/full sessions inside the reminder window that were not reminded yet. */
     @Query("""

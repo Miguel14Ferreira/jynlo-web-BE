@@ -20,7 +20,9 @@ import java.util.List;
  * for the morning. Games older than three days are skipped so a late start never sends stale reminders.
  */
 @Slf4j
+// Production beans are lazy: without this the job was never created, so it never ran.
 @Component
+@org.springframework.context.annotation.Lazy(false)
 public class PostGamePaymentReminderJob {
     static final Duration AFTER_START = Duration.ofMinutes(90);
     static final Duration TOO_OLD = Duration.ofDays(3);

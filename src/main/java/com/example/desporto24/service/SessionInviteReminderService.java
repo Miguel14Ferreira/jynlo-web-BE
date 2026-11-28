@@ -31,7 +31,9 @@ import java.util.Date;
  * is claimed atomically). Same preferences as invites (SESSION_INVITE).
  */
 @Slf4j
+// Production beans are lazy: without this the job was never created, so it never ran.
 @Component
+@org.springframework.context.annotation.Lazy(false)
 public class SessionInviteReminderService {
 
     static final Duration NORMAL_WAIT = Duration.ofHours(24);

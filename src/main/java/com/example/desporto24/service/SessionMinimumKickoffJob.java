@@ -8,22 +8,29 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 
-/** Check due sessions in bounded batches; no changes before their scheduled kickoff. */
+/**
+ * Check due sessions in bounded batches; no changes before their scheduled kickoff.
+ * Only games that started in the last {@link #LOOKBACK}: an older game left open is never cancelled
+ * (or announced) after the fact, e.g. when this job first starts on an instance.
+ */
 @Component
+@org.springframework.context.annotation.Lazy(false)
 @RequiredArgsConstructor
 public class SessionMinimumKickoffJob {
     private static final Logger log = LoggerFactory.getLogger(SessionMinimumKickoffJob.class);
     private final SessionRepository sessions;
     private final SessionMinimumClosureService closure;
+    static final Duration LOOKBACK = Duration.ofHours(3);
 
     @Scheduled(fixedDelayString = "${jynlo.sessions.minimum-check-ms:60000}",
                initialDelayString = "${jynlo.sessions.minimum-initial-delay-ms:30000}")
     public void checkKickoffs() {
         Instant now = Instant.now();
-        for (Long id : sessions.findDueUnderMinimum(Date.from(now), PageRequest.of(0, 100))) {
+        for (Long id : sessions.findDueUnderMinimum(Date.from(now.minus(LOOKBACK)), Date.from(now), PageRequest.of(0, 100))) {
             try {
                 closure.closeIfUnderMinimum(id, now);
             } catch (RuntimeException failed) {
