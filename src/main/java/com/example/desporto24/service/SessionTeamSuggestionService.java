@@ -234,14 +234,14 @@ public class SessionTeamSuggestionService {
 
         for (SessionParticipant participant : participants) {
             PlayerStats stats = statsByProfile.get(participant.getProfile().getId());
-            String username = participant.getProfile().getUsername();
+            String handle = participant.getProfile().getUsername();
             if (stats != null && stats.games > 0) {
                 double score = stats.strength();
                 knownScoreTotal += score;
                 knownCount++;
-                seeds.add(new PlayerSeed(username, username, false, stats, score, true));
+                seeds.add(new PlayerSeed(handle, handle, false, stats, score, true));
             } else {
-                seeds.add(new PlayerSeed(username, username, false, null, 0.0, false));
+                seeds.add(new PlayerSeed(handle, handle, false, null, 0.0, false));
             }
         }
         for (SessionGuestRequest guest : guests) {
