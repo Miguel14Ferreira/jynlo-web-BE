@@ -50,6 +50,10 @@ public class SessionTeamSuggestionService {
     private final SessionGuestRequestRepository guestRequests;
     private final SessionGuestTeamBalancer guestBalancer;
 
+    /** Optional so tests can build the service without it: names from the table linked to an account. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.example.desporto24.repository.community.CommunityHistoricalPlayerLinkRepository historicalLinks;
+
     @Transactional
     public SessionTeamSuggestionResponse confirm(Long sessionId, String username) {
         return confirm(sessionId, username, "FORM");
@@ -232,8 +236,22 @@ public class SessionTeamSuggestionService {
         double knownScoreTotal = 0.0;
         int knownCount = 0;
 
+        // A name from the table that the player linked to their account ("Ferreirinha" → @TMF14) is their form too.
+        Map<Long, List<Long>> aliasPlayersByProfile = new HashMap<>();
+        if (historicalLinks != null) {
+            for (var link : historicalLinks.findByCommunityIdAndStatus(communityId, "ACCEPTED")) {
+                if (link.getProfile() == null || link.getPlayer() == null) continue;
+                aliasPlayersByProfile.computeIfAbsent(link.getProfile().getId(), ignored -> new ArrayList<>())
+                        .add(link.getPlayer().getId());
+            }
+        }
         for (SessionParticipant participant : participants) {
             PlayerStats stats = statsByProfile.get(participant.getProfile().getId());
+            for (Long aliasId : aliasPlayersByProfile.getOrDefault(participant.getProfile().getId(), List.of())) {
+                PlayerStats alias = statsByCommunityPlayer.get(aliasId);
+                if (alias == null) continue;
+                stats = stats == null ? alias : stats.merge(alias);
+            }
             String handle = participant.getProfile().getUsername();
             if (stats != null && stats.games > 0) {
                 double score = stats.strength();
@@ -341,6 +359,14 @@ public class SessionTeamSuggestionService {
         private int assists;
         private int mvps;
         private int cleanSheets;
+
+        private PlayerStats merge(PlayerStats other) {
+            PlayerStats sum = new PlayerStats();
+            sum.games = games + other.games; sum.wins = wins + other.wins; sum.draws = draws + other.draws;
+            sum.goals = goals + other.goals; sum.assists = assists + other.assists;
+            sum.mvps = mvps + other.mvps; sum.cleanSheets = cleanSheets + other.cleanSheets;
+            return sum;
+        }
 
         private void add(CommunityRoundEntry entry) {
             games++;
