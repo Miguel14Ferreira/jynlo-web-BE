@@ -172,7 +172,10 @@ public class SessionViewMapper {
                 session.getRecurrenceSeriesId(),
                 session.getProblemType(),
                 creator ? session.getProblemDetails() : null,
-                session.getCommunity() == null ? null : session.getCommunity().getId(),
+                // A season game created from "Jogo para as minhas comunidades" belongs to its season's community:
+                // the organiser records its result and shares that table from the game screen.
+                TeamBalancingSportPolicy.rankingCommunity(session) == null ? null
+                        : TeamBalancingSportPolicy.rankingCommunity(session).getId(),
                 canSharePublicly,
                 session.getExternalConfirmedParticipants() == null
                         ? 0 : session.getExternalConfirmedParticipants(),
