@@ -89,6 +89,9 @@ public class Session {
     /** SHA-256 digest of a one-time issued 256-bit WhatsApp sharing token. */
     @Column(name="guest_link_hash",length=64)
     private String guestLinkHash;
+    /** Random link secret for the public "equipas" page shared on WhatsApp (names and teams only). */
+    @Column(name="teams_share_token",length=64)
+    private String teamsShareToken;
 
     @Column(name = "price_amount", precision = 10, scale = 2)
     private BigDecimal priceAmount;

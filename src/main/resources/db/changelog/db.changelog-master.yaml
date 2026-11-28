@@ -604,3 +604,5 @@ databaseChangeLog:
       file: db/changelog/changes/2026-11-27-venue-name-cleanup.yaml
   - include:
       file: db/changelog/changes/2026-11-28-guest-paid.yaml
+  - include:
+      file: db/changelog/changes/2026-11-28-teams-share.yaml

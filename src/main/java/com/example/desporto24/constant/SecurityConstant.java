@@ -30,6 +30,8 @@ public final class SecurityConstant {
             "/api/public/tournaments/*",
             // Opt-in public season ranking of a community (handles and results only).
             "/api/public/communities/*/ranking",
+            // Teams of one game, opened from the organiser's WhatsApp link (needs its secret token).
+            "/api/public/sessions/*/teams",
             // Link-preview page for chat and social crawlers; same data as public-preview.
             "/api/share/sessions/*",
             "/api/public/sitemap.xml",
